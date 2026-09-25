@@ -84,3 +84,16 @@ en un servidor. Por eso, esta versión **no** hace:
 
 - Fuentes Oswald y Barlow alojadas localmente, licencia SIL Open Font License (ver `assets/fonts/`).
 - Logo y fotografías: proporcionados por el negocio. Confirma que tienes los derechos de uso de cada foto.
+
+## Versión de un solo archivo
+
+Para tener todo el sitio en un único `.html` (para abrirlo con doble clic o compartirlo):
+
+```
+python3 donde-andres-bbq/herramientas/crear-archivo-unico.py
+```
+
+Crea `donde-andres-bbq/donde-andres-bbq-archivo-unico.html` con los estilos, fuentes, fotos, la tienda
+y las páginas legales dentro (se abren con `#terminos`, `#privacidad`, etc.). Vuelve a generarlo después
+de cada cambio en `config.js`. Esa versión no lleva la política de seguridad de contenido (CSP), que
+exige archivos separados; para publicar en internet usa la carpeta completa.
