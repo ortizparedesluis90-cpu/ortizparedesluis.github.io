@@ -44,6 +44,10 @@
     CFG = window.DA_CONFIG; B = CFG.business; PAY = CFG.payments || {}; DEL = CFG.delivery || {};
     store = window.DA.store;
     PRODUCTS = (CFG.products || []).filter(function (p) { return p && p.id && p.name; });
+    // En la versión de un solo archivo, image = '#foto-ID': la foto ya está en la tarjeta.
+    PRODUCTS.forEach(function (p) {
+      if (/^#foto-/.test(p.image)) { var im = document.querySelector(p.image + ' img'); p.image = im ? im.getAttribute('src') : ''; }
+    });
     if (CFG.demo) $('demo-bar').hidden = false;
 
     var fee = Number(DEL.fee) || 0;
@@ -99,13 +103,12 @@
     PRODUCTS.forEach(function (p, i) {
       var price = priceOf(p);
       var buyable = p.available !== false && price > 0;
-      var pic = el('button', { class: 'pic', type: 'button', 'data-lb': i, 'aria-label': 'Ver foto de ' + p.name },
-        [el('img', { src: p.image, alt: p.alt || p.name, loading: 'lazy', decoding: 'async', width: 540, height: 795 })]);
+      var pic = picture(p, i);
       var foot = el('div', { class: 'foot', 'data-foot': p.id });
       if (buyable) foot.appendChild(el('span', { class: 'price', text: money(price) }));
       else foot.appendChild(el('span', { class: 'price na', text: p.available === false ? 'No disponible para delivery' : 'Precio por confirmar' }));
       var body = el('div', { class: 'body' }, [el('h3', { text: p.name }), p.desc ? el('p', { text: p.desc }) : null, foot]);
-      list.appendChild(el('li', { class: 'card' }, [pic, body]));
+      list.appendChild(el('li', { class: 'card', id: 'p-' + p.id }, [pic, body]));
     });
     list.addEventListener('click', function (e) {
       var b = e.target.closest('button[data-act]');
@@ -116,6 +119,28 @@
       else if (act === 'dec') { setQty(id, q - 1); if (q - 1 <= 0) focusAdd(id); }
     });
   }
+  /* Foto con visor en grande hecho con CSS (:target), para que funcione incluso
+     en visores de archivos del celular que no ejecutan JavaScript.
+     Debe coincidir con el marcado de herramientas/crear-archivo-unico.py */
+  function picture(p, i) {
+    var n = PRODUCTS.length;
+    var prev = PRODUCTS[(i - 1 + n) % n], next = PRODUCTS[(i + 1) % n];
+    var ICON_PREV = '<path d="M15 6l-6 6 6 6"/>', ICON_NEXT = '<path d="M9 6l6 6-6 6"/>', ICON_X = '<path d="M6 6l12 12M18 6L6 18"/>';
+    var link = function (href, label, icon) { return el('a', { class: 'icon-btn', href: href, 'aria-label': label }, [svg(icon)]); };
+    return el('figure', { class: 'pic', id: 'foto-' + p.id }, [
+      el('a', { class: 'pic-open', href: '#foto-' + p.id }, [
+        el('img', { src: p.image, alt: p.alt || p.name, loading: 'lazy', decoding: 'async', width: 540, height: 795 }),
+        el('span', { class: 'sr-only', text: 'Ver foto en grande' })
+      ]),
+      el('figcaption', { class: 'pic-bar' }, [
+        el('span', { class: 'pic-cap' }, [p.name, el('span', { class: 'pic-n', text: (i + 1) + ' de ' + n })]),
+        link('#foto-' + prev.id, 'Foto anterior: ' + prev.name, ICON_PREV),
+        link('#foto-' + next.id, 'Foto siguiente: ' + next.name, ICON_NEXT),
+        link('#p-' + p.id, 'Cerrar foto', ICON_X)
+      ])
+    ]);
+  }
+
   function focusStepper(id) { var b = document.querySelector('[data-foot="' + id + '"] [data-act="inc"]'); if (b) b.focus(); }
   function focusAdd(id) { var b = document.querySelector('[data-foot="' + id + '"] [data-act="add"]'); if (b) b.focus(); }
 
@@ -155,7 +180,7 @@
         ctaOut = !e[0].isIntersecting && e[0].boundingClientRect.top < 0;
         updateDock();
       }).observe($('reserve'));
-    }
+    } else ctaOut = true; // navegador antiguo: barra siempre visible
     document.addEventListener('da:cookie-banner', function (e) { cookieOpen = e.detail.open; updateDock(); });
     $('open-cart').addEventListener('click', function () { openCheckout(1); });
   }
@@ -167,33 +192,40 @@
     d.setAttribute('aria-hidden', show ? 'false' : 'true');
   }
 
-  /* ---------- visor de fotos ---------- */
+  /* ---------- visor de fotos: mejoras con JavaScript ----------
+     El visor funciona solo con CSS (#foto-ID). Aquí solo añadimos teclado y gesto de deslizar. */
   function setupLightbox() {
-    var d = $('lb'), im = $('lbimg'), cap = $('lbcap'), cnt = $('lbcount'), i = 0;
-    function show(n) {
-      i = (n + PRODUCTS.length) % PRODUCTS.length;
-      var p = PRODUCTS[i];
-      im.src = p.image; im.alt = p.alt || p.name;
-      cap.textContent = p.name; cnt.textContent = (i + 1) + ' de ' + PRODUCTS.length;
+    function current() {
+      var m = /^#foto-(.+)$/.exec(location.hash);
+      if (!m) return -1;
+      for (var k = 0; k < PRODUCTS.length; k++) if (PRODUCTS[k].id === decodeURIComponent(m[1])) return k;
+      return -1;
     }
-    $('products').addEventListener('click', function (e) {
-      var b = e.target.closest('[data-lb]');
-      if (!b) return;
-      show(parseInt(b.getAttribute('data-lb'), 10));
-      if (d.showModal) d.showModal(); else window.open(im.src, '_blank');
+    function goTo(k) { location.replace('#foto-' + PRODUCTS[(k + PRODUCTS.length) % PRODUCTS.length].id); }
+    function close(k) { location.replace('#p-' + PRODUCTS[k].id); }
+    document.addEventListener('keydown', function (e) {
+      var k = current();
+      if (k < 0) return;
+      if (e.key === 'Escape') close(k);
+      else if (e.key === 'ArrowLeft') goTo(k - 1);
+      else if (e.key === 'ArrowRight') goTo(k + 1);
     });
-    $('lbclose').addEventListener('click', function () { d.close(); });
-    $('lbprev').addEventListener('click', function () { show(i - 1); });
-    $('lbnext').addEventListener('click', function () { show(i + 1); });
-    $('lbstage').addEventListener('click', function (e) { if (e.target !== im) d.close(); });
-    d.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') show(i - 1); else if (e.key === 'ArrowRight') show(i + 1);
+    var x0 = null, y0 = null;
+    document.addEventListener('touchstart', function (e) {
+      if (current() < 0) return;
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      var k = current();
+      if (k < 0 || x0 === null) return;
+      var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) goTo(dx < 0 ? k + 1 : k - 1);
     });
-    var x0 = null;
-    d.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
-    d.addEventListener('touchend', function (e) {
-      if (x0 === null) return; var dx = e.changedTouches[0].clientX - x0; x0 = null;
-      if (Math.abs(dx) > 40) show(dx < 0 ? i + 1 : i - 1);
+    // al abrir una foto, llevar el foco al botón Cerrar para lectores de pantalla y teclado
+    window.addEventListener('hashchange', function () {
+      var k = current();
+      if (k >= 0) { var c = document.querySelector('#foto-' + PRODUCTS[k].id + ' .pic-bar a:last-child'); if (c) c.focus({ preventScroll: true }); }
     });
   }
 

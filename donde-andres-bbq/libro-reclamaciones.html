@@ -2,8 +2,9 @@
 <html lang="es-PE">
 <head>
 <meta charset="utf-8">
+<script>document.documentElement.classList.add('js')</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com; img-src 'self' data: https://www.google-analytics.com https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Du+OJKJSbdUgz5nrHeWWINvez6XKDDU/tyj/5c2uvwo=' https://www.googletagmanager.com; img-src 'self' data: https://www.google-analytics.com https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Libro de Reclamaciones · Donde Andrés BBQ</title>
 <meta name="description" content="Libro de Reclamaciones virtual de Donde Andrés BBQ, conforme a la Ley N.° 29571.">
@@ -35,7 +36,8 @@
 <li><strong>Queja:</strong> disconformidad no relacionada con los productos o servicios, o malestar o descontento respecto a la atención al público.</li>
 </ul>
 
-<form id="lr-form" novalidate class="mt14">
+<noscript><p class="note nojs-note">Para llenar el formulario abre esta página en Chrome o Safari. También puedes registrar tu reclamo en el Libro de Reclamaciones físico de nuestro local.</p></noscript>
+<form id="lr-form" novalidate class="mt14 needs-js">
 <div class="alert" id="lr-err" role="alert" tabindex="-1"></div>
 <p class="hint">Todos los campos son obligatorios salvo los marcados como opcionales.</p>
 

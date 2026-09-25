@@ -2,8 +2,9 @@
 <html lang="es-PE">
 <head>
 <meta charset="utf-8">
+<script>document.documentElement.classList.add('js')</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com; img-src 'self' data: https://www.google-analytics.com https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Du+OJKJSbdUgz5nrHeWWINvez6XKDDU/tyj/5c2uvwo=' https://www.googletagmanager.com; img-src 'self' data: https://www.google-analytics.com https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Donde Andrés BBQ · Reservas, delivery y ubicación</title>
 <meta name="description" content="Carnes a la parrilla, ahumados y experiencias BBQ con carácter. Reserva por WhatsApp o pide delivery en Lima. Jr. Leoncio Prado 723, Surquillo.">
@@ -80,8 +81,9 @@
       <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Yape · Plin · Transferencia</li>
     </ul>
   </div>
+  <noscript><p class="note nojs-note">Para hacer tu pedido en línea abre esta página en Chrome o Safari. También puedes pedir por WhatsApp al 986&nbsp;045&nbsp;212.</p></noscript>
   <ul class="products" id="products" aria-label="Productos"></ul>
-  <p class="note" id="shop-note">Toca una foto para verla completa. Precios en soles con impuestos incluidos.</p>
+  <p class="note" id="shop-note">Toca una foto para verla en grande. Precios en soles con impuestos incluidos.</p>
 </section>
 
 <footer>
@@ -226,17 +228,5 @@
   </div>
 </dialog>
 
-<!-- Visor de fotos -->
-<dialog class="lb" id="lb" aria-labelledby="lbcap">
-  <div class="lb-top">
-    <h2 class="lb-cap"><span id="lbcap"></span><span class="lb-count" id="lbcount"></span></h2>
-    <button class="icon-btn" type="button" id="lbclose" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-  </div>
-  <div class="lb-stage" id="lbstage"><img id="lbimg" alt=""></div>
-  <div class="lb-nav">
-    <button class="icon-btn" type="button" id="lbprev" aria-label="Foto anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-    <button class="icon-btn" type="button" id="lbnext" aria-label="Foto siguiente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-  </div>
-</dialog>
 </body>
 </html>
