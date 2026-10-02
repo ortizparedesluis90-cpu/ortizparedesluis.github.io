@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Catálogo AKL</title>
+<meta name="description" content="Catálogo de productos AKL. Consulta precios y disponibilidad por WhatsApp.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f7fb;
+  --surface:#ffffff;
+  --ink:#0f1b33;
+  --muted:#5d6b86;
+  --line:#e2e7f0;
+  --brand:#0b2a5b;
+  --brand-2:#123f86;
+  --accent:#f2a900;
+  --accent-ink:#1a1300;
+  --wa:#1fa855;
+  --radius:16px;
+  --shadow:0 6px 24px rgba(15,27,51,.08);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Poppins,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;line-height:1.5}
+img{max-width:100%;display:block}
+button{font:inherit;cursor:pointer}
+.container{max-width:1200px;margin:0 auto;padding:0 16px}
+
+/* Header */
+.topbar{background:var(--brand);color:#dfe8fa;font-size:13px;text-align:center;padding:7px 16px}
+.topbar b{color:var(--accent)}
+header.site{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:16px;height:68px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--brand)}
+.logo-mark{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--brand),var(--brand-2));display:grid;place-items:center;color:var(--accent);font-weight:800;font-size:15px;letter-spacing:.5px}
+.logo-text{font-weight:800;font-size:22px;letter-spacing:2px}
+.search{flex:1;max-width:420px;margin-left:auto;position:relative}
+.search input{width:100%;height:42px;border:1px solid var(--line);border-radius:999px;padding:0 16px 0 40px;font:inherit;font-size:14px;background:var(--bg);color:var(--ink);outline:none}
+.search input:focus{border-color:var(--brand-2);background:#fff}
+.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted)}
+
+/* Hero */
+.hero{background:linear-gradient(120deg,var(--brand) 0%,var(--brand-2) 100%);color:#fff;padding:44px 0 52px}
+.hero small{display:inline-block;background:rgba(242,169,0,.18);color:var(--accent);font-weight:600;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;padding:5px 12px;border-radius:999px}
+.hero h1{margin:14px 0 8px;font-size:clamp(28px,5vw,44px);line-height:1.15;font-weight:800}
+.hero p{margin:0;max-width:560px;color:#cfdcf5}
+
+/* Filtros */
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:-26px 0 22px;background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;position:relative}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;max-width:100%}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 15px;border-radius:999px;font-size:14px;font-weight:500;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+.sort{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.sort select{font:inherit;font-size:14px;border:1px solid var(--line);border-radius:10px;padding:7px 10px;background:#fff;color:var(--ink)}
+.count{font-size:14px;color:var(--muted);margin:0 0 14px}
+
+/* Grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px;margin-bottom:56px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.thumb{position:relative;aspect-ratio:1/1;background:#eef2f8;display:grid;place-items:center;overflow:hidden;border:0;padding:0;width:100%}
+.thumb img{width:100%;height:100%;object-fit:contain;padding:10px;background:#fff}
+.ph{width:100%;height:100%;display:grid;place-items:center;background:linear-gradient(135deg,#e7edf7,#d6e0f0);color:var(--brand);font-weight:800;font-size:34px;letter-spacing:3px}
+.tag{position:absolute;top:10px;left:10px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
+.body{padding:14px 14px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
+.cat{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+.name{font-size:15px;font-weight:600;margin:0;line-height:1.35}
+.desc{font-size:13px;color:var(--muted);margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.price{font-size:20px;font-weight:800;color:var(--brand);margin-top:auto;padding-top:6px}
+.actions{display:flex;gap:8px;margin-top:8px}
+.btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;border-radius:10px;font-size:14px;font-weight:600;text-decoration:none;border:1px solid var(--line);background:#fff;color:var(--ink)}
+.btn-wa{background:var(--wa);border-color:var(--wa);color:#fff}
+.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:48px 16px}
+
+/* Modal */
+dialog{border:0;border-radius:20px;padding:0;width:min(860px,calc(100% - 32px));max-height:calc(100% - 32px);box-shadow:0 30px 80px rgba(0,0,0,.3);color:var(--ink)}
+dialog::backdrop{background:rgba(10,18,36,.6)}
+.m{display:grid;grid-template-columns:1fr 1fr}
+.m-img{background:#fff;display:grid;place-items:center;aspect-ratio:1/1;border-right:1px solid var(--line)}
+.m-img img{width:100%;height:100%;object-fit:contain;padding:18px}
+.m-info{padding:26px 24px;display:flex;flex-direction:column;gap:10px;overflow:auto}
+.m-info h2{margin:0;font-size:22px;line-height:1.25}
+.m-info .price{font-size:28px;margin:0;padding:0}
+.m-info .full{font-size:14px;color:var(--muted);white-space:pre-line;margin:0}
+.close{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.95);font-size:20px;line-height:1;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+
+/* Footer */
+footer{background:var(--brand);color:#cfdcf5;padding:30px 0;font-size:14px}
+footer .container{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center}
+footer b{color:#fff;letter-spacing:2px}
+.wa-float{position:fixed;right:16px;bottom:16px;width:56px;height:56px;border-radius:50%;background:var(--wa);display:grid;place-items:center;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:30}
+
+@media (max-width:720px){
+  .nav{height:auto;flex-wrap:wrap;padding:12px 16px}
+  .search{order:3;max-width:none;flex-basis:100%}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .body{padding:10px 10px 12px}
+  .name{font-size:14px}
+  .price{font-size:17px}
+  .actions{flex-direction:column}
+  .m{grid-template-columns:1fr}
+  .m-img{border-right:0;border-bottom:1px solid var(--line);max-height:50vh}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">Catálogo oficial <b>AKL</b> · Pedidos y consultas por WhatsApp</div>
+
+<header class="site">
+  <div class="container nav">
+    <a class="logo" href="#">
+      <span class="logo-mark">AKL</span>
+      <span class="logo-text">AKL</span>
+    </a>
+    <label class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Buscar productos..." aria-label="Buscar productos">
+    </label>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <small>Catálogo</small>
+    <h1>Productos AKL</h1>
+    <p>Conoce toda nuestra línea de productos. Elige el que necesitas y consúltanos por WhatsApp.</p>
+  </div>
+</section>
+
+<main class="container">
+  <div class="toolbar">
+    <div class="chips" id="chips" role="group" aria-label="Categorías"></div>
+    <label class="sort">Ordenar
+      <select id="sort">
+        <option value="az">Nombre A–Z</option>
+        <option value="asc">Precio: menor a mayor</option>
+        <option value="desc">Precio: mayor a menor</option>
+      </select>
+    </label>
+  </div>
+  <p class="count" id="count"></p>
+  <div class="grid" id="grid"></div>
+</main>
+
+<footer>
+  <div class="container">
+    <span><b>AKL</b> · Catálogo de productos</span>
+    <span>© <span id="year"></span> AKL. Todos los derechos reservados.</span>
+  </div>
+</footer>
+
+<a class="wa-float" id="waFloat" target="_blank" rel="noopener" aria-label="Escríbenos por WhatsApp">
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z"/></svg>
+</a>
+
+<dialog id="modal" aria-labelledby="mTitle">
+  <button class="close" id="mClose" aria-label="Cerrar">×</button>
+  <div class="m">
+    <div class="m-img" id="mImg"></div>
+    <div class="m-info">
+      <span class="cat" id="mCat"></span>
+      <h2 id="mTitle"></h2>
+      <p class="price" id="mPrice"></p>
+      <p class="full" id="mDesc"></p>
+      <a class="btn btn-wa" id="mWa" target="_blank" rel="noopener" style="flex:none;height:46px;margin-top:6px">Consultar por WhatsApp</a>
+    </div>
+  </div>
+</dialog>
+
+<script src="productos.js"></script>
+<script>
+(function(){
+  const money = n => "S/ " + n.toFixed(2);
+  const precio = p => Number(p.precioSocio) + AUMENTO;
+  const waLink = msg => "https://wa.me/" + WHATSAPP + "?text=" + encodeURIComponent(msg);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const imgHTML = p => p.imagen
+    ? `<img src="${esc(p.imagen)}" alt="${esc(p.nombre)}" loading="lazy">`
+    : `<div class="ph">AKL</div>`;
+
+  const state = {cat:"Todos", q:"", sort:"az"};
+  const grid = document.getElementById("grid");
+  const chips = document.getElementById("chips");
+  const count = document.getElementById("count");
+
+  const cats = ["Todos", ...new Set(PRODUCTOS.map(p => p.categoria).filter(Boolean))];
+  chips.innerHTML = cats.map(c => `<button class="chip" aria-pressed="${c===state.cat}" data-cat="${esc(c)}">${esc(c)}</button>`).join("");
+  chips.addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if(!b) return;
+    state.cat = b.dataset.cat;
+    chips.querySelectorAll(".chip").forEach(x => x.setAttribute("aria-pressed", x === b));
+    render();
+  });
+  document.getElementById("q").addEventListener("input", e => { state.q = e.target.value.trim().toLowerCase(); render(); });
+  document.getElementById("sort").addEventListener("change", e => { state.sort = e.target.value; render(); });
+
+  function render(){
+    let list = PRODUCTOS.map((p,i) => ({...p, i}))
+      .filter(p => state.cat === "Todos" || p.categoria === state.cat)
+      .filter(p => !state.q || (p.nombre + " " + p.descripcion + " " + p.categoria).toLowerCase().includes(state.q));
+    if(state.sort === "az") list.sort((a,b) => a.nombre.localeCompare(b.nombre, "es"));
+    if(state.sort === "asc") list.sort((a,b) => precio(a) - precio(b));
+    if(state.sort === "desc") list.sort((a,b) => precio(b) - precio(a));
+
+    count.textContent = list.length + (list.length === 1 ? " producto" : " productos");
+    grid.innerHTML = list.length ? list.map(p => `
+      <article class="card">
+        <button class="thumb" data-i="${p.i}" aria-label="Ver ${esc(p.nombre)}">
+          ${imgHTML(p)}
+          ${p.ejemplo ? '<span class="tag">Ejemplo</span>' : ''}
+        </button>
+        <div class="body">
+          <span class="cat">${esc(p.categoria)}</span>
+          <h3 class="name">${esc(p.nombre)}</h3>
+          <p class="desc">${esc(p.descripcion)}</p>
+          <div class="price">${money(precio(p))}</div>
+          <div class="actions">
+            <button class="btn" data-i="${p.i}">Ver detalle</button>
+            <a class="btn btn-wa" target="_blank" rel="noopener" href="${waLink(`Hola AKL, me interesa: ${p.nombre} (${money(precio(p))})`)}">Pedir</a>
+          </div>
+        </div>
+      </article>`).join("")
+      : `<div class="empty">No encontramos productos con esa búsqueda.</div>`;
+  }
+
+  const modal = document.getElementById("modal");
+  grid.addEventListener("click", e => {
+    const b = e.target.closest("[data-i]"); if(!b) return;
+    const p = PRODUCTOS[+b.dataset.i];
+    document.getElementById("mImg").innerHTML = imgHTML(p);
+    document.getElementById("mCat").textContent = p.categoria;
+    document.getElementById("mTitle").textContent = p.nombre;
+    document.getElementById("mPrice").textContent = money(precio(p));
+    document.getElementById("mDesc").textContent = p.descripcion;
+    document.getElementById("mWa").href = waLink(`Hola AKL, me interesa: ${p.nombre} (${money(precio(p))})`);
+    modal.showModal();
+  });
+  document.getElementById("mClose").addEventListener("click", () => modal.close());
+  modal.addEventListener("click", e => { if(e.target === modal) modal.close(); });
+
+  document.getElementById("waFloat").href = waLink("Hola AKL, quiero información sobre sus productos.");
+  document.getElementById("year").textContent = new Date().getFullYear();
+  render();
+})();
+</script>
+</body>
+</html>
