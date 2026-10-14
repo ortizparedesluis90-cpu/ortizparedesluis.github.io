@@ -1,0 +1,38 @@
+# Configuración del Worker. Ver LEEME.md.
+name = "sistema-sellos"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Archivos estáticos (estilos y scripts del navegador)
+[assets]
+directory = "./public"
+
+# Base de datos. Crea la tuya con:  npx wrangler d1 create sellos
+# y pega aquí el database_id que te muestre.
+[[d1_databases]]
+binding = "DB"
+database_name = "sellos"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Tarea diaria (08:17 UTC = 03:17 en Lima): borra tarjetas con 24 meses sin visitas.
+[triggers]
+crons = ["17 8 * * *"]
+
+# El esquema SQL se importa como texto
+[[rules]]
+type = "Text"
+globs = ["**/*.sql"]
+fallthrough = true
+
+[vars]
+# Tu nombre o el de tu empresa: aparece en el aviso de privacidad como encargado del tratamiento.
+PROVEEDOR_NOMBRE = ""
+PROVEEDOR_CORREO = ""
+
+# Secretos (NO van aquí). Configúralos con:
+#   npx wrangler secret put ADMIN_PASSWORD     (mínimo 12 caracteres)
+#   npx wrangler secret put SESSION_SECRET     (opcional, recomendado: texto largo al azar)
+
+[observability]
+enabled = true

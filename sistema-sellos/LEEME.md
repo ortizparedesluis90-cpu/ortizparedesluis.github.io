@@ -1,0 +1,105 @@
+# Sistema de sellos: tarjeta de cliente frecuente digital
+
+Es un sistema real, con base de datos, para que barberías, spas, salones o cualquier negocio den **sellos por cada visita** y un **premio** al completar la tarjeta. Una sola instalación sirve para **muchos negocios**, y cada uno tiene su enlace, su panel y su clave.
+
+Funciona en **Cloudflare Workers + D1**. El plan gratuito alcanza para empezar con varios negocios pequeños.
+
+## Cómo funciona
+
+| Quién | Qué hace | Dirección |
+|---|---|---|
+| **Cliente** | Crea su tarjeta con su nombre y celular. Ve sus sellos y su código QR. | `https://TU-WORKER/filo` |
+| **Negocio** | Escanea el QR del cliente con la cámara del celular y suma un sello o entrega el premio. Ve quién está cerca del premio y le escribe por WhatsApp con un toque. | `https://TU-WORKER/filo/panel` |
+| **Negocio** | Imprime el cartel con el QR para el mostrador. | `https://TU-WORKER/filo/cartel` |
+| **Tú** | Creas los negocios, sus claves y su premio, y ves la actividad de todos. | `https://TU-WORKER/admin` |
+
+1. El cliente escanea el cartel del mostrador o abre el enlace desde la bio de Instagram o desde la página de enlaces, y crea su tarjeta.
+2. En cada visita muestra su tarjeta. El negocio la escanea en el panel y toca **+1 sello**. La tarjeta del cliente se actualiza sola en unos segundos.
+3. Al completar los sellos, el panel activa **Canjear premio** y la tarjeta vuelve a empezar.
+
+**Protecciones incluidas:**
+- Nadie puede sumarse sellos solo, porque se necesita la clave del panel.
+- Hay un tiempo mínimo entre dos sellos del mismo cliente (por defecto 3 horas), para evitar escanear dos veces por error.
+- El negocio puede deshacer un sello sumado por error durante 30 minutos.
+
+## Recordatorios por WhatsApp
+
+La sección **Cerca del premio** del panel lista a los clientes que **aceptaron recordatorios** y a quienes les faltan 2 sellos o menos, o que ya tienen su premio. Cada uno tiene un botón **Escribir por WhatsApp** con el mensaje ya escrito. El negocio lo envía desde su propio WhatsApp.
+
+- Solo aparecen quienes marcaron la casilla opcional al registrarse. Así lo exige la Ley 29733: el uso para mensajes es una finalidad aparte y opcional.
+- Cada mensaje incluye «responde BAJA». Si el cliente lo pide, el negocio desmarca **Acepta recordatorios** en su ficha.
+- Tú también ves en `/admin` cuántos clientes de cada negocio están cerca del premio.
+
+## Instalación (una sola vez, desde una computadora)
+
+Necesitas una cuenta gratis en <https://dash.cloudflare.com> y Node.js 20 o superior.
+
+```bash
+cd sistema-sellos
+npm install
+npx wrangler login                      # abre el navegador para entrar a Cloudflare
+npx wrangler d1 create sellos           # crea la base de datos
+```
+
+1. **Base de datos:** copia el `database_id` que muestra el último comando y pégalo en `wrangler.toml`, en lugar de los ceros.
+2. **Tus datos:** en `wrangler.toml` completa `PROVEEDOR_NOMBRE` y `PROVEEDOR_CORREO`. Son tu nombre o el de tu empresa, y aparecen en el aviso de privacidad como encargado del tratamiento.
+3. **Claves y publicación:**
+
+```bash
+npx wrangler secret put ADMIN_PASSWORD   # tu clave de administración (mínimo 12 caracteres)
+npx wrangler secret put SESSION_SECRET   # texto largo al azar; por ejemplo, el resultado de: openssl rand -base64 32
+npx wrangler d1 migrations apply sellos --remote
+npx wrangler deploy
+```
+
+Al terminar, Wrangler muestra la dirección, por ejemplo `https://sistema-sellos.TU-SUBDOMINIO.workers.dev`. Si tienes dominio propio, puedes conectarlo en Cloudflare: Workers → tu Worker → Settings → Domains & Routes.
+
+**Para probarlo en tu computadora sin publicar nada:**
+1. Crea el archivo `.dev.vars` con la línea `ADMIN_PASSWORD=una-clave-de-prueba-larga`.
+2. Ejecuta `npm run dev`.
+3. Abre <http://localhost:8787/admin>.
+
+## Dar de alta un negocio
+
+1. Entra a `/admin` con tu clave.
+2. Completa:
+   - el identificador (por ejemplo `filo`), el nombre y el nombre del programa;
+   - cuántos sellos se necesitan para el premio y cuál es el premio;
+   - los datos legales: razón social, RUC, dirección y correo para derechos ARCO;
+   - el color, el tema y la **clave del panel**.
+3. Entrégale al negocio:
+   - el enlace del panel (`/filo/panel`) y su clave;
+   - el cartel (`/filo/cartel`) para imprimir;
+   - el enlace de registro (`/filo`) para su bio de Instagram, su página de enlaces o sus estados de WhatsApp.
+4. Si un empleado se va, cambia la clave desde `/admin`. Las sesiones abiertas con la clave anterior se cierran solas.
+
+En el panel, el navegador pide permiso para usar la cámara la primera vez. Funciona en Chrome para Android y en Safari para iPhone. Si la cámara falla, se puede escribir el código de 8 letras que aparece debajo del QR, el celular o el nombre del cliente.
+
+## Privacidad y cumplimiento (Perú)
+
+**Lo que ya hace el sistema:**
+- Pide solo nombre y celular.
+- Separa el consentimiento obligatorio (administrar la tarjeta) del opcional (recordatorios), y guarda la fecha y la versión del aviso aceptado.
+- Publica un aviso de privacidad por negocio (`/filo/privacidad`) con el responsable, las finalidades, el flujo transfronterizo a Cloudflare, el plazo de conservación y los derechos ARCO.
+- Deja que el cliente borre su tarjeta, y que el negocio borre a un cliente desde el panel.
+- Borra automáticamente las tarjetas con **24 meses sin visitas** (tarea diaria).
+- El negocio puede exportar sus clientes en CSV.
+
+**Lo que tienen que hacer ustedes:**
+- **El negocio es el responsable** de los datos y debe inscribir su banco de datos de clientes ante la Autoridad Nacional de Protección de Datos Personales (MINJUSDH).
+- **Tú eres el encargado del tratamiento.** Firma con cada negocio un contrato o cláusula de encargo que diga para qué usas los datos (solo para operar el sistema), cómo los proteges, que no los cedes y que los devuelves o borras al terminar el servicio.
+- No uses los números para otros fines ni los cruces entre negocios.
+- Revisa con un abogado el texto final del aviso antes de usarlo con clientes reales.
+
+## Costos de Cloudflare
+
+El plan gratuito de Workers y D1 incluye un número diario de solicitudes y lecturas que, para negocios pequeños, alcanza de sobra. Revisa los límites vigentes en <https://developers.cloudflare.com/workers/platform/pricing/> y <https://developers.cloudflare.com/d1/platform/pricing/>. Si crecen, el plan pagado de Workers cuesta unos pocos dólares al mes.
+
+## Archivos
+
+- `src/index.js`: rutas, API y la tarea diaria.
+- `src/paginas.js`: el HTML de las páginas.
+- `src/auth.js`: claves (PBKDF2), sesiones firmadas y límite de intentos.
+- `src/util.js`: utilidades.
+- `migrations/0001_inicial.sql`: las tablas. El Worker también las crea solo.
+- `public/static/`: estilos y scripts del navegador, incluido jsQR para leer el QR (licencia Apache-2.0).
