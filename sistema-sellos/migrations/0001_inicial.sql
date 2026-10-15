@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS negocios (
   espera_min    INTEGER NOT NULL DEFAULT 180,     -- minutos mínimos entre dos sellos del mismo cliente
   color         TEXT NOT NULL DEFAULT '#C9A45C',
   tema          TEXT NOT NULL DEFAULT 'oscuro',   -- oscuro | claro
+  redes         TEXT NOT NULL DEFAULT '{}',       -- JSON: whatsapp, instagram, tiktok, facebook, maps, web
   clave_hash    TEXT NOT NULL DEFAULT '',         -- clave del panel (PBKDF2)
   clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar la clave: cierra sesiones viejas
   activo        INTEGER NOT NULL DEFAULT 1,

@@ -39,6 +39,27 @@ function clientePanel(c, n, origen) {
   };
 }
 
+// ---------- redes del negocio ----------
+const REDES = ['whatsapp', 'instagram', 'tiktok', 'facebook', 'maps', 'web'];
+function leerRedes(d) {
+  const out = {};
+  for (const k of REDES) {
+    const v = String(d['red_' + k] ?? '').trim();
+    if (!v) continue;
+    if (k === 'whatsapp') {
+      const c = celularPeru(v);
+      if (!c) return { error: 'El WhatsApp del negocio debe ser un celular de 9 dígitos que empiece con 9.' };
+      out[k] = c;
+      continue;
+    }
+    let u;
+    try { u = new URL(v); } catch { return { error: `Revisa el enlace de ${k}: debe empezar con https://` }; }
+    if (u.protocol !== 'https:' || v.length > 300) return { error: `Revisa el enlace de ${k}: debe empezar con https://` };
+    out[k] = u.href;
+  }
+  return { redes: JSON.stringify(out) };
+}
+
 // ---------- estadísticas ----------
 const contarVista = (env, n, origen) => env.DB.prepare(
   `INSERT INTO vistas (negocio_id, dia, origen, n) VALUES (?, date('now', '-5 hours'), ?, 1)
@@ -179,6 +200,18 @@ async function apiPanel(req, env, n, partes, url) {
     return json({ clientes: filas.results.map((c) => clientePanel(c, n, url.origin)) });
   }
 
+  if (accion === 'clientes' && metodo === 'GET') {
+    const desde = Math.max(0, Number(url.searchParams.get('desde')) | 0);
+    const [lista, total] = await env.DB.batch([
+      env.DB.prepare(`SELECT ${CAMPOS_CLIENTE}, origen FROM clientes WHERE negocio_id = ? ORDER BY creado DESC, id DESC LIMIT 25 OFFSET ?`).bind(n.id, desde),
+      env.DB.prepare('SELECT COUNT(*) AS n FROM clientes WHERE negocio_id = ?').bind(n.id),
+    ]);
+    return json({
+      total: total.results[0].n,
+      clientes: lista.results.map((c) => ({ ...clientePanel(c, n, url.origin), origen: c.origen })),
+    });
+  }
+
   if (accion === 'cerca' && metodo === 'GET') {
     const filas = await env.DB.prepare(
       `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND recordatorios = 1 AND sellos >= ?
@@ -310,7 +343,7 @@ async function apiAdmin(req, env, partes, url) {
 
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
-      `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema,
+      `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes,
          n.clave_hash != '' AS tiene_clave,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
@@ -338,6 +371,9 @@ async function apiAdmin(req, env, partes, url) {
     if (!(v.espera_min >= 0 && v.espera_min <= 10080)) return error('Los minutos entre sellos deben estar entre 0 y 10080.');
     if (v.ruc && v.ruc.length !== 11) return error('El RUC debe tener 11 dígitos.');
     if (v.correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.correo)) return error('Revisa el correo.');
+    const r = leerRedes(d);
+    if (r.error) return error(r.error);
+    v.redes = r.redes;
     const clave = String(d.clave || '');
     if (clave && clave.length < 8) return error('La clave del panel debe tener al menos 8 caracteres.');
     const hash = clave ? await hashClave(clave) : null;
@@ -345,16 +381,16 @@ async function apiAdmin(req, env, partes, url) {
     const existe = await env.DB.prepare('SELECT id FROM negocios WHERE slug = ?').bind(slug).first();
     if (existe) {
       await env.DB.prepare(
-        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, activo=1
+        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, activo=1
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, ...(hash ? [hash] : []), existe.id).run();
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, ...(hash ? [hash] : []), existe.id).run();
       return json({ ok: true, creado: false });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, clave_hash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, hash).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, clave_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, hash).run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);

@@ -42,6 +42,11 @@
     var f = $('form-negocio');
     ['slug', 'nombre', 'programa', 'meta', 'premio', 'espera_min', 'razon_social', 'ruc', 'direccion', 'correo', 'color', 'tema']
       .forEach(function (k) { if (f.elements[k]) f.elements[k].value = n[k] == null ? '' : n[k]; });
+    var r = {};
+    try { r = JSON.parse(n.redes || '{}'); } catch (e) { r = {}; }
+    ['whatsapp', 'instagram', 'tiktok', 'facebook', 'maps', 'web'].forEach(function (k) {
+      f.elements['red_' + k].value = k === 'whatsapp' && r[k] ? r[k].slice(2) : (r[k] || '');
+    });
     f.elements.clave.value = '';
     f.elements.slug.focus();
     f.scrollIntoView({ block: 'start' });

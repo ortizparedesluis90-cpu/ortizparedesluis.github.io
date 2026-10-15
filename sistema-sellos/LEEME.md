@@ -22,6 +22,11 @@ Funciona en **Cloudflare Workers + D1**. El plan gratuito alcanza para empezar c
 - Hay un tiempo mínimo entre dos sellos del mismo cliente (por defecto 3 horas), para evitar escanear dos veces por error.
 - El negocio puede deshacer un sello sumado por error durante 30 minutos.
 
+## Redes del negocio y lista de clientes
+
+- En `/admin` puedes cargar el WhatsApp, Instagram, TikTok, Facebook, Google Maps y la Página Bio o web de cada negocio. Esos enlaces aparecen en la página que abre el QR del cartel, junto con el registro, y también en la tarjeta del cliente.
+- En el panel, la sección **Clientes registrados** muestra a cada cliente apenas crea su tarjeta: sus sellos, la fecha en que se registró y si llegó por el QR del cartel. Se actualiza sola cada minuto.
+
 ## Estadísticas del panel
 
 El resumen del panel muestra dos grupos de datos:

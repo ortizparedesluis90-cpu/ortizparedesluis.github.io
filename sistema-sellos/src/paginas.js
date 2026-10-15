@@ -7,6 +7,11 @@ const ICONOS = {
   wa: 'M12 3.5a8.5 8.5 0 0 0-7.3 12.8L3.5 20.5l4.3-1.1A8.5 8.5 0 1 0 12 3.5zm4.6 11.8c-.2.6-1.1 1.1-1.6 1.2-.4.1-1 .1-1.6-.1-1.7-.6-3.6-2.1-4.6-3.7-.5-.8-.7-1.7-.5-2.5.2-.6.6-1 1-1.2h.6l.9 2c.1.2 0 .4-.1.6l-.5.6c.6 1.1 1.5 2 2.6 2.6l.6-.6c.2-.2.4-.2.6-.1l1.8.9c.2.1.3.4.2.6z',
   qr: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2zM16 16h2v2h-2z',
   salir: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
+  instagram: 'M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM17.5 6.5h.01',
+  tiktok: 'M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5M14 3c.5 2.5 2.3 4 5 4',
+  facebook: 'M15 3h-2.5A3.5 3.5 0 0 0 9 6.5V10H6.5v3.5H9V21h3.5v-7.5H15l.5-3.5h-3V7a1 1 0 0 1 1-1H15z',
+  maps: 'M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  web: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z',
 };
 export const icono = (n) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${ICONOS[n]}"/></svg>`;
 
@@ -33,6 +38,21 @@ ${scripts.map((s) => `<script src="/static/${s}" defer></script>`).join('\n')}
 </html>`;
 }
 
+const NOMBRES_REDES = { whatsapp: 'WhatsApp', instagram: 'Instagram', tiktok: 'TikTok', facebook: 'Facebook', maps: 'Cómo llegar', web: 'Página web' };
+const ICONO_RED = { whatsapp: 'wa', instagram: 'instagram', tiktok: 'tiktok', facebook: 'facebook', maps: 'maps', web: 'web' };
+
+/** Enlaces a las redes del negocio (se configuran en /admin). */
+function redes(n, titulo) {
+  let r = {};
+  try { r = JSON.parse(n.redes || '{}'); } catch { r = {}; }
+  const items = Object.keys(NOMBRES_REDES).filter((k) => r[k]).map((k) => {
+    const href = k === 'whatsapp' ? `https://wa.me/${r[k]}` : r[k];
+    return `<li><a class="red" href="${e(href)}" target="_blank" rel="noopener">${icono(ICONO_RED[k])}<span>${NOMBRES_REDES[k]}</span></a></li>`;
+  });
+  if (!items.length) return '';
+  return `<section class="redes" aria-labelledby="t-redes"><h2 id="t-redes">${e(titulo)}</h2><ul>${items.join('')}</ul></section>`;
+}
+
 const pie = (n) => `<footer class="pie">
   <p><a href="/${e(n.slug)}/privacidad">Aviso de privacidad</a></p>
   <p>${e(n.programa)} · ${e(n.nombre)}</p>
@@ -51,6 +71,8 @@ export function registro(n, { error = '', valores = {} } = {}) {
     <h1>${e(n.programa)}</h1>
     <p class="bajada">Junta <strong>${n.meta} sellos</strong> y gana <strong>${e(n.premio)}</strong>.</p>
   </header>
+
+  ${redes(n, 'Síguenos y reserva')}
 
   <ol class="pasos" aria-label="Cómo funciona">
     <li><span class="num" aria-hidden="true">1</span><span>Crea tu tarjeta gratis con tu nombre y celular.</span></li>
@@ -129,6 +151,8 @@ export function tarjeta(n, c, qrSvg, url) {
     <a class="boton" href="https://wa.me/${e(c.celular)}?text=${encodeURIComponent(mensaje)}" target="_blank" rel="noopener">${icono('wa')}Enviarme el enlace por WhatsApp</a>
     <p class="nota">Guarda este enlace o agrégalo a tu pantalla de inicio (menú del navegador → «Agregar a pantalla de inicio»). Es tu tarjeta: no lo compartas.</p>
   </section>
+
+  ${redes(n, `Reserva y síguenos`)}
 
   <dl class="datos">
     <div><dt>Visitas</dt><dd id="visitas">${c.visitas}</dd></div>
@@ -273,6 +297,13 @@ export function panel(n) {
       </details>
     </section>
 
+    <section class="bloque" aria-labelledby="t-clientes">
+      <div class="fila"><h2 id="t-clientes">Clientes registrados</h2><span class="chip" id="total-clientes">0</span></div>
+      <p class="nota">Aparecen aquí apenas crean su tarjeta. Se actualiza solo cada minuto.</p>
+      <ul class="lista" id="clientes"></ul>
+      <button class="boton chico" type="button" id="mas-clientes" hidden>Ver más</button>
+    </section>
+
     <section class="bloque" aria-labelledby="t-cerca">
       <div class="fila"><h2 id="t-cerca">Cerca del premio</h2><button class="boton chico" type="button" id="recargar">Actualizar</button></div>
       <p class="nota">Clientes que aceptaron recordatorios y les faltan 2 sellos o menos (o ya tienen su premio). Escríbeles con un toque.</p>
@@ -342,6 +373,12 @@ export function admin() {
         <div class="campo"><label for="f-correo">Correo para derechos ARCO</label><input id="f-correo" name="correo" type="email" maxlength="100"></div>
         <div class="campo"><label for="f-color">Color de acento</label><input id="f-color" name="color" type="color" value="#C9A45C"></div>
         <div class="campo"><label for="f-tema">Tema</label><select id="f-tema" name="tema"><option value="oscuro">Oscuro</option><option value="claro">Claro</option></select></div>
+        <div class="campo"><label for="f-red-whatsapp">WhatsApp del negocio</label><input id="f-red-whatsapp" name="red_whatsapp" type="tel" inputmode="numeric" maxlength="11" placeholder="9XX XXX XXX"></div>
+        <div class="campo"><label for="f-red-instagram">Instagram (enlace)</label><input id="f-red-instagram" name="red_instagram" type="url" placeholder="https://instagram.com/..."></div>
+        <div class="campo"><label for="f-red-tiktok">TikTok (enlace)</label><input id="f-red-tiktok" name="red_tiktok" type="url" placeholder="https://tiktok.com/@..."></div>
+        <div class="campo"><label for="f-red-facebook">Facebook (enlace)</label><input id="f-red-facebook" name="red_facebook" type="url" placeholder="https://facebook.com/..."></div>
+        <div class="campo"><label for="f-red-maps">Google Maps (enlace)</label><input id="f-red-maps" name="red_maps" type="url" placeholder="https://maps.app.goo.gl/..."></div>
+        <div class="campo"><label for="f-red-web">Página Bio o web (enlace)</label><input id="f-red-web" name="red_web" type="url" placeholder="https://..."></div>
         <div class="campo"><label for="f-clave">Clave del panel del negocio</label><input id="f-clave" name="clave" type="password" minlength="8" autocomplete="new-password" aria-describedby="f-clave-ayuda"><p class="ayuda" id="f-clave-ayuda">Mínimo 8 caracteres. Cámbiala si un empleado se va.</p></div>
         <p class="aviso-error" id="form-msg" role="status" hidden></p>
         <button class="boton primario" type="submit">Guardar negocio</button>

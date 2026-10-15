@@ -41,6 +41,14 @@ p{margin:.4rem 0}
 .opcional{color:var(--suave)}
 .falta{color:var(--error);font-weight:700}
 
+/* redes del negocio */
+.redes{margin:0 0 22px}
+.redes h2{font:700 .82rem/1.3 ui-sans-serif,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.14em;color:var(--suave);text-align:center;margin-bottom:10px}
+.redes ul{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.red{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 16px;border-radius:999px;background:var(--superficie);border:1px solid var(--borde);color:var(--texto);text-decoration:none;font-weight:600}
+.red:hover{border-color:var(--acento)}
+.red .ico{color:var(--acento-texto)}
+
 /* pasos */
 .pasos{list-style:none;padding:0;margin:0 0 22px;display:grid;gap:10px}
 .pasos li{display:flex;gap:12px;align-items:center;background:var(--superficie);border:1px solid var(--borde);border-radius:14px;padding:12px 14px}

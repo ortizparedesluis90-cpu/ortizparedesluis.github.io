@@ -19,8 +19,12 @@
   }
   function verApp() {
     $('login').hidden = true; $('app').hidden = false; $('salir').hidden = false;
-    cargarCerca(); cargarResumen();
+    cargarCerca(); cargarResumen(); cargarClientes();
   }
+  // Mientras el panel está abierto, se actualiza solo cada minuto.
+  setInterval(function () {
+    if (!document.hidden && !$('app').hidden) { cargarResumen(); cargarCerca(); if (cargados <= 25) cargarClientes(); }
+  }, 60000);
   async function pedir(url, opciones) {
     var r = await Sellos.api(url, opciones);
     if (r.status === 401) { verLogin(); Sellos.mostrar($('login-error'), 'Tu sesión terminó. Vuelve a ingresar.'); }
@@ -141,7 +145,7 @@
     boton.disabled = true;
     var r = await pedir(base + '/cliente/' + actual.id + '/' + ruta, { body: cuerpo || {} });
     boton.disabled = false;
-    if (r.ok && r.datos.cliente) { mostrarCliente(r.datos.cliente); estado(exito(r.datos.cliente), 'ok'); cargarCerca(); cargarResumen(); }
+    if (r.ok && r.datos.cliente) { mostrarCliente(r.datos.cliente); estado(exito(r.datos.cliente), 'ok'); cargarCerca(); cargarResumen(); cargarClientes(); }
     else { if (actual) mostrarCliente(actual); estado(r.datos.error || 'No se pudo completar.', 'mal'); }
     return r;
   }
@@ -165,9 +169,37 @@
   $('eliminar').addEventListener('click', async function () {
     if (!actual || !confirm('¿Eliminar a ' + actual.nombre + ' y todos sus sellos? No se puede deshacer.')) return;
     var r = await pedir(base + '/cliente/' + actual.id + '/eliminar', { body: {} });
-    if (r.ok) { ocultarCliente(); Sellos.mostrar($('buscar-msg'), 'Cliente eliminado.'); cargarCerca(); cargarResumen(); $('q').focus(); }
+    if (r.ok) { ocultarCliente(); Sellos.mostrar($('buscar-msg'), 'Cliente eliminado.'); cargarCerca(); cargarResumen(); cargarClientes(); $('q').focus(); }
     else estado(r.datos.error || 'No se pudo eliminar.', 'mal');
   });
+
+  // ---------- clientes registrados ----------
+  var fecha = new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  var cargados = 0;
+  async function cargarClientes(mas) {
+    var desde = mas ? cargados : 0;
+    var r = await pedir(base + '/clientes?desde=' + desde);
+    if (!r.ok) return;
+    var ul = $('clientes');
+    if (!mas) { ul.textContent = ''; cargados = 0; }
+    $('total-clientes').textContent = r.datos.total + (r.datos.total === 1 ? ' cliente' : ' clientes');
+    if (!r.datos.total) { ul.appendChild(Sellos.el('li', { texto: 'Aún no hay clientes. Comparte el cartel con QR o tu enlace.' })); }
+    r.datos.clientes.forEach(function (c) {
+      var cuando = fecha.format(new Date(c.creado.replace(' ', 'T') + 'Z'));
+      var ver = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
+      ver.addEventListener('click', function () { mostrarCliente(c, true); });
+      ul.appendChild(Sellos.el('li', {}, [
+        Sellos.el('div', { clase: 'quien' }, [
+          Sellos.el('strong', { texto: c.nombre }),
+          Sellos.el('span', { texto: c.sellos + '/' + meta + ' sellos · se registró el ' + cuando + (c.origen === 'qr' ? ' (QR del cartel)' : '') }),
+        ]),
+        ver,
+      ]));
+    });
+    cargados = desde + r.datos.clientes.length;
+    $('mas-clientes').hidden = cargados >= r.datos.total;
+  }
+  $('mas-clientes').addEventListener('click', function () { cargarClientes(true); });
 
   // ---------- cerca del premio ----------
   async function cargarCerca() {
@@ -194,7 +226,7 @@
       ]));
     });
   }
-  $('recargar').addEventListener('click', function () { cargarCerca(); cargarResumen(); });
+  $('recargar').addEventListener('click', function () { cargarCerca(); cargarResumen(); cargarClientes(); });
 
   function llenar(dl, pares) {
     dl.textContent = '';
