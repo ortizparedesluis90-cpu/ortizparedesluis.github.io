@@ -22,6 +22,22 @@ Funciona en **Cloudflare Workers + D1**. El plan gratuito alcanza para empezar c
 - Hay un tiempo mínimo entre dos sellos del mismo cliente (por defecto 3 horas), para evitar escanear dos veces por error.
 - El negocio puede deshacer un sello sumado por error durante 30 minutos.
 
+## Estadísticas del panel
+
+El resumen del panel muestra dos grupos de datos:
+
+- **Tu cartel y tu enlace (últimos 30 días):**
+  - cuántas personas **escanearon el QR del cartel** (hoy y en total);
+  - cuántas abrieron el enlace de registro desde cualquier lugar (QR, bio o WhatsApp);
+  - cuántas **tarjetas nuevas** se crearon y cuántas de ellas vinieron del QR;
+  - qué porcentaje de quienes abren el enlace termina creando su tarjeta.
+- **Tus clientes:**
+  - cuántos tienen tarjeta y cuántos vinieron en los últimos 30 días;
+  - las visitas de hoy y de los últimos 30 días;
+  - los premios canjeados y cuántos aceptan recordatorios.
+
+El conteo es anónimo y no guarda la IP ni ningún dato de la persona. Cada celular cuenta una vez cada 12 horas gracias a una cookie técnica, y el QR del cartel lleva `?o=qr` para distinguirlo de los demás enlaces. En `/admin` también ves los escaneos del QR de cada negocio.
+
 ## Recordatorios por WhatsApp
 
 La sección **Cerca del premio** del panel lista a los clientes que **aceptaron recordatorios** y a quienes les faltan 2 sellos o menos, o que ya tienen su premio. Cada uno tiene un botón **Escribir por WhatsApp** con el mensaje ya escrito. El negocio lo envía desde su propio WhatsApp.

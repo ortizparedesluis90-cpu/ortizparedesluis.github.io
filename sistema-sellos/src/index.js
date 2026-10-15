@@ -39,6 +39,12 @@ function clientePanel(c, n, origen) {
   };
 }
 
+// ---------- estadísticas ----------
+const contarVista = (env, n, origen) => env.DB.prepare(
+  `INSERT INTO vistas (negocio_id, dia, origen, n) VALUES (?, date('now', '-5 hours'), ?, 1)
+   ON CONFLICT (negocio_id, dia, origen) DO UPDATE SET n = n + 1`
+).bind(n.id, origen).run();
+
 // ---------- QR ----------
 function qrSvg(valor) {
   const qr = qrcode(0, 'M');
@@ -95,7 +101,7 @@ async function registrar(req, env, n) {
   const nombre = limpiarTexto(datos.nombre, 60);
   const celular = celularPeru(datos.celular);
   const fallo = (msg, status = 400) =>
-    formulario ? html(P.registro(n, { error: msg, valores: { nombre, celular: String(datos.celular || '').slice(0, 11) } }), status) : error(msg, status);
+    formulario ? html(P.registro(n, { error: msg, valores: { nombre, celular: String(datos.celular || '').slice(0, 11), origen: datos.origen === 'qr' ? 'qr' : 'enlace' } }), status) : error(msg, status);
 
   if (nombre.length < 2) return fallo('Escribe tu nombre.');
   if (!celular) return fallo('Revisa tu celular: deben ser 9 dígitos y empezar con 9.');
@@ -108,12 +114,13 @@ async function registrar(req, env, n) {
 
   const token = nuevoToken();
   const recordatorios = datos.recordatorios === true || datos.recordatorios === '1' ? 1 : 0;
+  const origen = datos.origen === 'qr' ? 'qr' : 'enlace';
   const consentimiento = `${new Date().toISOString()} aviso ${AVISO_VERSION}${recordatorios ? ' + recordatorios' : ''}`;
   for (let intento = 0; intento < 5; intento++) {
     try {
       await env.DB.prepare(
-        'INSERT INTO clientes (negocio_id, token, codigo, nombre, celular, recordatorios, consentimiento) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).bind(n.id, token, nuevoCodigo(), nombre, celular, recordatorios, consentimiento).run();
+        'INSERT INTO clientes (negocio_id, token, codigo, nombre, celular, recordatorios, consentimiento, origen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(n.id, token, nuevoCodigo(), nombre, celular, recordatorios, consentimiento, origen).run();
       break;
     } catch (err) {
       if (!/UNIQUE/i.test(String(err))) throw err;
@@ -181,13 +188,26 @@ async function apiPanel(req, env, n, partes, url) {
   }
 
   if (accion === 'resumen' && metodo === 'GET') {
-    const [tot, hoy, mes] = await env.DB.batch([
+    const [tot, hoy, mes, vis, nuevas, activos] = await env.DB.batch([
       env.DB.prepare('SELECT COUNT(*) AS clientes, COALESCE(SUM(premios),0) AS premios, COALESCE(SUM(recordatorios),0) AS con_recordatorios FROM clientes WHERE negocio_id = ?').bind(n.id),
       env.DB.prepare(`SELECT COUNT(*) AS v FROM movimientos WHERE negocio_id = ? AND tipo = 'sello' AND creado >= datetime('now', '-5 hours', 'start of day', '+5 hours')`).bind(n.id),
       env.DB.prepare(`SELECT COUNT(*) AS v FROM movimientos WHERE negocio_id = ? AND tipo = 'sello' AND creado >= datetime('now', '-30 days')`).bind(n.id),
+      env.DB.prepare(
+        `SELECT COALESCE(SUM(CASE WHEN origen = 'qr' THEN n END), 0) AS qr30,
+                COALESCE(SUM(CASE WHEN origen = 'qr' AND dia = date('now', '-5 hours') THEN n END), 0) AS qr_hoy,
+                COALESCE(SUM(n), 0) AS total30
+         FROM vistas WHERE negocio_id = ? AND dia >= date('now', '-5 hours', '-29 days')`
+      ).bind(n.id),
+      env.DB.prepare(`SELECT COUNT(*) AS nuevas, COALESCE(SUM(origen = 'qr'), 0) AS nuevas_qr FROM clientes WHERE negocio_id = ? AND creado >= datetime('now', '-30 days')`).bind(n.id),
+      env.DB.prepare(`SELECT COUNT(*) AS v FROM clientes WHERE negocio_id = ? AND ultima_visita >= datetime('now', '-30 days')`).bind(n.id),
     ]);
-    const t = tot.results[0];
-    return json({ clientes: t.clientes, premios: t.premios, conRecordatorios: t.con_recordatorios, visitasHoy: hoy.results[0].v, visitas30: mes.results[0].v });
+    const t = tot.results[0], v = vis.results[0], nu = nuevas.results[0];
+    return json({
+      clientes: t.clientes, premios: t.premios, conRecordatorios: t.con_recordatorios,
+      visitasHoy: hoy.results[0].v, visitas30: mes.results[0].v, activos30: activos.results[0].v,
+      escaneosQrHoy: v.qr_hoy, escaneosQr30: v.qr30, aperturas30: v.total30,
+      tarjetasNuevas30: nu.nuevas, tarjetasDesdeQr30: nu.nuevas_qr,
+    });
   }
 
   if (accion === 'cliente' && id && /^\d+$/.test(id)) {
@@ -294,6 +314,7 @@ async function apiAdmin(req, env, partes, url) {
          n.clave_hash != '' AS tiene_clave,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
+         (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id AND c.recordatorios = 1 AND c.sellos >= MAX(n.meta - 2, 1)) AS cerca
        FROM negocios n WHERE n.activo = 1 ORDER BY n.nombre`
     ).all();
@@ -384,13 +405,21 @@ async function manejar(req, env) {
   if (!n) return html(P.noEncontrado(), 404);
 
   if (partes.length === 1) {
+    const origen = url.searchParams.get('o') === 'qr' ? 'qr' : 'enlace';
+    const galletas = cookies(req);
+    // Contador anónimo de visitas: cada celular cuenta una vez cada 12 horas.
+    const extra = {};
+    if (req.method === 'GET' && !galletas[`v_${n.slug}`]) {
+      await contarVista(env, n, origen);
+      extra['Set-Cookie'] = cookie(`v_${n.slug}`, '1', { path: `/${n.slug}`, maxAge: 60 * 60 * 12, sameSite: 'Lax' });
+    }
     // Si ya tiene tarjeta en este celular, la abrimos directamente.
-    const token = cookies(req)[`t_${n.slug}`];
+    const token = galletas[`t_${n.slug}`];
     if (token && /^[a-z2-9]{26}$/.test(token)) {
       const c = await env.DB.prepare('SELECT 1 FROM clientes WHERE token = ? AND negocio_id = ?').bind(token, n.id).first();
-      if (c) return redirigir(`/${n.slug}/t/${token}`);
+      if (c) return redirigir(`/${n.slug}/t/${token}`, extra);
     }
-    return html(P.registro(n));
+    return html(P.registro(n, { valores: { origen } }), 200, extra);
   }
   switch (partes[1]) {
     case 'registro':
@@ -400,8 +429,9 @@ async function manejar(req, env) {
     case 'panel':
       return html(P.panel(n));
     case 'cartel': {
+      // El QR del cartel lleva ?o=qr para contar cuántas personas lo escanean.
       const enlace = `${url.origin}/${n.slug}`;
-      return html(P.cartel(n, qrSvg(enlace), enlace));
+      return html(P.cartel(n, qrSvg(`${enlace}?o=qr`), enlace));
     }
     case 'tema.css':
       return texto(temaCss(n), 'text/css; charset=utf-8');
@@ -436,6 +466,7 @@ export default {
       env.DB.prepare(`DELETE FROM movimientos WHERE cliente_id IN (SELECT id FROM clientes WHERE COALESCE(ultima_visita, creado) < datetime('now', '-24 months'))`),
       env.DB.prepare(`DELETE FROM clientes WHERE COALESCE(ultima_visita, creado) < datetime('now', '-24 months')`),
       env.DB.prepare('DELETE FROM intentos WHERE desde < ?').bind(Math.floor(Date.now() / 1000) - 86400),
+      env.DB.prepare(`DELETE FROM vistas WHERE dia < date('now', '-400 days')`),
     ]);
   },
 };

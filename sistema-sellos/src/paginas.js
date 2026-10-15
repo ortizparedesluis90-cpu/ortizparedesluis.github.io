@@ -59,6 +59,7 @@ export function registro(n, { error = '', valores = {} } = {}) {
   </ol>
 
   <form class="tarjeta-form" id="form-registro" method="post" action="/${e(n.slug)}/registro" novalidate>
+    <input type="hidden" name="origen" id="origen" value="${valores.origen === 'qr' ? 'qr' : 'enlace'}">
     <h2>Crea tu tarjeta</h2>
     <p class="nota">Solo pedimos lo necesario: tu nombre y tu celular.</p>
     <div class="campo">
@@ -201,6 +202,9 @@ export function privacidad(n, env) {
   <h2>Tus derechos</h2>
   <p>Puedes acceder, rectificar, cancelar u oponerte al uso de tus datos (derechos ARCO), y revocar tu consentimiento, escribiendo a ${falta(n.correo, 'correo')} o pidiéndolo en el local. También puedes borrar tu tarjeta tú mismo desde la opción «Eliminar mis datos». Responderemos dentro de los plazos de ley. Si no estás conforme, puedes acudir a la Autoridad Nacional de Protección de Datos Personales del Ministerio de Justicia y Derechos Humanos.</p>
 
+  <h2>Estadísticas</h2>
+  <p>Contamos cuántas veces se abre la página de registro (por día y si llegó desde el QR del mostrador) con una cookie técnica que dura 12 horas. Ese conteo es anónimo: no guarda tu IP ni ningún dato tuyo.</p>
+
   <h2>Seguridad</h2>
   <p>El acceso al panel del negocio está protegido con clave, la conexión es cifrada (HTTPS) y tu tarjeta solo se abre con tu enlace privado.</p>
 </main>
@@ -277,7 +281,11 @@ export function panel(n) {
 
     <section class="bloque" aria-labelledby="t-resumen">
       <h2 id="t-resumen">Resumen</h2>
-      <dl class="datos" id="resumen"></dl>
+      <h3 class="subtitulo">Tu cartel y tu enlace <span>(últimos 30 días)</span></h3>
+      <dl class="datos" id="res-alcance"></dl>
+      <p class="nota">Cada celular cuenta una vez cada 12 horas. «Escaneos del QR» cuenta solo el QR del cartel del mostrador.</p>
+      <h3 class="subtitulo">Tus clientes</h3>
+      <dl class="datos" id="res-clientes"></dl>
       <p><a class="boton chico" id="csv" href="/api/n/${e(n.slug)}/clientes.csv" download>Descargar clientes (CSV)</a></p>
       <p class="nota">Enlace para que tus clientes creen su tarjeta: <a id="enlace-registro" href="/${e(n.slug)}">/${e(n.slug)}</a></p>
       <p><a class="boton chico" href="/${e(n.slug)}/cartel" target="_blank" rel="noopener">${icono('qr')}Cartel con QR para el mostrador</a></p>
@@ -312,7 +320,7 @@ export function admin() {
       <h2 id="t-negocios">Negocios</h2>
       <div class="tabla-envoltura" role="region" aria-label="Tabla de negocios" tabindex="0">
         <table class="tabla">
-          <thead><tr><th scope="col">Negocio</th><th scope="col">Clientes</th><th scope="col">Visitas (30 días)</th><th scope="col">Cerca del premio</th><th scope="col">Enlaces</th></tr></thead>
+          <thead><tr><th scope="col">Negocio</th><th scope="col">Clientes</th><th scope="col">Escaneos del QR (30 días)</th><th scope="col">Visitas (30 días)</th><th scope="col">Cerca del premio</th><th scope="col">Enlaces</th></tr></thead>
           <tbody id="negocios"></tbody>
         </table>
       </div>

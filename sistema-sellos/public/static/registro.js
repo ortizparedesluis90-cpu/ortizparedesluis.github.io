@@ -27,7 +27,7 @@
     var boton = form.querySelector('button[type=submit]');
     boton.disabled = true; boton.textContent = 'Creando tu tarjeta…';
     var r = await Sellos.api('/api/n/' + slug + '/registro', {
-      body: { nombre: nombre.value, celular: digitos, acepta: true, recordatorios: document.getElementById('recordatorios').checked },
+      body: { nombre: nombre.value, celular: digitos, acepta: true, recordatorios: document.getElementById('recordatorios').checked, origen: document.getElementById('origen').value },
     });
     if (r.ok && r.datos.url) { location.href = r.datos.url; return; }
     boton.disabled = false; boton.textContent = 'Crear mi tarjeta';

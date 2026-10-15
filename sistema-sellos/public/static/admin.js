@@ -16,7 +16,7 @@
     var tb = $('negocios');
     tb.textContent = '';
     if (!negocios.length) {
-      tb.appendChild(Sellos.el('tr', {}, [Sellos.el('td', { colspan: '5', texto: 'Aún no hay negocios. Agrega el primero abajo.' })]));
+      tb.appendChild(Sellos.el('tr', {}, [Sellos.el('td', { colspan: '6', texto: 'Aún no hay negocios. Agrega el primero abajo.' })]));
       return;
     }
     negocios.forEach(function (n) {
@@ -25,6 +25,7 @@
       tb.appendChild(Sellos.el('tr', {}, [
         Sellos.el('td', {}, [Sellos.el('strong', { texto: n.nombre }), Sellos.el('br'), Sellos.el('span', { clase: 'nota', texto: n.programa + ' · ' + n.meta + ' sellos → ' + n.premio })]),
         Sellos.el('td', { texto: String(n.clientes) }),
+        Sellos.el('td', { texto: String(n.escaneos30) }),
         Sellos.el('td', { texto: String(n.visitas30) }),
         Sellos.el('td', { texto: String(n.cerca) }),
         Sellos.el('td', {}, [

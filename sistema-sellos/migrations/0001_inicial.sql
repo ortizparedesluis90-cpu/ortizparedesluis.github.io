@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS clientes (
   premios        INTEGER NOT NULL DEFAULT 0,
   ultima_visita  TEXT,
   consentimiento TEXT NOT NULL,                   -- fecha y versión del aviso aceptado
+  origen         TEXT NOT NULL DEFAULT 'enlace',  -- qr (cartel del mostrador) | enlace (bio, WhatsApp...)
   creado         TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (negocio_id, celular),
   UNIQUE (negocio_id, codigo)
@@ -46,6 +47,16 @@ CREATE TABLE IF NOT EXISTS movimientos (
   cliente_id  INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
   tipo        TEXT NOT NULL,                      -- sello | canje
   creado      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Cuántas veces se abre la página de registro, por día (hora de Lima) y origen.
+-- Solo contadores: no se guarda IP ni ningún dato de la persona.
+CREATE TABLE IF NOT EXISTS vistas (
+  negocio_id  INTEGER NOT NULL,
+  dia         TEXT NOT NULL,                      -- AAAA-MM-DD
+  origen      TEXT NOT NULL,                      -- qr | enlace
+  n           INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (negocio_id, dia, origen)
 );
 
 CREATE TABLE IF NOT EXISTS intentos (

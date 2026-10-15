@@ -196,13 +196,32 @@
   }
   $('recargar').addEventListener('click', function () { cargarCerca(); cargarResumen(); });
 
+  function llenar(dl, pares) {
+    dl.textContent = '';
+    pares.forEach(function (p) {
+      var dd = Sellos.el('dd', {}, [document.createTextNode(String(p[1])), p[2] ? Sellos.el('span', { clase: 'dato-nota', texto: p[2] }) : null]);
+      dl.appendChild(Sellos.el('div', {}, [Sellos.el('dt', { texto: p[0] }), dd]));
+    });
+  }
   async function cargarResumen() {
     var r = await pedir(base + '/resumen');
     if (!r.ok) return;
-    var d = r.datos, dl = $('resumen');
-    dl.textContent = '';
-    [['Clientes', d.clientes], ['Visitas hoy', d.visitasHoy], ['Visitas (30 días)', d.visitas30], ['Premios canjeados', d.premios], ['Aceptan recordatorios', d.conRecordatorios]]
-      .forEach(function (p) { dl.appendChild(Sellos.el('div', {}, [Sellos.el('dt', { texto: p[0] }), Sellos.el('dd', { texto: String(p[1]) })])); });
+    var d = r.datos;
+    var conversion = d.aperturas30 ? Math.min(100, Math.round(d.tarjetasNuevas30 / d.aperturas30 * 100)) + ' %' : '—';
+    llenar($('res-alcance'), [
+      ['Escaneos del QR', d.escaneosQr30, 'Hoy: ' + d.escaneosQrHoy],
+      ['Personas que abrieron tu enlace', d.aperturas30, 'Contando QR, bio y WhatsApp'],
+      ['Tarjetas nuevas', d.tarjetasNuevas30, d.tarjetasDesdeQr30 + ' desde el QR'],
+      ['Crean su tarjeta', conversion, 'De quienes abren el enlace'],
+    ]);
+    llenar($('res-clientes'), [
+      ['Clientes con tarjeta', d.clientes],
+      ['Vinieron en 30 días', d.activos30, 'Clientes distintos'],
+      ['Visitas hoy', d.visitasHoy],
+      ['Visitas (30 días)', d.visitas30],
+      ['Premios canjeados', d.premios],
+      ['Aceptan recordatorios', d.conRecordatorios],
+    ]);
   }
 
   var enlace = $('enlace-registro');
