@@ -1,5 +1,5 @@
 -- Tablas del sistema de sellos. El Worker también las crea solo al arrancar
--- (src/esquema.js), así que aplicar esta migración es opcional.
+-- (asegurarEsquema en src/index.js), así que aplicar esta migración es opcional.
 
 CREATE TABLE IF NOT EXISTS negocios (
   id            INTEGER PRIMARY KEY,

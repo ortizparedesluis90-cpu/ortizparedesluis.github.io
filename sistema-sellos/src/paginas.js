@@ -1,5 +1,5 @@
 // Plantillas HTML. Todo el JavaScript va en /static (la política CSP no permite scripts en línea).
-import { e, primerNombre, celularVisible } from './util.js';
+import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -91,7 +91,7 @@ export function registro(n, { error = '', valores = {} } = {}) {
     <div class="campo">
       <label for="celular">Celular (WhatsApp)</label>
       <div class="prefijo"><span aria-hidden="true">+51</span>
-        <input id="celular" name="celular" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="11" placeholder="9XX XXX XXX" required aria-describedby="celular-ayuda" value="${e(valores.celular)}">
+        <input id="celular" name="celular" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="16" placeholder="9XX XXX XXX" required aria-describedby="celular-ayuda" value="${e(valores.celular)}">
       </div>
       <p class="ayuda" id="celular-ayuda">9 dígitos, empieza con 9.</p>
     </div>
@@ -199,7 +199,7 @@ export function privacidad(n, env) {
 <main id="principal" class="contenedor legal">
   <p><a href="/${e(n.slug)}">← Volver</a></p>
   <h1>Aviso de privacidad del programa ${e(n.programa)}</h1>
-  <p class="nota">Versión ${'1'} · Ley N.° 29733, Ley de Protección de Datos Personales, y su Reglamento (D.S. N.° 016-2024-JUS).</p>
+  <p class="nota">Versión ${AVISO_VERSION} · Ley N.° 29733, Ley de Protección de Datos Personales, y su Reglamento (D.S. N.° 016-2024-JUS).</p>
 
   <h2>¿Quién es responsable de tus datos?</h2>
   <p>${e(titular)}${n.ruc ? `, RUC ${e(n.ruc)}` : ''}, con domicilio en ${falta(n.direccion, 'dirección')} («el negocio»). Correo de contacto: ${falta(n.correo, 'correo')}.</p>
@@ -359,8 +359,9 @@ export function admin() {
 
     <section class="bloque" aria-labelledby="t-form">
       <h2 id="t-form">Agregar o editar negocio</h2>
-      <p class="nota">Para editar uno existente, escribe el mismo identificador. Deja la clave en blanco para no cambiarla.</p>
+      <p class="nota">Para editar uno existente, toca «Editar» en la tabla. Deja la clave en blanco para no cambiarla.</p>
       <form id="form-negocio" class="rejilla">
+        <input type="hidden" name="editar" value="">
         <div class="campo"><label for="f-slug">Identificador (va en la dirección)</label><input id="f-slug" name="slug" required pattern="[a-z0-9-]{1,30}" placeholder="filo" aria-describedby="f-slug-ayuda"><p class="ayuda" id="f-slug-ayuda">Minúsculas, números y guiones.</p></div>
         <div class="campo"><label for="f-nombre">Nombre comercial</label><input id="f-nombre" name="nombre" required maxlength="60"></div>
         <div class="campo"><label for="f-programa">Nombre del programa</label><input id="f-programa" name="programa" required maxlength="40" placeholder="Club Filo"></div>

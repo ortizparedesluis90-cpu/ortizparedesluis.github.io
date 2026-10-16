@@ -47,6 +47,7 @@
     ['whatsapp', 'instagram', 'tiktok', 'facebook', 'maps', 'web'].forEach(function (k) {
       f.elements['red_' + k].value = k === 'whatsapp' && r[k] ? r[k].slice(2) : (r[k] || '');
     });
+    f.elements.editar.value = n.slug;
     f.elements.clave.value = '';
     f.elements.slug.focus();
     f.scrollIntoView({ block: 'start' });
@@ -70,6 +71,7 @@
     boton.disabled = false;
     if (r.ok) {
       Sellos.mostrar($('form-msg'), r.datos.creado ? 'Negocio creado. Ya puedes compartir su enlace de registro.' : 'Cambios guardados.');
+      f.elements.editar.value = datos.slug;
       f.elements.clave.value = '';
       cargar();
     } else Sellos.mostrar($('form-msg'), r.datos.error || 'No se pudo guardar.');

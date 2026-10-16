@@ -127,7 +127,7 @@ async function registrar(req, env, n) {
   if (nombre.length < 2) return fallo('Escribe tu nombre.');
   if (!celular) return fallo('Revisa tu celular: deben ser 9 dígitos y empezar con 9.');
   if (!(datos.acepta === true || datos.acepta === '1')) return fallo('Para crear tu tarjeta debes aceptar el aviso de privacidad.');
-  if (!(await limitar(env, `reg:${ip(req)}`, 20, 3600))) return fallo('Demasiados registros desde esta conexión. Intenta más tarde.', 429);
+  if (!(await limitar(env, `reg:${n.id}:${ip(req)}`, 60, 3600))) return fallo('Demasiados registros desde esta conexión. Intenta más tarde.', 429);
 
   const existe = await env.DB.prepare('SELECT 1 FROM clientes WHERE negocio_id = ? AND celular = ?').bind(n.id, celular).first();
   // No revelamos la tarjeta de otra persona: solo avisamos que ya existe.
@@ -167,7 +167,8 @@ async function apiPanel(req, env, n, partes, url) {
     let datos;
     try { datos = await cuerpo(req); } catch { return error('Solicitud no válida.'); }
     const clave = String(datos.clave || '');
-    const ok = (n.clave_hash && (await verificarClave(clave, n.clave_hash))) || (await verificarClaveAdmin(env, clave));
+    // Solo la clave del negocio: el administrador entra por /admin y su sesión abre todos los paneles.
+    const ok = Boolean(n.clave_hash) && (await verificarClave(clave, n.clave_hash));
     if (!ok) { await registrarFallo(env, llave, 900); return error('Clave incorrecta.', 401); }
     await limpiarFallos(env, llave);
     const s = await crearSesion(env, { r: 'staff', n: n.id, v: n.clave_ver });
@@ -187,8 +188,9 @@ async function apiPanel(req, env, n, partes, url) {
     const digitos = q.replace(/\D/g, '');
     let filas;
     if (digitos.length >= 4 && digitos.length === q.replace(/[\s+-]/g, '').length) {
-      filas = await env.DB.prepare(`SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND celular LIKE ? ORDER BY ultima_visita DESC LIMIT 20`)
-        .bind(n.id, `%${digitos.slice(-9)}%`).all();
+      filas = await env.DB.prepare(`SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND (celular LIKE ? OR codigo = ?)
+         ORDER BY codigo = ? DESC, ultima_visita DESC LIMIT 20`)
+        .bind(n.id, `%${digitos.slice(-9)}%`, codigo, codigo).all();
     } else {
       // Código del QR (exacto) o parte del nombre
       const patron = `%${q.replace(/[%_\\]/g, (c) => '\\' + c)}%`;
@@ -283,14 +285,15 @@ async function apiPanel(req, env, n, partes, url) {
          ORDER BY id DESC LIMIT 1`
       ).bind(cid, n.id, cid).first();
       if (!ultimo) return error('Solo se puede deshacer un sello de los últimos 30 minutos (y antes de un canje).', 409);
-      await env.DB.batch([
+      const [, upd] = await env.DB.batch([
         env.DB.prepare('DELETE FROM movimientos WHERE id = ?').bind(ultimo.id),
         env.DB.prepare(
           `UPDATE clientes SET sellos = MAX(sellos - 1, 0), visitas = MAX(visitas - 1, 0),
            ultima_visita = (SELECT MAX(creado) FROM movimientos WHERE cliente_id = ? AND tipo = 'sello')
-           WHERE id = ? AND negocio_id = ?`
+           WHERE id = ? AND negocio_id = ? AND changes() > 0`
         ).bind(cid, cid, n.id),
       ]);
+      if (!upd.meta.changes) return error('Ese sello ya se deshizo.', 409);
       return json({ cliente: clientePanel(await leer(), n, url.origin) });
     }
 
@@ -379,6 +382,7 @@ async function apiAdmin(req, env, partes, url) {
     const hash = clave ? await hashClave(clave) : null;
 
     const existe = await env.DB.prepare('SELECT id FROM negocios WHERE slug = ?').bind(slug).first();
+    if (existe && d.editar !== slug) return error(`Ya existe un negocio con el identificador «${slug}». Usa otro o toca «Editar» en ese negocio.`, 409);
     if (existe) {
       await env.DB.prepare(
         `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, activo=1
@@ -399,7 +403,9 @@ async function apiAdmin(req, env, partes, url) {
 // ---------- enrutador ----------
 async function manejar(req, env) {
   const url = new URL(req.url);
-  const partes = url.pathname.split('/').filter(Boolean).map((p) => decodeURIComponent(p));
+  let partes;
+  try { partes = url.pathname.split('/').filter(Boolean).map((p) => decodeURIComponent(p)); }
+  catch { return html(P.noEncontrado(), 404); }
   await asegurarEsquema(env);
 
   if (partes[0] === 'api') {

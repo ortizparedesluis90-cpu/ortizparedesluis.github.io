@@ -7,7 +7,7 @@
   var msg = document.getElementById('registro-error');
   var cel = document.getElementById('celular');
   cel.addEventListener('input', function () {
-    var d = cel.value.replace(/\D/g, '').slice(0, 9);
+    var d = cel.value.replace(/\D/g, '').replace(/^51(?=9\d{8}$)/, '').slice(0, 9);
     cel.value = d.replace(/^(\d{3})(\d{0,3})(\d{0,3}).*/, function (_, a, b, c) { return [a, b, c].filter(Boolean).join(' '); });
   });
   function fallo(texto, campo) {
