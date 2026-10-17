@@ -12,7 +12,7 @@ directory = "./public"
 [[d1_databases]]
 binding = "DB"
 database_name = "sellos"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "f6161fba-dadd-450a-99e3-5d7b83259290"
 migrations_dir = "migrations"
 
 # Tarea diaria (08:17 UTC = 03:17 en Lima): borra tarjetas con 24 meses sin visitas.
