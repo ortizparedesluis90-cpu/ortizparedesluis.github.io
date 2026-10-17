@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Playfair;src:url(fonts/playfair-var.woff2) format('woff2');font-weight:400 900}
+@font-face{font-family:Manrope;src:url(fonts/manrope-var.woff2) format('woff2');font-weight:200 800}
+@page{size:A4;margin:0}
+:root{--oro:#a8823c;--oro2:#c9a55c;--tinta:#16130f;--suave:#5b544a;--crema:#fbf8f2;--linea:#e6dccb}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Manrope,sans-serif;color:var(--tinta);background:#888}
+.hoja{width:210mm;height:297mm;position:relative;overflow:hidden;background:var(--crema);padding:15mm 16mm 14mm;page-break-after:always;margin:0 auto 10mm}
+.k{font:700 8pt Manrope;letter-spacing:.3em;text-transform:uppercase;color:var(--oro)}
+h1,h2,h3{font-family:Playfair,serif;font-weight:600;line-height:1.08}
+h1{font-size:30pt;margin:2mm 0 3mm}
+h1 em,h2 em{font-style:italic;color:var(--oro);font-weight:500}
+h2{font-size:17pt;margin:6mm 0 2.5mm}
+h3{font:800 9pt Manrope;letter-spacing:.14em;text-transform:uppercase;color:var(--oro);margin:4mm 0 1.5mm}
+p,li{font-size:9.8pt;line-height:1.5}
+.sub{color:var(--suave);font-size:10.5pt}
+.msj{background:#fff;border:.35mm solid var(--linea);border-left:1.2mm solid var(--oro2);border-radius:2.5mm;padding:3mm 4mm;margin:1.5mm 0 2mm;white-space:pre-line;font-size:9.6pt;line-height:1.5}
+.tip{font-size:8.8pt;color:var(--suave);margin-bottom:1mm}
+.tip b{color:var(--tinta)}
+ul.reglas{list-style:none;display:grid;gap:1.6mm;margin-top:2mm}
+ul.reglas li{padding-left:5mm;position:relative}
+ul.reglas li::before{content:"";position:absolute;left:0;top:1.9mm;width:2mm;height:2mm;border-radius:50%;background:var(--oro2)}
+table{width:100%;border-collapse:collapse;margin-top:2mm;font-size:9pt}
+th,td{text-align:left;vertical-align:top;padding:2.4mm 3mm;border-bottom:.3mm solid var(--linea);line-height:1.45}
+th{font:800 8pt Manrope;letter-spacing:.12em;text-transform:uppercase;color:var(--oro)}
+td:first-child{font-weight:700;width:38%}
+.paso{display:grid;grid-template-columns:24mm 1fr;gap:4mm;margin:2mm 0;align-items:start}
+.paso .t{font:800 8pt Manrope;letter-spacing:.1em;text-transform:uppercase;color:var(--oro);padding-top:3mm}
+.pie{position:absolute;left:16mm;right:16mm;bottom:9mm;display:flex;justify-content:space-between;font:700 7pt Manrope;letter-spacing:.26em;text-transform:uppercase;color:#a99f8e}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+.caja{background:#fff;border:.35mm solid var(--linea);border-radius:3mm;padding:3.5mm 4mm}
+@media screen{.hoja{box-shadow:0 4mm 12mm rgba(0,0,0,.4)}}
+</style></head><body>
+
+<!-- 1 -->
+<section class="hoja">
+  <p class="k">Guía de ventas</p>
+  <h1>Cómo ofrecer la <em>tarjeta de sellos</em></h1>
+  <p class="sub">Mensajes listos para WhatsApp e Instagram, guion para llamar, respuestas a las dudas más comunes y qué enviar en cada paso. Cambia lo que está entre [corchetes].</p>
+
+  <h2>Antes de escribir</h2>
+  <ul class="reglas">
+    <li><b>Uno por uno, nunca en masa.</b> WhatsApp e Instagram bloquean las cuentas que mandan muchos mensajes iguales.</li>
+    <li><b>Personaliza la primera línea</b> con algo real de su perfil: un corte, un trabajo, una promo.</li>
+    <li><b>Primero conversa, después el enlace.</b> El primer mensaje no lleva enlaces ni archivos.</li>
+    <li><b>Horario:</b> de 10 a. m. a 12 p. m. o de 3 p. m. a 6 p. m. Evita fines de semana en la tarde, cuando tienen más clientes.</li>
+    <li><b>Un solo seguimiento.</b> Si no responden a los 2 o 3 días, escribe una vez más. Si dicen que no, agradece y listo.</li>
+    <li><b>No digas que «ya lo usan otros negocios»</b> mientras no sea cierto. «Te muestro un ejemplo» es honesto y vende igual.</li>
+  </ul>
+
+  <h2>Qué enviar y en qué orden</h2>
+  <div class="dos">
+    <div class="caja"><h3>Por WhatsApp</h3><p>1. Mensaje de apertura.<br>2. Cuando responden: <b>el video premium</b> (con tu voz) y 2 o 3 piezas: <b>portada, cómo funciona y lo que ganas</b>.<br>3. Si preguntan el precio: la <b>pieza de planes</b>.<br>4. Para cerrar: el <b>folleto en PDF</b> o una demo en vivo.</p></div>
+    <div class="caja"><h3>Por Instagram</h3><p>1. Mensaje corto, sin enlaces.<br>2. Cuando responden: el <b>video con subtítulos</b> (se ve sin sonido) y las piezas como carrusel.<br>3. Pide su WhatsApp para enviarle el folleto y coordinar.</p></div>
+  </div>
+
+  <h2>Mensajes de WhatsApp</h2>
+  <h3>1 · Apertura</h3>
+  <div class="msj">Hola, ¿qué tal? Soy [Tu nombre] 👋 Vi [algo real: «el degradado que subieron ayer»] y está buenazo 🔥
+Ayudo a barberías a que sus clientes vuelvan más seguido con una tarjeta de sellos digital: el cliente junta sellos en su celular y a los 10 cortes tiene uno gratis. Sin apps ni tarjetas de papel.
+¿Te puedo mandar un video de 1 minuto de cómo funciona?</div>
+  <h3>2 · Cuando responde «sí»</h3>
+  <div class="msj">¡Genial! Mira 👇 [video premium]
+Así funciona:
+1️⃣ Tu cliente escanea un QR en tu mostrador, ve tus redes y crea su tarjeta en 20 segundos.
+2️⃣ En cada corte escaneas su QR desde tu celular y le sumas un sello.
+3️⃣ En tu panel ves quién está cerca de su premio y le escribes por WhatsApp para que vuelva.
+Te lo armo con tu logo, tus colores y tu premio. ¿Te paso los planes?</div>
+  <div class="pie"><span>Guía de ventas · Tarjeta de sellos digital</span><span>1</span></div>
+</section>
+
+<!-- 2 -->
+<section class="hoja">
+  <h3>3 · Precios</h3>
+  <div class="msj">Tengo tres planes:
+• Bio Esencial: tu Página Bio con reservas por WhatsApp. S/ 290, pago único.
+• Bio + Fidelización (el más elegido): Página Bio + tarjeta de sellos + panel + cartel QR. S/ 450 de instalación + S/ 79 al mes.
+• Bio Total: todo lo anterior + video promocional y 1 reel al mes. S/ 790 + S/ 119 al mes.
+🎁 Este mes, los 10 primeros negocios tienen el primer mes de la tarjeta gratis.
+¿Te muestro el panel en una videollamada de 10 minutos?</div>
+  <h3>4 · Seguimiento (2 o 3 días después, una sola vez)</h3>
+  <div class="msj">Hola de nuevo, [nombre] 😊 ¿Pudiste ver el video? Si quieres, te armo una muestra con el nombre de tu barbería para que veas cómo quedaría, sin compromiso 💈</div>
+  <h3>5 · Cierre</h3>
+  <div class="msj">¡Perfecto! Para dejarlo listo solo necesito: tu logo, el premio que quieres dar (por ejemplo, «10 cortes = 1 gratis»), tus redes y tu WhatsApp. En 48 horas te entrego tu panel, tu cartel QR para imprimir y tu enlace para la bio. ¿Arrancamos?</div>
+
+  <h2>Mensajes de Instagram</h2>
+  <h3>Apertura (sin enlaces)</h3>
+  <div class="msj">¡Qué buenos cortes! 🔥 Hago tarjetas de sellos digitales para barberías: tus clientes juntan sellos en su celular y vuelven por su premio. ¿Te muestro un ejemplo de 1 minuto?</div>
+  <h3>Cuando responde</h3>
+  <div class="msj">¡Va! Te dejo el video 👇 [video con subtítulos]
+Se arma con tu logo y tus colores, y tú ves en tu panel quién está por volver. Si te interesa, pásame tu WhatsApp y te envío el folleto con los planes 🙌</div>
+  <h3>Respuesta a una historia</h3>
+  <div class="msj">¡Qué buen trabajo! 👏 Oye, una idea: con una tarjeta de sellos digital tus clientes vuelven más seguido. Si quieres, te muestro cómo se vería con tu marca.</div>
+  <p class="tip"><b>Spas y salones:</b> cambia «cortes» por «visitas» o «servicios», y el premio por uno de su rubro (por ejemplo, «un masaje gratis» o «un manicure gratis»).</p>
+
+  <div class="pie"><span>Guía de ventas · Tarjeta de sellos digital</span><span>2</span></div>
+</section>
+
+<!-- 3 -->
+<section class="hoja">
+  <p class="k">Por teléfono</p>
+  <h1>Guion de <em>llamada</em> (2 a 3 minutos)</h1>
+  <p class="sub">Llama en horas tranquilas. La meta de la llamada no es vender en ese momento: es <b>enviar el video</b> o <b>agendar una demo de 10 minutos</b>.</p>
+
+  <div class="paso"><span class="t">1 · Saludo<br>(10 s)</span><div class="msj">Hola, ¿hablo con [nombre o «el encargado de la barbería»]? Soy [Tu nombre]. Te llamo muy rápido, ¿tienes un minuto?</div></div>
+  <div class="paso"><span class="t">2 · Pregunta</span><div class="msj">Una pregunta: ¿tienes alguna forma de que tus clientes vuelvan más seguido, como una tarjeta de sellos o promociones?</div></div>
+  <div class="paso"><span class="t">3 · Escucha</span><div><p class="tip"><b>Si dice que usa tarjetas de papel:</b> «¿Y te pasa que se pierden o que nadie se acuerda de cuántos sellos tenía?».</p><p class="tip"><b>Si dice que no usa nada:</b> «¿Y sabes cuántos de tus clientes vuelven cada mes?».</p></div></div>
+  <div class="paso"><span class="t">4 · Propuesta<br>(30 s)</span><div class="msj">Te cuento lo que hago: una tarjeta de sellos digital con tu marca. Tu cliente escanea un QR en tu mostrador y en 20 segundos tiene su tarjeta en el celular, sin descargar nada. En cada corte le sumas un sello desde tu celular y, cuando le falta poco para su premio, el panel te avisa para que le escribas por WhatsApp. Así vuelve más seguido.</div></div>
+  <div class="paso"><span class="t">5 · Siguiente paso</span><div class="msj">Tengo un video de 1 minuto que lo muestra mejor que yo. ¿A qué WhatsApp te lo mando?
+— o —
+¿Te parece si te lo muestro en vivo 10 minutos, [día] a las [hora]?</div></div>
+  <div class="paso"><span class="t">6 · Cierre</span><div class="msj">Listo, te lo mando ahora. Te escribo [día] para ver qué te pareció. ¡Gracias por tu tiempo, [nombre]!</div></div>
+  <p class="tip"><b>Después de colgar:</b> envía el video en menos de 5 minutos, con un mensaje corto: «Hola [nombre], soy [Tu nombre], te llamé recién. Aquí está el video 👇».</p>
+
+  <div class="pie"><span>Guía de ventas · Tarjeta de sellos digital</span><span>3</span></div>
+</section>
+<!-- 4 -->
+<section class="hoja">
+  <p class="k">Para cerrar la venta</p>
+  <h1>Respuestas a <em>dudas frecuentes</em></h1>
+  <table>
+    <tr><th>Te dicen</th><th>Respondes</th></tr>
+    <tr><td>«Ya tengo Linktree»</td><td>Linktree solo muestra enlaces. Esto además reserva por WhatsApp, lleva tu marca y tiene la tarjeta de sellos que hace volver al cliente.</td></tr>
+    <tr><td>«Está caro»</td><td>Con que un par de clientes vuelvan una vez más al mes, ya se paga. Y puedes empezar con el primer mes gratis.</td></tr>
+    <tr><td>«Mis clientes no van a usar eso»</td><td>No descargan nada: escanean un QR, como para ver un menú. Lo hacen en 20 segundos mientras esperan su turno.</td></tr>
+    <tr><td>«Lo voy a pensar»</td><td>Claro. ¿Te armo una muestra con tu logo para que la veas y decidas con eso? Es sin compromiso.</td></tr>
+    <tr><td>«¿Y si un empleado se pone sellos?»</td><td>Para sumar sellos se necesita la clave del panel, hay un tiempo mínimo entre sellos y todo queda registrado. Si alguien se va, cambias la clave.</td></tr>
+    <tr><td>«¿Y si dejo de pagar?»</td><td>No hay contrato de permanencia. Te llevas tu lista de clientes en Excel cuando quieras.</td></tr>
+    <tr><td>«¿Mis datos están seguros?»</td><td>Los datos son tuyos y solo tú los ves con tu clave. Se pide solo nombre y celular, con aviso de privacidad según la ley peruana.</td></tr>
+  </table>
+  <h2>Lo que gana el negocio</h2>
+  <div class="dos">
+    <div class="caja"><h3>Gana más</h3><p>Sus clientes vuelven más seguido por el premio. Invita por WhatsApp a quien está por ganar. Tiene su propia lista de clientes con celular. Recibe reservas desde la Página Bio.</p></div>
+    <div class="caja"><h3>Ahorra</h3><p>Nada que imprimir. Sus clientes no descargan ni pagan nada. No hay sellos falsos: todo va con clave. El cliente se registra solo, sin quitarle tiempo a la caja.</p></div>
+  </div>
+  <div class="caja" style="margin-top:4mm"><h3>Automatiza</h3><p>Cada registro aparece solo en su panel. Sabe quién vino, cuántas veces y quién está cerca del premio. Ve los escaneos del QR, las tarjetas nuevas y las visitas del mes, todo desde el celular.</p></div>
+  <div class="caja" style="margin-top:4mm;background:#16130f;color:#f3eadb;border:0"><h3 style="color:#eed9a4">El argumento en números</h3><p>Si 20 clientes vuelven una vez más al mes y cada servicio cuesta S/ 25, son S/ 500 más al mes. La tarjeta cuesta S/ 79 al mes. <i>(Ejemplo: ajusta los números a cada negocio).</i></p></div>
+  <div class="pie"><span>Guía de ventas · Tarjeta de sellos digital</span><span>4</span></div>
+</section>
+<script>document.body.dataset.listo = '1';</script>
+</body></html>
