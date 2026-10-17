@@ -11,7 +11,7 @@ directory = "./public"
 # y pega aquí el database_id que te muestre.
 [[d1_databases]]
 binding = "DB"
-database_name = "sellos"
+database_name = "sellos_barberias"
 database_id = "f6161fba-dadd-450a-99e3-5d7b83259290"
 migrations_dir = "migrations"
 
