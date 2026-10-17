@@ -3,9 +3,10 @@
 import qrcode from 'qrcode-generator';
 import ESQUEMA from '../migrations/0001_inicial.sql';
 import * as P from './paginas.js';
+import { leerDiseno, temaCss, catalogo, mediosDe, colores } from './diseno.js';
 import {
-  AVISO_VERSION, html, json, error, texto, redirigir, cookies, cookie, cuerpo, nuevoToken, nuevoCodigo,
-  normalizarCodigo, celularPeru, celularVisible, limpiarTexto, SLUG, RESERVADOS, COLOR, primerNombre,
+  AVISO_VERSION, EN_MARCO, html, json, error, texto, redirigir, cookies, cookie, cuerpo, nuevoToken, nuevoCodigo, aleatorio,
+  normalizarCodigo, celularPeru, celularVisible, limpiarTexto, SLUG, RESERVADOS, primerNombre,
 } from './util.js';
 import {
   hashClave, verificarClave, verificarClaveAdmin, claveAdminValida, crearSesion, leerSesion, limitar, bloqueado, registrarFallo, limpiarFallos, ip, DURACION_SESION,
@@ -18,11 +19,17 @@ async function asegurarEsquema(env) {
   const sentencias = ESQUEMA.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n')
     .split(';').map((s) => s.trim()).filter(Boolean);
   await env.DB.batch(sentencias.map((s) => env.DB.prepare(s)));
+  // Bases creadas antes de existir el diseño: agregamos la columna.
+  const col = await env.DB.prepare("SELECT COUNT(*) AS n FROM pragma_table_info('negocios') WHERE name = 'diseno'").first();
+  if (!col.n) await env.DB.prepare("ALTER TABLE negocios ADD COLUMN diseno TEXT NOT NULL DEFAULT '{}'").run();
   esquemaListo = true;
 }
 
-const negocioPorSlug = (env, slug) =>
-  env.DB.prepare('SELECT * FROM negocios WHERE slug = ? AND activo = 1').bind(slug).first();
+async function negocioPorSlug(env, slug) {
+  const n = await env.DB.prepare('SELECT * FROM negocios WHERE slug = ? AND activo = 1').bind(slug).first();
+  if (n) n.d = leerDiseno(n, n.diseno);
+  return n;
+}
 
 const CAMPOS_CLIENTE = 'id, token, codigo, nombre, celular, recordatorios, sellos, visitas, premios, ultima_visita, creado';
 
@@ -76,24 +83,6 @@ function qrSvg(valor) {
   let d = '';
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) d += `M${x + m} ${y + m}h1v1h-1z`;
   return `<svg viewBox="0 0 ${n + 2 * m} ${n + 2 * m}" shape-rendering="crispEdges" aria-hidden="true"><rect width="100%" height="100%" fill="#fff"/><path fill="#000" d="${d}"/></svg>`;
-}
-
-// ---------- colores ----------
-function luminancia(hex) {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
-    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-const contraste = (a, b) => { const [x, y] = [luminancia(a), luminancia(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-
-/** Color del negocio + colores de texto que siempre cumplen contraste AA. */
-function temaCss(n) {
-  const acento = COLOR.test(n.color) ? n.color : '#C9A45C';
-  const fondo = n.tema === 'claro' ? '#FAF7F2' : '#121214';
-  const texto = n.tema === 'claro' ? '#1D1B18' : '#F3F1EC';
-  const sobre = contraste(acento, '#121214') >= contraste(acento, '#FFFFFF') ? '#121214' : '#FFFFFF';
-  const acentoTexto = contraste(acento, fondo) >= 4.5 ? acento : texto;
-  return `:root{--acento:${acento};--sobre-acento:${sobre};--acento-texto:${acentoTexto}}`;
 }
 
 // ---------- sesiones ----------
@@ -346,7 +335,7 @@ async function apiAdmin(req, env, partes, url) {
 
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
-      `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes,
+      `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno,
          n.clave_hash != '' AS tiene_clave,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
@@ -354,8 +343,12 @@ async function apiAdmin(req, env, partes, url) {
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id AND c.recordatorios = 1 AND c.sellos >= MAX(n.meta - 2, 1)) AS cerca
        FROM negocios n WHERE n.activo = 1 ORDER BY n.nombre`
     ).all();
-    return json({ negocios: filas.results });
+    return json({ negocios: filas.results.map((n) => ({ ...n, diseno: leerDiseno(n, n.diseno) })) });
   }
+
+  if (accion === 'catalogo' && req.method === 'GET') return json({ ...catalogo(), medios: !!env.MEDIOS });
+
+  if (accion === 'medios' && req.method === 'POST') return subirMedio(req, env, url);
 
   if (accion === 'negocios' && req.method === 'POST') {
     let d;
@@ -367,8 +360,10 @@ async function apiAdmin(req, env, partes, url) {
       meta: Math.round(Number(d.meta)), espera_min: Math.round(Number(d.espera_min ?? 180)),
       razon_social: limpiarTexto(d.razon_social, 100), ruc: String(d.ruc || '').replace(/\D/g, ''),
       direccion: limpiarTexto(d.direccion, 140), correo: limpiarTexto(d.correo, 100),
-      color: COLOR.test(d.color || '') ? d.color : '#C9A45C', tema: d.tema === 'claro' ? 'claro' : 'oscuro',
     };
+    const diseno = leerDiseno(null, d.diseno);
+    // color y tema se mantienen por compatibilidad con versiones anteriores
+    v.color = diseno.acento; v.tema = colores(diseno).claro ? 'claro' : 'oscuro';
     if (!v.nombre || !v.programa || !v.premio) return error('Completa nombre, programa y premio.');
     if (!(v.meta >= 3 && v.meta <= 20)) return error('Los sellos para el premio deben estar entre 3 y 20.');
     if (!(v.espera_min >= 0 && v.espera_min <= 10080)) return error('Los minutos entre sellos deben estar entre 0 y 10080.');
@@ -383,21 +378,104 @@ async function apiAdmin(req, env, partes, url) {
 
     const existe = await env.DB.prepare('SELECT id FROM negocios WHERE slug = ?').bind(slug).first();
     if (existe && d.editar !== slug) return error(`Ya existe un negocio con el identificador «${slug}». Usa otro o toca «Editar» en ese negocio.`, 409);
+    // Solo se aceptan fotos y videos subidos para este mismo negocio.
+    const ids = mediosDe(diseno);
+    if (ids.length) {
+      const propios = existe ? (await env.DB.prepare(`SELECT id FROM medios WHERE negocio_id = ? AND id IN (${ids.map(() => '?').join(',')})`).bind(existe.id, ...ids).all()).results.map((r) => r.id) : [];
+      for (const k of ['logo', 'portada', 'imagen', 'video']) if (diseno[k] && !propios.includes(diseno[k])) diseno[k] = '';
+    }
+    v.diseno = JSON.stringify(diseno);
     if (existe) {
       await env.DB.prepare(
-        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, activo=1
+        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, activo=1
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, ...(hash ? [hash] : []), existe.id).run();
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, ...(hash ? [hash] : []), existe.id).run();
       return json({ ok: true, creado: false });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, clave_hash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, hash).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, clave_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, hash).run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);
+}
+
+// ---------- fotos y videos (Cloudflare KV) ----------
+const TIPOS_MEDIO = { logo: 'imagen', portada: 'imagen', imagen: 'imagen', video: 'video' };
+const LIMITE = { imagen: 2 * 1024 * 1024, video: 15 * 1024 * 1024 };
+/** Reconoce el formato por sus primeros bytes, no por lo que diga el navegador. */
+function formato(b) {
+  const txt = (i, n) => String.fromCharCode(...b.slice(i, i + n));
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return ['imagen', 'image/jpeg'];
+  if (txt(1, 3) === 'PNG') return ['imagen', 'image/png'];
+  if (txt(0, 4) === 'RIFF' && txt(8, 4) === 'WEBP') return ['imagen', 'image/webp'];
+  if (txt(4, 4) === 'ftyp') return ['video', 'video/mp4'];
+  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return ['video', 'video/webm'];
+  return [null, null];
+}
+
+async function subirMedio(req, env, url) {
+  if (!env.MEDIOS) return error('Para subir fotos y videos, primero activa el almacenamiento (KV). Mira la guía en el panel.', 503);
+  const origen = req.headers.get('Origin');
+  if (!origen || origen !== url.origin) return error('Solicitud no válida.');
+  const tipo = url.searchParams.get('tipo');
+  if (!TIPOS_MEDIO[tipo]) return error('Tipo de archivo no válido.');
+  const n = await negocioPorSlug(env, String(url.searchParams.get('n') || ''));
+  if (!n) return error('Guarda el negocio antes de subir fotos.', 404);
+  const largo = Number(req.headers.get('Content-Length') || 0);
+  if (largo > LIMITE[TIPOS_MEDIO[tipo]]) return error(TIPOS_MEDIO[tipo] === 'video' ? 'El video debe pesar menos de 15 MB.' : 'La imagen debe pesar menos de 2 MB.', 413);
+  const datos = new Uint8Array(await req.arrayBuffer());
+  if (!datos.length || datos.length > LIMITE[TIPOS_MEDIO[tipo]]) return error('Archivo vacío o demasiado grande.', 413);
+  const [clase, mime] = formato(datos);
+  if (clase !== TIPOS_MEDIO[tipo]) return error(TIPOS_MEDIO[tipo] === 'video' ? 'Sube un video MP4 o WebM.' : 'Sube una imagen JPG, PNG o WebP.');
+  const id = 'm' + aleatorio(16, 'abcdefghijkmnpqrstuvwxyz23456789');
+  await env.MEDIOS.put(`m/${id}`, datos, { metadata: { mime } });
+  await env.DB.prepare('INSERT INTO medios (id, negocio_id, tipo, mime, tam) VALUES (?, ?, ?, ?, ?)').bind(id, n.id, tipo, mime, datos.length).run();
+  return json({ ok: true, id }, 201);
+}
+
+async function servirMedio(req, env, id) {
+  if (!env.MEDIOS || !/^m[a-z0-9]{16}$/.test(id)) return new Response('No encontrado', { status: 404 });
+  const { value, metadata } = await env.MEDIOS.getWithMetadata(`m/${id}`, 'arrayBuffer');
+  if (!value) return new Response('No encontrado', { status: 404 });
+  const base = {
+    'Content-Type': metadata?.mime || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable',
+    'Accept-Ranges': 'bytes', 'X-Content-Type-Options': 'nosniff', 'Cross-Origin-Resource-Policy': 'same-origin',
+  };
+  // Los videos en iPhone se piden por partes (Range).
+  const rango = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get('Range') || '');
+  if (rango) {
+    const total = value.byteLength;
+    let ini = rango[1] === '' ? total - Number(rango[2]) : Number(rango[1]);
+    let fin = rango[1] === '' || rango[2] === '' ? total - 1 : Math.min(Number(rango[2]), total - 1);
+    if (!(ini >= 0 && ini <= fin)) return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${total}` } });
+    return new Response(value.slice(ini, fin + 1), { status: 206, headers: { ...base, 'Content-Range': `bytes ${ini}-${fin}/${total}`, 'Content-Length': String(fin - ini + 1) } });
+  }
+  return new Response(value, { headers: { ...base, 'Content-Length': String(value.byteLength) } });
+}
+
+// ---------- vistas previas para /admin ----------
+async function vistaPrevia(req, env, pagina, url) {
+  if (!(await esAdmin(req, env))) return html(P.noEncontrado(), 404);
+  let d = {};
+  const crudo = String(url.searchParams.get('d') || '');
+  if (crudo.length < 6000) { try { d = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(crudo.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)))); } catch { d = {}; } }
+  const meta = Math.min(20, Math.max(3, Math.round(Number(d.meta)) || 10));
+  const n = {
+    slug: 'vista', nombre: limpiarTexto(d.nombre, 60) || 'Tu negocio', programa: limpiarTexto(d.programa, 40) || 'Club de clientes',
+    premio: limpiarTexto(d.premio, 60) || 'Premio', meta, redes: '{}', razon_social: '', vista: true,
+    d: leerDiseno(null, d.diseno), temaUrl: `/admin/vista/tema.css?d=${encodeURIComponent(crudo)}`,
+  };
+  try { n.redes = leerRedes(d).redes || '{}'; } catch { n.redes = '{}'; }
+  if (pagina === 'tema.css') return texto(temaCss(n, n.d), 'text/css; charset=utf-8');
+  if (pagina === 'registro') return html(P.registro(n), 200, EN_MARCO);
+  if (pagina === 'tarjeta') {
+    const c = { token: 'vista', codigo: 'ABCD2345', nombre: 'Cliente', celular: '51900000000', sellos: Math.max(1, meta - 3), visitas: meta - 3, premios: 1 };
+    return html(P.tarjeta(n, c, qrSvg(`${url.origin}/vista`), url.origin), 200, EN_MARCO);
+  }
+  return html(P.noEncontrado(), 404);
 }
 
 // ---------- enrutador ----------
@@ -440,6 +518,8 @@ async function manejar(req, env) {
 
   if (partes.length === 0) return html(P.inicio());
   if (partes[0] === 'admin' && partes.length === 1) return html(P.admin());
+  if (partes[0] === 'admin' && partes[1] === 'vista' && partes.length === 3) return vistaPrevia(req, env, partes[2], url);
+  if (partes[0] === 'm' && partes.length === 2) return servirMedio(req, env, partes[1]);
   if (partes[0] === 'robots.txt') return texto('User-agent: *\nDisallow: /\n', 'text/plain; charset=utf-8');
   if (!SLUG.test(partes[0]) || RESERVADOS.has(partes[0])) return html(P.noEncontrado(), 404);
 
@@ -476,7 +556,7 @@ async function manejar(req, env) {
       return html(P.cartel(n, qrSvg(`${enlace}?o=qr`), enlace));
     }
     case 'tema.css':
-      return texto(temaCss(n), 'text/css; charset=utf-8');
+      return texto(temaCss(n, n.d), 'text/css; charset=utf-8');
     case 't': {
       if (!partes[2]) break;
       const c = await env.DB.prepare(`SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE token = ? AND negocio_id = ?`).bind(partes[2], n.id).first();
@@ -511,5 +591,14 @@ export default {
       env.DB.prepare('DELETE FROM intentos WHERE desde < ?').bind(Math.floor(Date.now() / 1000) - 86400),
       env.DB.prepare(`DELETE FROM vistas WHERE dia < date('now', '-400 days')`),
     ]);
+    // Fotos y videos que ya no usa ningún diseño (con un día de margen para los recién subidos).
+    const viejos = (await env.DB.prepare(
+      `SELECT m.id FROM medios m WHERE m.creado < datetime('now', '-1 day')
+       AND NOT EXISTS (SELECT 1 FROM negocios n WHERE n.id = m.negocio_id AND instr(n.diseno, m.id) > 0)`
+    ).all()).results;
+    for (const { id } of viejos) {
+      if (env.MEDIOS) await env.MEDIOS.delete(`m/${id}`);
+      await env.DB.prepare('DELETE FROM medios WHERE id = ?').bind(id).run();
+    }
   },
 };

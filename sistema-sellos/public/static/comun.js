@@ -39,7 +39,9 @@ window.Sellos = (function () {
     ol.textContent = '';
     for (var i = 0; i < meta; i++) {
       var li = el('li', { clase: 'sello' + (i < llenos ? ' lleno' : '') });
-      if (i < llenos) li.appendChild(check()); else li.appendChild(el('span', { texto: String(i + 1) }));
+      var plantilla = document.getElementById('sello-lleno');
+      if (i < llenos) li.appendChild(plantilla ? plantilla.content.cloneNode(true) : check());
+      else li.appendChild(el('span', { texto: String(i + 1) }));
       ol.appendChild(li);
     }
   }

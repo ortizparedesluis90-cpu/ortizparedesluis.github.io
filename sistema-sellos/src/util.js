@@ -16,12 +16,21 @@ const CSP = [
   "script-src 'self'",
   "style-src 'self'",
   "img-src 'self' data:",
+  "font-src 'self'",
+  "media-src 'self'",
+  "frame-src 'self'",
   "connect-src 'self'",
   "manifest-src 'self'",
   "form-action 'self'",
   "base-uri 'none'",
   "frame-ancestors 'none'",
 ].join('; ');
+
+/** Cabeceras para las vistas previas de /admin, que se muestran en un iframe del mismo sitio. */
+export const EN_MARCO = {
+  'Content-Security-Policy': CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'"),
+  'X-Frame-Options': 'SAMEORIGIN',
+};
 
 export function html(body, status = 200, extra = {}) {
   return new Response(body, {
@@ -114,7 +123,7 @@ export function limpiarTexto(v, max) {
 }
 
 export const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,28}[a-z0-9])?$/;
-export const RESERVADOS = new Set(['admin', 'api', 'static', 'favicon.ico', 'robots.txt']);
+export const RESERVADOS = new Set(['admin', 'api', 'static', 'm', 'favicon.ico', 'robots.txt']);
 export const COLOR = /^#[0-9a-fA-F]{6}$/;
 
 export function primerNombre(n) {

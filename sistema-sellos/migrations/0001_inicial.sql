@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS negocios (
   color         TEXT NOT NULL DEFAULT '#C9A45C',
   tema          TEXT NOT NULL DEFAULT 'oscuro',   -- oscuro | claro
   redes         TEXT NOT NULL DEFAULT '{}',       -- JSON: whatsapp, instagram, tiktok, facebook, maps, web
+  diseno        TEXT NOT NULL DEFAULT '{}',       -- JSON: estilo, colores, tipografía, fondo, tarjeta y sellos (src/diseno.js)
   clave_hash    TEXT NOT NULL DEFAULT '',         -- clave del panel (PBKDF2)
   clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar la clave: cierra sesiones viejas
   activo        INTEGER NOT NULL DEFAULT 1,
@@ -69,3 +70,14 @@ CREATE TABLE IF NOT EXISTS intentos (
 CREATE INDEX IF NOT EXISTS idx_clientes_negocio ON clientes (negocio_id, sellos);
 CREATE INDEX IF NOT EXISTS idx_mov_cliente ON movimientos (cliente_id, creado);
 CREATE INDEX IF NOT EXISTS idx_mov_negocio ON movimientos (negocio_id, creado);
+
+-- Fotos y videos del diseño. El archivo vive en Cloudflare KV (binding MEDIOS); aquí solo el registro.
+CREATE TABLE IF NOT EXISTS medios (
+  id          TEXT PRIMARY KEY,                   -- m + 16 caracteres al azar
+  negocio_id  INTEGER NOT NULL REFERENCES negocios(id),
+  tipo        TEXT NOT NULL,                      -- logo | portada | imagen | video
+  mime        TEXT NOT NULL,
+  tam         INTEGER NOT NULL,
+  creado      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS medios_negocio ON medios (negocio_id);

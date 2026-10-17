@@ -28,6 +28,43 @@ Funciona en **Cloudflare Workers + D1**. El plan gratuito alcanza para empezar c
 - En `/admin` puedes cargar el WhatsApp, Instagram, TikTok, Facebook, Google Maps y la Página Bio o web de cada negocio. Esos enlaces aparecen en la página que abre el QR del cartel, junto con el registro, y también en la tarjeta del cliente.
 - En el panel, la sección **Clientes registrados** muestra a cada cliente apenas crea su tarjeta: sus sellos, la fecha en que se registró y si llegó por el QR del cartel. Se actualiza sola cada minuto.
 
+## Diseño de cada negocio
+
+En `/admin`, al crear o editar un negocio, la sección **Diseño de la página y la tarjeta** permite personalizarlo sin tocar código, con vista previa en vivo:
+
+- **12 estilos rápidos:** Clásico, Lujoso, Moderno, Urbano, Barbería vintage, Minimal, Neón, Spa, Belleza, Deportivo, Cafetería e Imperial. Cada uno ajusta todo lo demás de una vez.
+- **21 paletas de colores** y colores propios. Los textos se ajustan solos para que siempre se lean bien (contraste AA).
+- **20 tipografías**, todas con licencia libre OFL: Playfair, Cormorant, Bebas Neue, Cinzel, Bodoni, Great Vibes, Oswald, Anton y otras.
+- **Fondo:**
+  - color liso o degradado;
+  - animado: partículas doradas, aurora, luces desenfocadas, ondas, malla urbana o destello;
+  - foto o video.
+- **Tarjeta:** clásica, metálica, vidrio, minimalista, neón o con foto de portada.
+  - Opcional: **efecto 3D**, que se inclina con el dedo y tiene brillo.
+- **Sellos:**
+  - forma: círculo, cuadrado, diamante o hexágono;
+  - ícono: visto, estrella, corazón, tijera, corona, flor, hoja, gota, café, rayo, diamante, pesa o el logo del negocio.
+- **Logo, foto de portada, imagen de fondo y video de fondo.**
+  - Las imágenes se achican solas en el navegador antes de subirse.
+  - El video debe ser MP4 o WebM de menos de 15 MB.
+
+### Activar fotos y videos (una sola vez)
+
+Los archivos se guardan en **Cloudflare KV**, que es gratis hasta 1 GB.
+
+1. En Cloudflare entra a **Storage & Databases → KV → Create** y ponle de nombre `medios`.
+2. Copia su **ID** y agrégalo al final de `wrangler.toml`:
+
+```toml
+[[kv_namespaces]]
+binding = "MEDIOS"
+id = "EL_ID_DE_TU_KV"
+```
+
+3. Vuelve a publicar.
+
+Mientras no esté activado, todo lo demás del diseño funciona y el panel muestra un aviso en la parte de fotos. Las fotos que ya no usa ningún negocio se borran solas al día siguiente.
+
 ## Estadísticas del panel
 
 El resumen del panel muestra dos grupos de datos:

@@ -1,8 +1,9 @@
 // Plantillas HTML. Todo el JavaScript va en /static (la política CSP no permite scripts en línea).
 import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
+import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './diseno.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-17';
+const V = '2026-10-17b';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -18,11 +19,13 @@ const ICONOS = {
 };
 export const icono = (n) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${ICONOS[n]}"/></svg>`;
 
-function base({ titulo, negocio, cuerpo, scripts = [], clase = '' }) {
-  const tema = negocio ? e(negocio.tema) : 'oscuro';
-  const css = negocio ? `<link rel="stylesheet" href="/${e(negocio.slug)}/tema.css">` : '';
+function base({ titulo, negocio, cuerpo, scripts = [], clase = '', decorar = false }) {
+  const d = negocio && negocio.d;
+  const claro = d ? colores(d).claro : false;
+  const tema = claro ? 'claro' : 'oscuro';
+  const css = negocio ? `<link rel="stylesheet" href="${e(negocio.temaUrl || `/${negocio.slug}/tema.css`)}">` : '';
   return `<!doctype html>
-<html lang="es-PE" data-tema="${tema}">
+<html lang="es-PE" ${d ? atributos(d) : 'data-tema="oscuro"'}${decorar ? ' data-decor="1"' : ''}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -34,6 +37,7 @@ function base({ titulo, negocio, cuerpo, scripts = [], clase = '' }) {
 ${css}
 </head>
 <body class="${clase}">
+${decorar && d ? decor(d) : ''}
 <a class="saltar" href="#principal">Saltar al contenido</a>
 ${cuerpo}
 ${scripts.map((s) => `<script src="/static/${s}?v=${V}" defer></script>`).join('\n')}
@@ -66,10 +70,13 @@ export function registro(n, { error = '', valores = {} } = {}) {
   return base({
     titulo: `${n.programa} · ${n.nombre}`,
     negocio: n,
-    scripts: ['comun.js', 'registro.js'],
+    scripts: ['comun.js', 'registro.js', 'efectos.js'],
+    decorar: true,
     cuerpo: `
 <main id="principal" class="contenedor">
+  ${portadaHtml(n.d)}
   <header class="cabeza">
+    ${logoHtml(n.d, n.nombre)}
     <p class="antetitulo">${e(n.nombre)}</p>
     <h1>${e(n.programa)}</h1>
     <p class="bajada">Junta <strong>${n.meta} sellos</strong> y gana <strong>${e(n.premio)}</strong>.</p>
@@ -119,21 +126,25 @@ export function tarjeta(n, c, qrSvg, url) {
   const extra = Math.max(0, c.sellos - n.meta);
   const listo = c.sellos >= n.meta;
   const casillas = Array.from({ length: n.meta }, (_, i) =>
-    `<li class="sello${i < sellos ? ' lleno' : ''}">${i < sellos ? icono('check') : `<span>${i + 1}</span>`}</li>`).join('');
+    `<li class="sello${i < sellos ? ' lleno' : ''}">${i < sellos ? selloLleno(n.d) : `<span>${i + 1}</span>`}</li>`).join('');
   const codigo = c.codigo.replace(/(.{4})(.{4})/, '$1 $2');
   const mensaje = `Mi tarjeta ${n.programa} de ${n.nombre}: ${url}`;
   return base({
     titulo: `Mi tarjeta · ${n.programa}`,
     negocio: n,
-    scripts: ['comun.js', 'tarjeta.js'],
+    scripts: ['comun.js', 'tarjeta.js', 'efectos.js'],
+    decorar: true,
     cuerpo: `
-<main id="principal" class="contenedor" data-api="/api/n/${e(n.slug)}/t/${e(c.token)}" data-meta="${n.meta}">
+<main id="principal" class="contenedor"${n.vista ? '' : ` data-api="/api/n/${e(n.slug)}/t/${e(c.token)}"`} data-meta="${n.meta}">
+  <template id="sello-lleno">${selloLleno(n.d)}</template>
   <header class="cabeza compacta">
+    ${logoHtml(n.d, n.nombre)}
     <p class="antetitulo">${e(n.nombre)}</p>
     <h1>${e(n.programa)}</h1>
   </header>
 
   <section class="carnet" aria-labelledby="hola">
+    <span class="brillo" aria-hidden="true"></span>
     <div class="carnet-top">
       <h2 id="hola">Hola, ${e(primerNombre(c.nombre))}</h2>
       <p class="progreso" id="progreso" aria-live="polite">${listo ? '¡Completaste tu tarjeta!' : `Llevas <strong>${c.sellos}</strong> de ${n.meta} sellos`}</p>
@@ -180,6 +191,7 @@ export function cartel(n, qr, url) {
     clase: 'es-cartel',
     cuerpo: `
 <main id="principal" class="contenedor cartel">
+  ${logoHtml(n.d, n.nombre)}
   <p class="antetitulo">${e(n.nombre)}</p>
   <h1>${e(n.programa)}</h1>
   <p class="bajada">Junta <strong>${n.meta} sellos</strong> y gana <strong>${e(n.premio)}</strong></p>
@@ -375,14 +387,83 @@ export function admin() {
         <div class="campo"><label for="f-ruc">RUC</label><input id="f-ruc" name="ruc" inputmode="numeric" pattern="\\d{11}" maxlength="11"></div>
         <div class="campo"><label for="f-direccion">Dirección</label><input id="f-direccion" name="direccion" maxlength="140"></div>
         <div class="campo"><label for="f-correo">Correo para derechos ARCO</label><input id="f-correo" name="correo" type="email" maxlength="100"></div>
-        <div class="campo"><label for="f-color">Color de acento</label><input id="f-color" name="color" type="color" value="#C9A45C"></div>
-        <div class="campo"><label for="f-tema">Tema</label><select id="f-tema" name="tema"><option value="oscuro">Oscuro</option><option value="claro">Claro</option></select></div>
         <div class="campo"><label for="f-red-whatsapp">WhatsApp del negocio</label><input id="f-red-whatsapp" name="red_whatsapp" type="tel" inputmode="numeric" maxlength="11" placeholder="9XX XXX XXX"></div>
         <div class="campo"><label for="f-red-instagram">Instagram (enlace)</label><input id="f-red-instagram" name="red_instagram" type="url" placeholder="https://instagram.com/..."></div>
         <div class="campo"><label for="f-red-tiktok">TikTok (enlace)</label><input id="f-red-tiktok" name="red_tiktok" type="url" placeholder="https://tiktok.com/@..."></div>
         <div class="campo"><label for="f-red-facebook">Facebook (enlace)</label><input id="f-red-facebook" name="red_facebook" type="url" placeholder="https://facebook.com/..."></div>
         <div class="campo"><label for="f-red-maps">Google Maps (enlace)</label><input id="f-red-maps" name="red_maps" type="url" placeholder="https://maps.app.goo.gl/..."></div>
         <div class="campo"><label for="f-red-web">Página Bio o web (enlace)</label><input id="f-red-web" name="red_web" type="url" placeholder="https://..."></div>
+        <fieldset class="diseno" id="diseno">
+          <legend>Diseño de la página y la tarjeta</legend>
+          <p class="nota">Elige un estilo rápido y luego ajusta lo que quieras. La vista previa se actualiza sola.</p>
+          <h3 class="subtitulo">Estilo rápido</h3>
+          <div class="opciones" id="d-estilos" role="group" aria-label="Estilos rápidos"></div>
+          <h3 class="subtitulo">Colores</h3>
+          <div class="opciones paletas" id="d-paletas" role="group" aria-label="Paletas de colores"></div>
+          <div class="rejilla">
+            <div class="campo"><label for="d-fondoColor">Color de fondo</label><input id="d-fondoColor" type="color" value="#0F0D0B"></div>
+            <div class="campo"><label for="d-acento">Color principal (botones y sellos)</label><input id="d-acento" type="color" value="#C9A55C"></div>
+          </div>
+          <p class="ayuda">Los textos se ajustan solos para que siempre se lean bien sobre el fondo que elijas.</p>
+          <h3 class="subtitulo">Letras, fondo y tarjeta</h3>
+          <div class="rejilla">
+            <div class="campo"><label for="d-tipografia">Tipografía</label><select id="d-tipografia"></select></div>
+            <div class="campo"><label for="d-fondo">Fondo de la página</label><select id="d-fondo"></select></div>
+            <div class="campo" id="c-animacion"><label for="d-animacion">Animación del fondo</label><select id="d-animacion"></select></div>
+            <div class="campo" id="c-oscurecer"><label for="d-oscurecer">Oscurecer la foto o el video</label><input id="d-oscurecer" type="range" min="0.3" max="0.9" step="0.05" value="0.65"></div>
+            <div class="campo"><label for="d-tarjeta">Estilo de la tarjeta</label><select id="d-tarjeta"></select></div>
+            <div class="campo"><label for="d-forma">Forma de los sellos</label><select id="d-forma"></select></div>
+            <div class="campo"><label for="d-icono">Ícono del sello</label><select id="d-icono"></select></div>
+            <div class="campo"><label for="d-esquinas">Esquinas</label><select id="d-esquinas"></select></div>
+            <div class="check"><input id="d-efecto3d" type="checkbox"><label for="d-efecto3d">Tarjeta en 3D (se inclina con el dedo y tiene brillo)</label></div>
+          </div>
+          <h3 class="subtitulo">Logo, fotos y video</h3>
+          <p class="aviso-error" id="d-medios-aviso" hidden>Para subir fotos y videos falta activar el almacenamiento: en Cloudflare entra a <strong>Storage &amp; Databases → KV → Create</strong>, ponle de nombre <strong>medios</strong> y mándale el <strong>ID</strong> a quien te instaló el sistema.</p>
+          <p class="nota" id="d-medios-guardar" hidden>Guarda el negocio primero para poder subir su logo, fotos y video.</p>
+          <div class="medios">
+          <div class="medio" data-tipo="logo">
+            <p class="medio-nombre">Logo</p>
+            <div class="medio-vista" id="mv-logo"><span>Sin archivo</span></div>
+            <div class="botones chicos">
+              <label class="boton chico subir">Subir<input type="file" accept="image/png,image/jpeg,image/webp" class="oculto-accesible" data-tipo="logo" aria-label="Subir logo"></label>
+              <button class="boton chico" type="button" data-quitar="logo">Quitar</button>
+            </div>
+            <p class="ayuda">PNG con fondo transparente, cuadrado.</p>
+          </div>
+          <div class="medio" data-tipo="portada">
+            <p class="medio-nombre">Foto de portada</p>
+            <div class="medio-vista" id="mv-portada"><span>Sin archivo</span></div>
+            <div class="botones chicos">
+              <label class="boton chico subir">Subir<input type="file" accept="image/png,image/jpeg,image/webp" class="oculto-accesible" data-tipo="portada" aria-label="Subir foto de portada"></label>
+              <button class="boton chico" type="button" data-quitar="portada">Quitar</button>
+            </div>
+            <p class="ayuda">Va arriba de la página de registro (o detrás de la tarjeta si eliges «Con foto de portada»).</p>
+          </div>
+          <div class="medio" data-tipo="imagen">
+            <p class="medio-nombre">Imagen de fondo</p>
+            <div class="medio-vista" id="mv-imagen"><span>Sin archivo</span></div>
+            <div class="botones chicos">
+              <label class="boton chico subir">Subir<input type="file" accept="image/png,image/jpeg,image/webp" class="oculto-accesible" data-tipo="imagen" aria-label="Subir imagen de fondo"></label>
+              <button class="boton chico" type="button" data-quitar="imagen">Quitar</button>
+            </div>
+            <p class="ayuda">Para el fondo «Foto o imagen».</p>
+          </div>
+          <div class="medio" data-tipo="video">
+            <p class="medio-nombre">Video de fondo</p>
+            <div class="medio-vista" id="mv-video"><span>Sin archivo</span></div>
+            <div class="botones chicos">
+              <label class="boton chico subir">Subir<input type="file" accept="video/mp4,video/webm" class="oculto-accesible" data-tipo="video" aria-label="Subir video de fondo"></label>
+              <button class="boton chico" type="button" data-quitar="video">Quitar</button>
+            </div>
+            <p class="ayuda">MP4 de 5 a 15 segundos, menos de 15 MB. Se reproduce sin sonido.</p>
+          </div>
+          </div>
+          <h3 class="subtitulo">Vista previa</h3>
+          <div class="vistas">
+            <figure><iframe id="v-registro" title="Vista previa de la página de registro" loading="lazy"></iframe><figcaption>Página de registro</figcaption></figure>
+            <figure><iframe id="v-tarjeta" title="Vista previa de la tarjeta del cliente" loading="lazy"></iframe><figcaption>Tarjeta del cliente</figcaption></figure>
+          </div>
+        </fieldset>
         <div class="campo"><label for="f-clave">Clave del panel del negocio</label><input id="f-clave" name="clave" type="password" minlength="8" autocomplete="new-password" aria-describedby="f-clave-ayuda"><p class="ayuda" id="f-clave-ayuda">Mínimo 8 caracteres. Cámbiala si un empleado se va.</p></div>
         <p class="aviso-error" id="form-msg" role="status" hidden></p>
         <button class="boton primario" type="submit">Guardar negocio</button>
