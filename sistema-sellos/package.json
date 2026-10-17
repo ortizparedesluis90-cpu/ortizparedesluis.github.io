@@ -1,0 +1,20 @@
+{
+  "name": "sistema-sellos",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Tarjeta de cliente frecuente digital (sellos) con panel para el negocio. Cloudflare Workers + D1.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:local": "wrangler d1 migrations apply sellos --local",
+    "db:remote": "wrangler d1 migrations apply sellos --remote"
+  },
+  "dependencies": {
+    "qrcode-generator": "2.0.4"
+  },
+  "devDependencies": {
+    "jsqr": "1.4.0",
+    "wrangler": "4.151.0"
+  }
+}

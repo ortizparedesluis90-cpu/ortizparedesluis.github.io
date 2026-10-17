@@ -1,0 +1,83 @@
+-- Tablas del sistema de sellos. El Worker también las crea solo al arrancar
+-- (asegurarEsquema en src/index.js), así que aplicar esta migración es opcional.
+
+CREATE TABLE IF NOT EXISTS negocios (
+  id            INTEGER PRIMARY KEY,
+  slug          TEXT NOT NULL UNIQUE,             -- parte de la dirección: /filo
+  nombre        TEXT NOT NULL,                    -- nombre comercial
+  razon_social  TEXT NOT NULL DEFAULT '',
+  ruc           TEXT NOT NULL DEFAULT '',
+  direccion     TEXT NOT NULL DEFAULT '',
+  correo        TEXT NOT NULL DEFAULT '',         -- para derechos ARCO
+  whatsapp      TEXT NOT NULL DEFAULT '',
+  programa      TEXT NOT NULL,                    -- "Club Filo"
+  meta          INTEGER NOT NULL DEFAULT 10,      -- sellos para el premio
+  premio        TEXT NOT NULL,                    -- "Corte gratis"
+  espera_min    INTEGER NOT NULL DEFAULT 180,     -- minutos mínimos entre dos sellos del mismo cliente
+  color         TEXT NOT NULL DEFAULT '#C9A45C',
+  tema          TEXT NOT NULL DEFAULT 'oscuro',   -- oscuro | claro
+  redes         TEXT NOT NULL DEFAULT '{}',       -- JSON: whatsapp, instagram, tiktok, facebook, maps, web
+  diseno        TEXT NOT NULL DEFAULT '{}',       -- JSON: estilo, colores, tipografía, fondo, tarjeta y sellos (src/diseno.js)
+  clave_hash    TEXT NOT NULL DEFAULT '',         -- clave del panel (PBKDF2)
+  clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar la clave: cierra sesiones viejas
+  activo        INTEGER NOT NULL DEFAULT 1,
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS clientes (
+  id             INTEGER PRIMARY KEY,
+  negocio_id     INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  token          TEXT NOT NULL UNIQUE,            -- enlace privado de la tarjeta
+  codigo         TEXT NOT NULL,                   -- código del QR / para dictar en caja
+  nombre         TEXT NOT NULL,
+  celular        TEXT NOT NULL,                   -- 51XXXXXXXXX
+  recordatorios  INTEGER NOT NULL DEFAULT 0,      -- aceptó mensajes por WhatsApp
+  sellos         INTEGER NOT NULL DEFAULT 0,
+  visitas        INTEGER NOT NULL DEFAULT 0,
+  premios        INTEGER NOT NULL DEFAULT 0,
+  ultima_visita  TEXT,
+  consentimiento TEXT NOT NULL,                   -- fecha y versión del aviso aceptado
+  origen         TEXT NOT NULL DEFAULT 'enlace',  -- qr (cartel del mostrador) | enlace (bio, WhatsApp...)
+  creado         TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (negocio_id, celular),
+  UNIQUE (negocio_id, codigo)
+);
+
+CREATE TABLE IF NOT EXISTS movimientos (
+  id          INTEGER PRIMARY KEY,
+  negocio_id  INTEGER NOT NULL,
+  cliente_id  INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  tipo        TEXT NOT NULL,                      -- sello | canje
+  creado      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Cuántas veces se abre la página de registro, por día (hora de Lima) y origen.
+-- Solo contadores: no se guarda IP ni ningún dato de la persona.
+CREATE TABLE IF NOT EXISTS vistas (
+  negocio_id  INTEGER NOT NULL,
+  dia         TEXT NOT NULL,                      -- AAAA-MM-DD
+  origen      TEXT NOT NULL,                      -- qr | enlace
+  n           INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (negocio_id, dia, origen)
+);
+
+CREATE TABLE IF NOT EXISTS intentos (
+  clave  TEXT PRIMARY KEY,
+  n      INTEGER NOT NULL,
+  desde  INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_clientes_negocio ON clientes (negocio_id, sellos);
+CREATE INDEX IF NOT EXISTS idx_mov_cliente ON movimientos (cliente_id, creado);
+CREATE INDEX IF NOT EXISTS idx_mov_negocio ON movimientos (negocio_id, creado);
+
+-- Fotos y videos del diseño. El archivo vive en Cloudflare KV (binding MEDIOS); aquí solo el registro.
+CREATE TABLE IF NOT EXISTS medios (
+  id          TEXT PRIMARY KEY,                   -- m + 16 caracteres al azar
+  negocio_id  INTEGER NOT NULL REFERENCES negocios(id),
+  tipo        TEXT NOT NULL,                      -- logo | portada | imagen | video
+  mime        TEXT NOT NULL,
+  tam         INTEGER NOT NULL,
+  creado      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS medios_negocio ON medios (negocio_id);

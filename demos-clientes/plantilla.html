@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="es-PE">
+<head>
+<meta charset="utf-8">
+<script>document.documentElement.classList.add('js')</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{NAME}} · Demo de linktree</title>
+<meta name="description" content="{{META_DESC}}">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="{{THEME_COLOR}}">
+<style>
+{{FONTS_CSS}}
+:root{
+{{VARS}}
+  --r-lg:20px;--r-md:16px;--r-sm:12px;
+}
+*{box-sizing:border-box}
+html{background:var(--bg);-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;color:var(--text);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--accent-link)}
+a:focus-visible,button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip{position:absolute;left:12px;top:-60px;z-index:100;padding:10px 16px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:700;text-decoration:none}
+.skip:focus{top:12px}
+html:not(.js) .needs-js{display:none!important}
+[hidden]{display:none!important}
+
+/* ---------- Fondo animado (se puede cambiar por el video del cliente) ---------- */
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:var(--bg);pointer-events:none}
+{{BG_CSS}}
+
+.wrap{max-width:460px;margin:0 auto;padding:0 16px calc(104px + env(safe-area-inset-bottom,0px))}
+
+/* ---------- Hero ---------- */
+.hero{text-align:center;padding:calc(34px + env(safe-area-inset-top,0px)) 4px 4px}
+.demo-pill{display:inline-flex;align-items:center;margin:0 0 18px;padding:5px 12px;border-radius:999px;border:1px dashed var(--accent-line);color:var(--accent-text);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;background:var(--pill-bg)}
+.brand{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px}
+.brand svg{width:54px;height:54px;margin-bottom:6px}
+.brand .name{font-family:var(--display);font-weight:var(--name-w);font-size:var(--name-size);line-height:.9;letter-spacing:var(--name-ls);text-transform:var(--name-tt);font-style:var(--name-style);color:var(--text-strong);text-shadow:var(--tshadow)}
+.brand .kind{display:flex;align-items:center;gap:10px;font-family:var(--kind-font);font-weight:600;font-size:var(--kind-size);letter-spacing:var(--kind-ls);text-transform:uppercase;color:var(--accent-text);padding-left:var(--kind-ls)}
+.brand .kind::before,.brand .kind::after{content:"";width:26px;height:1px;background:var(--accent)}
+.tag{margin:18px auto 0;max-width:31ch;color:var(--text-on-bg);font-size:16px;line-height:1.45;text-wrap:balance;text-shadow:var(--tshadow)}
+.meta{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:16px 0 0;padding:0;list-style:none}
+.meta li{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 12px;border:1px solid var(--line-2);border-radius:999px;font-size:13px;color:var(--text-on-bg);background:var(--pill-bg)}
+.meta svg{width:14px;height:14px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.meta .open{color:var(--ok-text)}
+.meta .open::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.meta .closed{color:var(--bad-text)}
+.meta .closed::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--bad)}
+
+/* ---------- Botones principales ---------- */
+.cta{display:flex;align-items:center;gap:14px;margin:26px 0 0;padding:16px 18px 16px 16px;border-radius:var(--r-lg);background:var(--cta-bg);color:var(--accent-ink);text-decoration:none;box-shadow:var(--cta-shadow);transition:transform .15s ease}
+.cta:hover{transform:translateY(-1px)}
+.cta .lbl{font-size:calc(var(--lbl-size) + 2px)}
+.cta .sub{color:var(--accent-ink-2);font-weight:500}
+.cta .go{background:rgba(0,0,0,.10);color:var(--accent-ink)}
+.cta-2{display:flex;align-items:center;gap:14px;margin:10px 0 0;padding:14px 18px 14px 16px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--accent-line);color:var(--text);text-decoration:none;transition:background .15s ease}
+.cta-2:hover{background:var(--surface-hover)}
+.ico{width:44px;height:44px;border-radius:12px;flex-shrink:0;display:grid;place-items:center;overflow:hidden}
+.ico svg{width:26px;height:26px;display:block}
+.wa{background:#25D366}
+.soft{background:var(--accent-soft)}
+.soft svg{stroke:var(--accent-text);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;width:24px;height:24px}
+.txt{flex:1;min-width:0}
+.lbl{display:block;font-family:var(--display);font-weight:var(--lbl-w);font-size:var(--lbl-size);letter-spacing:var(--lbl-ls);text-transform:var(--lbl-tt);line-height:1.1}
+.sub{display:block;font-size:14px;color:var(--muted);line-height:1.35}
+.go{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;color:var(--muted);transition:transform .15s ease}
+.go svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.qbtn{display:flex;align-items:center;gap:10px;padding:14px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line-2);color:var(--text);text-decoration:none;font-weight:500;font-size:15px;line-height:1.25}
+.qbtn:hover{background:var(--surface-hover)}
+.qbtn svg{width:22px;height:22px;flex-shrink:0;stroke:var(--accent-text);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- Secciones ---------- */
+section{scroll-margin-top:16px}
+.group{margin-top:36px}
+.eyebrow{display:flex;align-items:center;gap:12px;margin:0 0 12px;font-family:var(--display);font-weight:var(--eb-w);font-size:var(--eb-size);letter-spacing:var(--eb-ls);text-transform:var(--eb-tt);color:var(--text-on-bg);text-shadow:var(--tshadow)}
+.eyebrow::after{content:"";flex:1;height:1px;background:var(--line-2)}
+.hint{margin:-4px 0 12px;font-size:14px;color:var(--text-on-bg);text-shadow:var(--tshadow)}
+
+/* Servicios */
+.cat{margin:16px 0 8px;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text-on-bg);text-shadow:var(--tshadow)}
+.menu{margin:0;padding:0;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.menu li + li{border-top:1px solid var(--line)}
+.svc{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 14px;padding:14px 16px;color:var(--text);text-decoration:none;transition:background .15s ease}
+.svc:hover{background:var(--surface-hover)}
+.svc .n{font-weight:700;font-size:16px}
+.svc .d{grid-column:1;font-size:13px;color:var(--muted)}
+.svc .p{grid-row:1 / span 2;grid-column:2;text-align:right;font-family:var(--display);font-weight:var(--price-w);font-size:var(--price-size);color:var(--accent-text);line-height:1;white-space:nowrap}
+.svc .p small{display:block;font-family:var(--body);font-weight:400;font-size:12px;color:var(--muted);margin-top:4px}
+.tag-hot{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--hot-bg);color:var(--hot-text);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;vertical-align:2px}
+
+/* ---------- Tarjeta de fidelidad ---------- */
+.lcard{position:relative;overflow:hidden;padding:18px 18px 16px;border-radius:22px;background:var(--card-bg);color:var(--card-text);box-shadow:0 18px 40px -18px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.22)}
+.lcard::after{content:"";position:absolute;inset:0;background:var(--card-shine);pointer-events:none}
+.lc-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.lc-brand{font-family:var(--display);font-weight:var(--name-w);font-size:26px;letter-spacing:var(--lbl-ls);text-transform:var(--name-tt);font-style:var(--name-style);line-height:1}
+.lc-prog{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.92}
+.lc-name{margin:14px 0 2px;font-size:13px;opacity:.9}
+.lc-id{font-size:12px;letter-spacing:.12em;opacity:.85;font-variant-numeric:tabular-nums}
+.stamps{list-style:none;margin:14px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.stamps li{aspect-ratio:1;border-radius:50%;display:grid;place-items:center;border:1.5px dashed var(--card-dash);background:var(--card-slot)}
+.stamps li svg{width:56%;height:56%;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.stamps li.on{border:0;background:var(--card-stamp);color:var(--card-stamp-ink)}
+.stamps li.on svg{opacity:1}
+.stamps li.gift{border-style:solid}
+.stamps li.gift:not(.on) svg{opacity:.55;stroke:var(--card-text)}
+.stamps li.pop{animation:pop .45s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes pop{0%{transform:scale(.4)}100%{transform:scale(1)}}
+.pts{margin:12px 0 0;display:flex;align-items:baseline;gap:8px}
+.pts-n{font-family:var(--display);font-weight:var(--name-w);font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.bar{height:10px;margin:10px 0 0;border-radius:999px;background:var(--card-slot);overflow:hidden}
+.bar span{display:block;height:100%;border-radius:inherit;background:var(--card-stamp);transition:width .5s ease}
+.level{display:inline-block;margin-left:auto;padding:2px 10px;border-radius:999px;background:var(--card-slot);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.lc-status{margin:12px 0 0;font-size:14px;font-weight:600}
+.l-steps{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:8px;counter-reset:s}
+.l-steps li{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);font-size:15px;color:var(--text)}
+.l-steps li::before{counter-increment:s;content:counter(s);flex-shrink:0;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:14px}
+.rewards{margin:10px 0 0;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);list-style:none;display:grid;gap:8px;font-size:15px}
+.rewards li{display:flex;gap:10px;align-items:baseline}
+.rewards b{flex-shrink:0;min-width:74px;color:var(--accent-text);font-weight:700}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;margin-top:12px;padding:0 18px;border-radius:999px;border:1px solid var(--accent-line);background:var(--surface);color:var(--text);font:600 16px var(--body);text-decoration:none;cursor:pointer}
+.btn:hover{background:var(--surface-hover)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn-primary:hover{background:var(--accent-hi);border-color:var(--accent-hi)}
+.btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Visor de la tarjeta (solo CSS con :target, funciona sin JavaScript) */
+.lov{display:none}
+.lov:target{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;background:var(--overlay-bg);overflow-y:auto}
+.lov-in{width:100%;max-width:440px;margin:auto;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(24px + env(safe-area-inset-bottom,0px))}
+.lov-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.lov-top h2{margin:0;font-family:var(--display);font-weight:var(--eb-w);font-size:26px;letter-spacing:var(--lbl-ls);text-transform:var(--lbl-tt);color:var(--text-strong)}
+.icon-btn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface-solid);color:var(--text);display:grid;place-items:center;text-decoration:none;flex-shrink:0}
+.icon-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.qr{display:flex;align-items:center;gap:14px;margin-top:14px;padding:12px;border-radius:var(--r-md);background:var(--surface-solid);border:1px solid var(--line)}
+.qr svg{width:84px;height:84px;flex-shrink:0;background:#fff;border-radius:8px;padding:6px}
+.qr p{margin:0;font-size:14px;color:var(--muted)}
+.qr strong{display:block;color:var(--text);font-size:15px}
+.reward{margin-top:12px;padding:12px 14px;border-radius:var(--r-md);background:var(--ok-soft);border:1px solid var(--ok);color:var(--text);font-weight:600}
+.demo-note{margin:12px 0 0;font-size:13px;color:var(--muted);text-align:center}
+body:has(.lov:target){overflow:hidden}
+body:has(.lov:target) .dock{visibility:hidden}
+
+/* Equipo */
+.team{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.member{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:16px 8px 12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);color:var(--text);text-decoration:none;transition:border-color .15s ease,background .15s ease}
+.member:hover{border-color:var(--accent-line);background:var(--surface-hover)}
+.av{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:var(--name-w);font-size:30px;color:var(--accent-ink);background:var(--av-bg);box-shadow:0 0 0 3px var(--surface-solid),0 0 0 4px var(--accent-line)}
+.member .mn{font-family:var(--display);font-weight:var(--lbl-w);font-size:var(--lbl-size);letter-spacing:var(--lbl-ls);text-transform:var(--lbl-tt);line-height:1}
+.member .ms{font-size:12px;color:var(--muted);line-height:1.3;min-height:2.6em}
+.member .mk{font-size:13px;font-weight:700;color:var(--accent-text)}
+
+/* Galería */
+.gallery{display:grid;grid-auto-flow:column;grid-auto-columns:42%;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+.shot{scroll-snap-align:start;margin:0;aspect-ratio:3/4;border-radius:var(--r-md);border:1px dashed var(--accent-line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:12px;background:radial-gradient(80% 60% at 50% 35%,var(--accent-soft),transparent 70%),var(--surface)}
+.shot svg{width:40px;height:40px;stroke:var(--accent-text);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.shot figcaption{font-family:var(--display);font-weight:var(--lbl-w);font-size:var(--lbl-size);letter-spacing:var(--lbl-ls);text-transform:var(--lbl-tt);line-height:1;color:var(--text)}
+.shot small{display:block;font-family:var(--body);font-weight:400;font-size:12px;letter-spacing:0;text-transform:none;color:var(--muted);margin-top:6px}
+
+/* Horario */
+.hours{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;font-size:15px}
+.hours th,.hours td{padding:11px 16px;text-align:left;border-top:1px solid var(--line)}
+.hours tr:first-child th,.hours tr:first-child td{border-top:0}
+.hours th{font-weight:500;color:var(--muted)}
+.hours td{text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}
+.hours tr.today th,.hours tr.today td{color:var(--text);font-weight:700;background:var(--accent-soft)}
+
+/* Redes y visita */
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);color:var(--text);text-decoration:none;min-width:0;transition:background .15s ease}
+.tile:hover{background:var(--surface-hover)}
+.tile .txt{width:100%}
+.tile .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ig{background:radial-gradient(circle at 30% 107%,#fdf497 0%,#fdf497 5%,#fd5949 45%,#d6249f 60%,#285AEB 90%)}
+.tt{background:#000;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.gg{background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;padding:14px 16px 14px 14px;min-height:72px;color:var(--text);text-decoration:none;transition:background .15s ease}
+.row + .row{border-top:1px solid var(--line)}
+.row:hover{background:var(--surface-hover)}
+
+/* Pie */
+.foot{margin-top:40px;text-align:center;font-size:13px;color:var(--text-on-bg);text-shadow:var(--tshadow)}
+.foot p{margin:4px 0}
+.foot strong{font-family:var(--display);font-weight:var(--lbl-w);font-size:24px;letter-spacing:var(--lbl-ls);text-transform:var(--name-tt);font-style:var(--name-style);color:var(--text-strong)}
+
+/* Barra inferior: visible sin JavaScript; con JavaScript aparece al bajar */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:var(--dock-fade);transition:transform .3s cubic-bezier(.2,.7,.2,1)}
+.js .dock:not(.show){transform:translateY(110%);pointer-events:none}
+.dock a{display:flex;align-items:center;justify-content:center;gap:10px;max-width:428px;margin:0 auto;min-height:54px;border-radius:999px;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-family:var(--display);font-weight:var(--lbl-w);font-size:calc(var(--lbl-size) - 1px);letter-spacing:var(--lbl-ls);text-transform:var(--lbl-tt);box-shadow:var(--cta-shadow)}
+.dock a:hover{background:var(--accent-hi)}
+.dock svg{width:22px;height:22px}
+
+@media (min-width:600px){.hero{padding-top:56px}.gallery{grid-auto-columns:31%}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+<div class="bg" aria-hidden="true"></div>
+
+<main class="wrap" id="main">
+<header class="hero">
+  <p class="demo-pill">Demo · datos de ejemplo</p>
+  <h1 class="brand">{{LOGO_SVG}}<span class="name">{{SHORT}}</span><span class="kind">{{KIND}}</span><span class="sr-only"> — {{NAME}}</span></h1>
+  <p class="tag">{{TAGLINE}}</p>
+  <ul class="meta" aria-label="Datos rápidos">
+    <li id="open-now" class="needs-js" hidden></li>
+    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-7.1-7-12a7 7 0 0 1 14 0c0 4.9-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>{{DISTRICT}}</li>
+  </ul>
+</header>
+
+<a id="reserve" class="cta" href="{{WA_RESERVA}}" target="_blank" rel="noopener">
+  <span class="ico wa">{{WA_ICON}}</span>
+  <span class="txt"><span class="lbl">{{CTA_LABEL}}</span><span class="sub">Por WhatsApp · respuesta rápida</span></span>
+  <span class="go"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  <span class="sr-only">(se abre en WhatsApp)</span>
+</a>
+<a class="cta-2" href="#fidelidad">
+  <span class="ico soft"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span>
+  <span class="txt"><span class="lbl">{{LOYALTY_NAME}}</span><span class="sub">{{LOYALTY_PITCH}}</span></span>
+  <span class="go"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+</a>
+<nav class="quick" aria-label="Accesos rápidos">
+  <a class="qbtn" href="#servicios">{{SVC_ICON}}Servicios y precios</a>
+  <a class="qbtn" href="#horario"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Horario</a>
+</nav>
+
+<section class="group" id="servicios" aria-labelledby="t-svc">
+  <h2 class="eyebrow" id="t-svc">Servicios</h2>
+  <p class="hint">Toca un servicio para reservarlo directo.</p>
+  {{SERVICES}}
+</section>
+
+<section class="group" id="fidelidad" aria-labelledby="t-loy">
+  <h2 class="eyebrow" id="t-loy">{{LOYALTY_NAME}}</h2>
+  <p class="hint">{{LOYALTY_HINT}}</p>
+  {{CARD_PREVIEW}}
+  {{REAL_CARD}}<a class="btn{{DEMO_BTN_CLASS}}" href="#mi-tarjeta"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18"/></svg>Ver mi tarjeta (demo)</a>
+  <ol class="l-steps" aria-label="Cómo funciona">{{STEPS}}</ol>
+  <ul class="rewards" aria-label="Premios">{{REWARDS}}</ul>
+</section>
+
+<section class="group" aria-labelledby="t-team">
+  <h2 class="eyebrow" id="t-team">Nuestro equipo</h2>
+  <div class="team">{{TEAM}}</div>
+</section>
+
+<section class="group" aria-labelledby="t-gal">
+  <h2 class="eyebrow" id="t-gal">{{GALLERY_TITLE}}</h2>
+  <p class="hint">Aquí van las fotos y videos del negocio.</p>
+  <div class="gallery" role="region" aria-label="Galería (desplazable)" tabindex="0">{{GALLERY}}</div>
+</section>
+
+<section class="group" id="horario" aria-labelledby="t-hours">
+  <h2 class="eyebrow" id="t-hours">Horario</h2>
+  <table class="hours"><caption class="sr-only">Horario de atención</caption><tbody>{{HOURS}}</tbody></table>
+</section>
+
+<section class="group" aria-labelledby="t-social">
+  <h2 class="eyebrow" id="t-social">Síguenos</h2>
+  <div class="pair">
+    <a class="tile" href="https://www.instagram.com/" target="_blank" rel="noopener">
+      <span class="ico ig"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="4.5" width="15" height="15" rx="4.4" fill="none" stroke="#fff" stroke-width="1.9"/><circle cx="12" cy="12" r="3.6" fill="none" stroke="#fff" stroke-width="1.9"/><circle cx="16.4" cy="7.6" r="1.05" fill="#fff"/></svg></span>
+      <span class="txt"><span class="lbl">Instagram</span><span class="sub">{{HANDLE}}</span></span>
+    </a>
+    <a class="tile" href="https://www.tiktok.com/" target="_blank" rel="noopener">
+      <span class="ico tt">{{TT_ICON}}</span>
+      <span class="txt"><span class="lbl">TikTok</span><span class="sub">{{HANDLE}}</span></span>
+    </a>
+  </div>
+</section>
+
+<section class="group" aria-labelledby="t-visit">
+  <h2 class="eyebrow" id="t-visit">Visítanos</h2>
+  <div class="list">
+    <a class="row" href="https://www.google.com/maps" target="_blank" rel="noopener">
+      <span class="ico gg">{{MAPS_ICON}}</span>
+      <span class="txt"><span class="lbl">Cómo llegar</span><span class="sub">{{ADDRESS}}</span></span>
+      <span class="go"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </a>
+    <a class="row" href="https://www.google.com/maps" target="_blank" rel="noopener">
+      <span class="ico gg">{{G_ICON}}</span>
+      <span class="txt"><span class="lbl">Déjanos una reseña</span><span class="sub">Tu opinión nos ayuda a crecer</span></span>
+      <span class="go"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </a>
+  </div>
+</section>
+
+<footer class="foot">
+  <p><strong>{{NAME}}</strong></p>
+  <p>Demo de linktree · Nombre, precios, horario, equipo y dirección son de ejemplo.</p>
+  <p>Incluible: Libro de Reclamaciones, políticas de privacidad y video de fondo.</p>
+</footer>
+</main>
+
+<nav class="dock" id="dock" aria-label="Acción rápida">
+  <a href="{{WA_RESERVA}}" target="_blank" rel="noopener">{{WA_PLAIN}}{{CTA_LABEL}}</a>
+</nav>
+
+<section class="lov" id="mi-tarjeta" aria-labelledby="t-card">
+  <div class="lov-in">
+    <div class="lov-top">
+      <h2 id="t-card">Mi tarjeta</h2>
+      <a class="icon-btn" href="#fidelidad" aria-label="Cerrar tarjeta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
+    </div>
+    {{CARD_FULL}}
+    <div class="qr">{{QR_SVG}}<p><strong>Muestra este código en caja</strong>Así sumamos tu visita en segundos. (Código de ejemplo)</p></div>
+    <div id="lv-reward" class="reward" role="status" hidden></div>
+    <button type="button" class="btn btn-primary needs-js" id="lv-add">{{SIM_LABEL}}</button>
+    <button type="button" class="btn needs-js" id="lv-reset" hidden>Reiniciar demo</button>
+    <p class="demo-note">Demostración: en la versión real, cada cliente tiene su tarjeta y el negocio suma las visitas desde su celular.</p>
+  </div>
+</section>
+
+<script>
+(function () {
+  /* Barra inferior */
+  var dock = document.getElementById('dock'), cta = document.getElementById('reserve');
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (e) {
+      dock.classList.toggle('show', !e[0].isIntersecting && e[0].boundingClientRect.top < 0);
+    }).observe(cta);
+  } else dock.classList.add('show');
+
+  /* «Abierto ahora» según la hora de Lima */
+  var HOURS = {{HOURS_JSON}};
+  try {
+    var parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Lima', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+    var get = function (t) { for (var i = 0; i < parts.length; i++) if (parts[i].type === t) return parts[i].value; };
+    var day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(get('weekday'));
+    var now = parseInt(get('hour'), 10) * 60 + parseInt(get('minute'), 10);
+    var toMin = function (s) { var p = s.split(':'); return +p[0] * 60 + +p[1]; };
+    var h = HOURS[day], badge = document.getElementById('open-now');
+    var row = document.querySelector('.hours tr[data-day="' + day + '"]');
+    if (row) row.classList.add('today');
+    if (h && now >= toMin(h[0]) && now < toMin(h[1])) { badge.className = 'open'; badge.textContent = 'Abierto ahora · hasta las ' + h[1]; }
+    else { badge.className = 'closed'; badge.textContent = 'Cerrado ahora'; }
+    badge.hidden = false;
+  } catch (e) {}
+
+  /* Tarjeta de fidelidad: simulación (solo demo, no guarda nada) */
+  var L = {{LOYALTY_JSON}}, val = L.start;
+  var add = document.getElementById('lv-add'), reset = document.getElementById('lv-reset'), msg = document.getElementById('lv-reward');
+  var fmt = function (s) { return s.replace('{n}', val).replace('{left}', Math.max(0, L.goal - val)).replace('{goal}', L.goal); };
+  function level() { var lv = L.levels ? L.levels[0][1] : ''; if (L.levels) L.levels.forEach(function (x) { if (val >= x[0]) lv = x[1]; }); return lv; }
+  function render(fresh) {
+    document.querySelectorAll('[data-lc]').forEach(function (card) {
+      if (L.mode === 'stamps') {
+        card.querySelectorAll('.stamps li').forEach(function (li, i) {
+          var on = i < val;
+          if (on && !li.classList.contains('on') && fresh && card.id === 'lc-full') { li.classList.remove('pop'); void li.offsetWidth; li.classList.add('pop'); }
+          li.classList.toggle('on', on);
+        });
+        card.querySelector('.stamps').setAttribute('aria-label', val + ' de ' + L.goal + ' sellos');
+      } else {
+        card.querySelector('.pts-n').textContent = val;
+        var pct = Math.min(100, Math.round(val / L.goal * 100));
+        var bar = card.querySelector('.bar');
+        bar.firstElementChild.style.width = pct + '%';
+        bar.setAttribute('aria-valuenow', Math.min(val, L.goal));
+        var lv = card.querySelector('.level'); if (lv) lv.textContent = 'Nivel ' + level();
+      }
+      card.querySelector('.lc-status').textContent = val >= L.goal ? L.doneText : fmt(L.statusText);
+    });
+    var done = val >= L.goal;
+    msg.hidden = !done; msg.textContent = done ? L.rewardText : '';
+    add.hidden = done; reset.hidden = !done;
+  }
+  add.addEventListener('click', function () { val = Math.min(L.goal, val + L.step); render(true); });
+  reset.addEventListener('click', function () { val = L.start; render(false); add.focus(); });
+  render(false);
+})();
+</script>
+</body>
+</html>

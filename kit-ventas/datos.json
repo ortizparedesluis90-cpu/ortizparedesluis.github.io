@@ -1,0 +1,11 @@
+{
+  "nombre": "Tu nombre",
+  "whatsapp": "+51 9XX XXX XXX",
+  "instagram": "@tu_usuario",
+  "precios": [
+    {"plan": "Bio Esencial", "pago": "S/ 290", "detalle": "pago único", "items": ["Página Bio con tu marca", "Reservas por WhatsApp", "Servicios, precios y redes"]},
+    {"plan": "Bio + Fidelización", "pago": "S/ 450", "mes": "+ S/ 79 al mes", "destacado": true, "items": ["Todo lo de Bio Esencial", "Tarjeta de sellos digital", "Panel, cartel QR y estadísticas", "Diseño a tu medida"]},
+    {"plan": "Bio Total", "pago": "S/ 790", "mes": "+ S/ 119 al mes", "items": ["Todo lo anterior", "Video promocional", "1 reel al mes"]}
+  ],
+  "oferta": "Primer mes de la tarjeta gratis para los 10 primeros negocios"
+}
