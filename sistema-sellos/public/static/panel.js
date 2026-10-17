@@ -10,6 +10,24 @@
   var base = '/api/n/' + slug;
   var $ = function (id) { return document.getElementById(id); };
   var actual = null; // cliente mostrado
+  // El QR de la tarjeta es un enlace .../panel#c=CODIGO; también aceptamos el código solo.
+  function codigoDe(texto) {
+    var m = /[#?&]c=([A-Za-z0-9-]{4,20})/.exec(texto || '');
+    return m ? m[1] : texto;
+  }
+  // Si se abrió el panel escaneando una tarjeta con la cámara del celular, buscamos a ese cliente.
+  var pendiente = /[#&]c=/.test(location.hash) ? codigoDe(location.hash) : null;
+  function atenderPendiente() {
+    if (!pendiente) return;
+    var cod = pendiente; pendiente = null;
+    history.replaceState(null, '', location.pathname + location.search);
+    $('q').value = cod; buscar(cod);
+  }
+  window.addEventListener('hashchange', function () {
+    if (!/[#&]c=/.test(location.hash)) return;
+    pendiente = codigoDe(location.hash);
+    if (!$('app').hidden) atenderPendiente();
+  });
 
   // ---------- sesión ----------
   function verLogin() {
@@ -20,6 +38,7 @@
   function verApp() {
     $('login').hidden = true; $('app').hidden = false; $('salir').hidden = false;
     cargarCerca(); cargarResumen(); cargarClientes();
+    atenderPendiente();
   }
   // Mientras el panel está abierto, se actualiza solo cada minuto.
   setInterval(function () {
@@ -84,8 +103,9 @@
       if (qr && qr.data) {
         detenerCamara();
         if (navigator.vibrate) navigator.vibrate(80);
-        $('q').value = qr.data;
-        buscar(qr.data);
+        var cod = codigoDe(qr.data);
+        $('q').value = cod;
+        buscar(cod);
         return;
       }
     }

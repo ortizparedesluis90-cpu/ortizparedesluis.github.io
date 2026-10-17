@@ -15,6 +15,7 @@ Funciona en **Cloudflare Workers + D1**. El plan gratuito alcanza para empezar c
 
 1. El cliente escanea el cartel del mostrador o abre el enlace desde la bio de Instagram o desde la página de enlaces, y crea su tarjeta.
 2. En cada visita muestra su tarjeta. El negocio la escanea en el panel y toca **+1 sello**. La tarjeta del cliente se actualiza sola en unos segundos.
+   El QR de la tarjeta también se puede leer con la cámara normal del celular o con Google Lens: abre el panel del negocio con ese cliente listo. Si el celular no tiene la sesión del panel abierta, primero pide la clave.
 3. Al completar los sellos, el panel activa **Canjear premio** y la tarjeta vuelve a empezar.
 
 **Protecciones incluidas:**

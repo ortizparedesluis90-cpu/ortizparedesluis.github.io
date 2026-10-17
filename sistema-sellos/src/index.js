@@ -482,7 +482,8 @@ async function manejar(req, env) {
       const c = await env.DB.prepare(`SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE token = ? AND negocio_id = ?`).bind(partes[2], n.id).first();
       if (!c) return html(P.noEncontrado(), 404);
       const enlace = `${url.origin}/${n.slug}/t/${c.token}`;
-      return html(P.tarjeta(n, c, qrSvg(c.codigo), enlace), 200, {
+      // El código va después de # para que no viaje al servidor ni quede en registros.
+      return html(P.tarjeta(n, c, qrSvg(`${url.origin}/${n.slug}/panel#c=${c.codigo}`), enlace), 200, {
         'Set-Cookie': cookie(`t_${n.slug}`, c.token, { path: `/${n.slug}`, maxAge: 60 * 60 * 24 * 400, sameSite: 'Lax' }),
       });
     }
