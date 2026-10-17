@@ -75,6 +75,21 @@ npx wrangler deploy
 
 Al terminar, Wrangler muestra la dirección, por ejemplo `https://sistema-sellos.TU-SUBDOMINIO.workers.dev`. Si tienes dominio propio, puedes conectarlo en Cloudflare: Workers → tu Worker → Settings → Domains & Routes.
 
+### Otra opción: publicar desde GitHub, sin computadora
+
+1. En Cloudflare, crea la base de datos en **Storage & Databases → D1 SQL Database → Create**, con el nombre `sellos`, y pega su **Database ID** en `wrangler.toml`.
+2. En **Workers & Pages → Create → Import a repository**, conecta este repositorio con esta configuración:
+   - **Project name:** `sistema-sellos`
+   - **Root directory:** `/sistema-sellos`
+   - **Build command:** vacío
+   - **Deploy command:** `npx wrangler deploy`
+   - **Production branch:** la rama donde esté el sistema
+3. En el Worker, en **Settings → Variables and Secrets**, agrega dos secretos:
+   - `ADMIN_PASSWORD`: mínimo 12 caracteres.
+   - `SESSION_SECRET`: un texto largo al azar.
+
+Cada cambio que se suba a esa rama se publica solo.
+
 **Para probarlo en tu computadora sin publicar nada:**
 1. Crea el archivo `.dev.vars` con la línea `ADMIN_PASSWORD=una-clave-de-prueba-larga`.
 2. Ejecuta `npm run dev`.
