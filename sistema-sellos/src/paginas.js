@@ -1,6 +1,9 @@
 // Plantillas HTML. Todo el JavaScript va en /static (la política CSP no permite scripts en línea).
 import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 
+// Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
+const V = '2026-10-17';
+
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
   regalo: 'M4 11h16v9H4zM3 7h18v4H3zM12 7v13M12 7c-1.5-3-5-3.5-5-1.5S10 7 12 7zm0 0c1.5-3 5-3.5 5-1.5S14 7 12 7z',
@@ -27,13 +30,13 @@ function base({ titulo, negocio, cuerpo, scripts = [], clase = '' }) {
 <meta name="color-scheme" content="${tema === 'claro' ? 'light' : 'dark'}">
 <title>${e(titulo)}</title>
 <link rel="icon" href="/static/icono.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/app.css?v=${V}">
 ${css}
 </head>
 <body class="${clase}">
 <a class="saltar" href="#principal">Saltar al contenido</a>
 ${cuerpo}
-${scripts.map((s) => `<script src="/static/${s}" defer></script>`).join('\n')}
+${scripts.map((s) => `<script src="/static/${s}?v=${V}" defer></script>`).join('\n')}
 </body>
 </html>`;
 }
