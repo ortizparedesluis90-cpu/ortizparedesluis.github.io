@@ -294,5 +294,17 @@ html[data-3d="1"] .carnet .brillo{display:block;position:absolute;inset:0;pointe
 .vistas iframe{width:100%;height:640px;border:1px solid var(--borde);border-radius:18px;background:#000}
 .vistas figcaption{color:var(--suave);font-size:.9rem;text-align:center;margin-top:6px}
 
+/* plan, vencimiento y suspensión */
+.pausa{background:var(--superficie);border:1.5px solid var(--acento);border-radius:var(--radio);padding:18px;margin:0 0 18px;text-align:center}
+.pausa h2{margin-bottom:6px}
+.aviso-plan{background:color-mix(in srgb,#F2B33D 18%,var(--superficie));border:1.5px solid #F2B33D;border-radius:14px;padding:12px 14px;font-weight:700;margin:0 0 16px}
+.aviso-cobros{display:grid;gap:6px;margin:0 0 14px}
+.aviso-cobros p{margin:0;padding:10px 12px;border-radius:12px;font-weight:700;background:var(--superficie-2)}
+.aviso-cobros .mal,.estado-plan.mal{color:var(--error)}
+.aviso-cobros .alerta,.estado-plan.alerta{color:color-mix(in srgb,#F2B33D 70%,var(--texto))}
+.estado-plan{font-weight:800}
+.estado-plan.ok{color:var(--ok)}
+.boton.wallet{background:#000;color:#fff;border-color:#000;margin-bottom:10px}
+html[data-tema="oscuro"] .boton.wallet{border-color:rgba(255,255,255,.35)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:380px){.botones{grid-template-columns:1fr}}

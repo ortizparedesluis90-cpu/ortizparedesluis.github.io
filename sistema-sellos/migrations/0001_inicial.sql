@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS negocios (
   tema          TEXT NOT NULL DEFAULT 'oscuro',   -- oscuro | claro
   redes         TEXT NOT NULL DEFAULT '{}',       -- JSON: whatsapp, instagram, tiktok, facebook, maps, web
   diseno        TEXT NOT NULL DEFAULT '{}',       -- JSON: estilo, colores, tipografía, fondo, tarjeta y sellos (src/diseno.js)
+  plan          TEXT NOT NULL DEFAULT '',         -- plan contratado (solo informativo para /admin)
+  vence         TEXT NOT NULL DEFAULT '',         -- fecha de vencimiento AAAA-MM-DD (hora de Lima)
+  suspendido    INTEGER NOT NULL DEFAULT 0,       -- 1 = servicio en pausa: no registra ni suma sellos
   clave_hash    TEXT NOT NULL DEFAULT '',         -- clave del panel (PBKDF2)
   clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar la clave: cierra sesiones viejas
   activo        INTEGER NOT NULL DEFAULT 1,
@@ -38,6 +41,7 @@ CREATE TABLE IF NOT EXISTS clientes (
   ultima_visita  TEXT,
   consentimiento TEXT NOT NULL,                   -- fecha y versión del aviso aceptado
   origen         TEXT NOT NULL DEFAULT 'enlace',  -- qr (cartel del mostrador) | enlace (bio, WhatsApp...)
+  wallet         INTEGER NOT NULL DEFAULT 0,      -- 1 = guardó su tarjeta en Google Wallet
   creado         TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (negocio_id, celular),
   UNIQUE (negocio_id, codigo)

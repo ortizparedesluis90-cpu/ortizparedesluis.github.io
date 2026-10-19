@@ -18,10 +18,12 @@
     verApp();
     if (!cat) await cargarCatalogo();
     negocios = r.datos.negocios;
+    planes = r.datos.planes || {};
     var tb = $('negocios');
     tb.textContent = '';
+    resumenCobros();
     if (!negocios.length) {
-      tb.appendChild(Sellos.el('tr', {}, [Sellos.el('td', { colspan: '6', texto: 'Aún no hay negocios. Agrega el primero abajo.' })]));
+      tb.appendChild(Sellos.el('tr', {}, [Sellos.el('td', { colspan: '7', texto: 'Aún no hay negocios. Agrega el primero abajo.' })]));
       return;
     }
     negocios.forEach(function (n) {
@@ -33,6 +35,7 @@
         Sellos.el('td', { texto: String(n.escaneos30) }),
         Sellos.el('td', { texto: String(n.visitas30) }),
         Sellos.el('td', { texto: String(n.cerca) }),
+        celdaPlan(n),
         Sellos.el('td', {}, [
           Sellos.el('a', { href: '/' + n.slug, texto: 'Registro' }),
           Sellos.el('a', { href: '/' + n.slug + '/panel', texto: 'Panel' }),
@@ -44,9 +47,57 @@
     });
   }
 
+  // ---------- vencimientos y cobros ----------
+  var planes = {};
+  function fecha(f) { if (!f) return 'sin fecha'; var p = f.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+  function estado(n) {
+    if (n.suspendido) return { clase: 'mal', texto: 'Suspendido' };
+    if (n.dias === null) return { clase: '', texto: 'Sin fecha de vencimiento' };
+    if (n.dias < 0) return { clase: 'mal', texto: 'Venció hace ' + (-n.dias) + (n.dias === -1 ? ' día' : ' días') };
+    if (n.dias === 0) return { clase: 'alerta', texto: 'Vence hoy' };
+    if (n.dias <= 7) return { clase: 'alerta', texto: 'Vence en ' + n.dias + (n.dias === 1 ? ' día' : ' días') };
+    return { clase: 'ok', texto: 'Al día' };
+  }
+  function celdaPlan(n) {
+    var e = estado(n);
+    var td = Sellos.el('td', {}, [
+      Sellos.el('span', { clase: 'estado-plan ' + e.clase, texto: e.texto }), Sellos.el('br'),
+      Sellos.el('span', { clase: 'nota', texto: (planes[n.plan] || 'Sin plan') + ' · vence ' + fecha(n.vence) }),
+    ]);
+    var botones = Sellos.el('div', { clase: 'botones chicos' });
+    [['+1 mes', 1], ['+1 año', 12]].forEach(function (b) {
+      var x = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: b[0], 'aria-label': 'Renovar ' + n.nombre + ' ' + b[0] });
+      x.addEventListener('click', function () { cambiarEstado(n, 'renovar', b[1]); });
+      botones.appendChild(x);
+    });
+    var s = Sellos.el('button', { clase: 'boton chico' + (n.suspendido ? '' : ' peligro'), type: 'button', texto: n.suspendido ? 'Reactivar' : 'Suspender', 'aria-label': (n.suspendido ? 'Reactivar ' : 'Suspender ') + n.nombre });
+    s.addEventListener('click', function () {
+      if (!n.suspendido && !confirm('¿Suspender «' + n.nombre + '»? Su panel deja de funcionar y sus clientes no podrán registrarse ni sumar sellos (sus datos se guardan). Puedes reactivarlo cuando quieras.')) return;
+      cambiarEstado(n, n.suspendido ? 'reactivar' : 'suspender');
+    });
+    botones.appendChild(s);
+    td.appendChild(botones);
+    return td;
+  }
+  async function cambiarEstado(n, accion, meses) {
+    var r = await Sellos.api('/api/admin/estado', { body: { slug: n.slug, accion: accion, meses: meses } });
+    if (!r.ok) return alert(r.datos.error || 'No se pudo cambiar el estado.');
+    cargar();
+  }
+  function resumenCobros() {
+    var vencidos = negocios.filter(function (n) { return !n.suspendido && n.dias !== null && n.dias < 0; });
+    var pronto = negocios.filter(function (n) { return !n.suspendido && n.dias !== null && n.dias >= 0 && n.dias <= 7; });
+    var caja = $('cobros'); caja.textContent = '';
+    if (!vencidos.length && !pronto.length) { caja.hidden = true; return; }
+    caja.hidden = false;
+    var nombres = function (l) { return l.map(function (n) { return n.nombre + ' (' + fecha(n.vence) + ')'; }).join(', '); };
+    if (vencidos.length) caja.appendChild(Sellos.el('p', { clase: 'mal', texto: '⚠ Vencidos: ' + vencidos.length + ' — ' + nombres(vencidos) }));
+    if (pronto.length) caja.appendChild(Sellos.el('p', { clase: 'alerta', texto: '⏰ Vencen en los próximos 7 días: ' + pronto.length + ' — ' + nombres(pronto) }));
+  }
+
   function llenar(n) {
     var f = $('form-negocio');
-    ['slug', 'nombre', 'programa', 'meta', 'premio', 'espera_min', 'razon_social', 'ruc', 'direccion', 'correo']
+    ['slug', 'nombre', 'programa', 'meta', 'premio', 'espera_min', 'razon_social', 'ruc', 'direccion', 'correo', 'plan', 'vence']
       .forEach(function (k) { if (f.elements[k]) f.elements[k].value = n[k] == null ? '' : n[k]; });
     var r = {};
     try { r = JSON.parse(n.redes || '{}'); } catch (e) { r = {}; }

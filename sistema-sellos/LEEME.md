@@ -65,6 +65,42 @@ id = "EL_ID_DE_TU_KV"
 
 Mientras no esté activado, todo lo demás del diseño funciona y el panel muestra un aviso en la parte de fotos. Las fotos que ya no usa ningún negocio se borran solas al día siguiente.
 
+## Planes, vencimientos y suspensión
+
+- **Al crear un negocio** queda con el plan «Prueba gratis» y vence en **1 mes**. Puedes cambiar el plan y la fecha en el formulario.
+- **En la tabla de `/admin`:**
+  - cada negocio muestra si está **al día**, si **vence en pocos días** o si **ya venció**;
+  - arriba aparece un aviso con los vencidos y los que vencen en los próximos 7 días;
+  - los botones **+1 mes** y **+1 año** renuevan desde la fecha de vencimiento (o desde hoy, si ya venció).
+- **El negocio también ve el aviso** en su panel 7 días antes del vencimiento: «Tu plan vence el…».
+- **Suspender** pone el servicio en pausa:
+  - el panel deja de funcionar;
+  - la página de registro muestra «Programa en pausa»;
+  - los clientes ven sus sellos, pero no se suman nuevos.
+  - **No se borra nada**: al tocar **Reactivar**, todo vuelve a funcionar igual.
+
+## Google Wallet (opcional)
+
+Con Google Wallet activado, la tarjeta del cliente muestra el botón **«Agregar a Google Wallet»**.
+
+- Solo aparece en Android; en iPhone no se muestra.
+- El pase lleva sus sellos, su QR y el premio, y se actualiza solo cada vez que se suma un sello.
+
+Para activarlo:
+
+1. **Crea tu cuenta de emisor** en <https://pay.google.com/business/console>. Al terminar verás tu **Issuer ID**.
+2. **Crea un proyecto** en <https://console.cloud.google.com>:
+   - activa la **Google Wallet API**;
+   - crea una **cuenta de servicio**;
+   - en **Claves**, crea una clave **JSON** y descárgala.
+3. **Da acceso a la cuenta de servicio:** en la consola de Google Wallet, en **Users**, invita el correo de esa cuenta de servicio con el rol **Developer**.
+4. **Agrega 3 secretos** en Cloudflare (Worker → Settings → Variables and Secrets, tipo **Secret**):
+   - `WALLET_ISSUER_ID`: tu Issuer ID.
+   - `WALLET_SA_EMAIL`: el `client_email` del JSON.
+   - `WALLET_SA_KEY`: el `private_key` del JSON, completo, desde `-----BEGIN PRIVATE KEY-----` hasta el final.
+
+Mientras Google no apruebe tu cuenta para producción, los pases funcionan solo con las cuentas de Google que agregues como **usuarios de prueba** en la consola de Wallet. Para publicarlo para todos, pide el acceso de producción en esa misma consola.
+
 ## Estadísticas del panel
 
 El resumen del panel muestra dos grupos de datos:

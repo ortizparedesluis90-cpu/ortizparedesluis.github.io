@@ -47,6 +47,7 @@
   async function pedir(url, opciones) {
     var r = await Sellos.api(url, opciones);
     if (r.status === 401) { verLogin(); Sellos.mostrar($('login-error'), 'Tu sesión terminó. Vuelve a ingresar.'); }
+    if (r.status === 403 && /suspendido/.test(r.datos.error || '')) avisoPlan({ suspendido: true });
     return r;
   }
 
@@ -280,8 +281,21 @@
   enlace.textContent = location.origin + '/' + slug;
 
   // ---------- inicio ----------
+  // Aviso del plan: suspendido o por vencer.
+  function avisoPlan(d) {
+    if (d.suspendido) { $('suspendido').hidden = false; $('login').hidden = true; $('app').hidden = true; return true; }
+    var a = $('aviso-plan');
+    if (d.dias !== null && d.dias !== undefined && d.dias <= 7) {
+      var f = d.vence.split('-').reverse().join('/');
+      a.textContent = d.dias < 0 ? 'Tu plan venció el ' + f + '. Renuévalo para no perder el servicio.'
+        : (d.dias === 0 ? 'Tu plan vence hoy.' : 'Tu plan vence el ' + f + ' (en ' + d.dias + (d.dias === 1 ? ' día' : ' días') + ').') + ' Renuévalo para no perder el servicio.';
+      a.hidden = false;
+    }
+    return false;
+  }
   (async function () {
     var r = await Sellos.api(base + '/yo');
+    if (r.ok && avisoPlan(r.datos)) return;
     if (r.ok && r.datos.sesion) verApp(); else verLogin();
   })();
 })();

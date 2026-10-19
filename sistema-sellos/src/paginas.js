@@ -3,7 +3,7 @@ import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './diseno.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-17b';
+const V = '2026-10-19';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -16,6 +16,7 @@ const ICONOS = {
   facebook: 'M15 3h-2.5A3.5 3.5 0 0 0 9 6.5V10H6.5v3.5H9V21h3.5v-7.5H15l.5-3.5h-3V7a1 1 0 0 1 1-1H15z',
   maps: 'M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
   web: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z',
+  wallet: 'M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3M4 7.5V17a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H6.5A2.5 2.5 0 0 1 4 7.5zM16 13.5h.01',
 };
 export const icono = (n) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${ICONOS[n]}"/></svg>`;
 
@@ -65,6 +66,8 @@ const pie = (n) => `<footer class="pie">
   <p>${e(n.programa)} · ${e(n.nombre)}</p>
 </footer>`;
 
+const pausa = (texto) => `<section class="pausa" role="status"><h2>Programa en pausa</h2><p>${texto}</p></section>`;
+
 export function registro(n, { error = '', valores = {} } = {}) {
   const titular = n.razon_social || n.nombre;
   return base({
@@ -84,6 +87,8 @@ export function registro(n, { error = '', valores = {} } = {}) {
 
   ${redes(n, 'Síguenos y reserva')}
 
+  ${n.suspendido ? pausa('Por ahora no estamos creando tarjetas nuevas. Vuelve a intentarlo más adelante.') : ''}
+  <div${n.suspendido ? ' hidden' : ''}>
   <ol class="pasos" aria-label="Cómo funciona">
     <li><span class="num" aria-hidden="true">1</span><span>Crea tu tarjeta gratis con tu nombre y celular.</span></li>
     <li><span class="num" aria-hidden="true">2</span><span>En cada visita muestra tu código QR en caja y te sumamos un sello.</span></li>
@@ -116,6 +121,7 @@ export function registro(n, { error = '', valores = {} } = {}) {
     <p class="aviso-error" id="registro-error" role="alert"${error ? '' : ' hidden'}>${e(error)}</p>
     <button class="boton primario ancho" type="submit">Crear mi tarjeta</button>
   </form>
+  </div>
 </main>
 ${pie(n)}`,
   });
@@ -143,6 +149,7 @@ export function tarjeta(n, c, qrSvg, url) {
     <h1>${e(n.programa)}</h1>
   </header>
 
+  ${n.suspendido ? pausa('Tus sellos están guardados. Por ahora el negocio no está sumando sellos.') : ''}
   <section class="carnet" aria-labelledby="hola">
     <span class="brillo" aria-hidden="true"></span>
     <div class="carnet-top">
@@ -162,6 +169,7 @@ export function tarjeta(n, c, qrSvg, url) {
   </section>
 
   <section class="acciones">
+    ${n.wallet ? `<a class="boton wallet" href="/${e(n.slug)}/t/${e(c.token)}/wallet" rel="nofollow">${icono('wallet')}Agregar a Google Wallet</a>` : ''}
     <a class="boton" href="https://wa.me/${e(c.celular)}?text=${encodeURIComponent(mensaje)}" target="_blank" rel="noopener">${icono('wa')}Enviarme el enlace por WhatsApp</a>
     <p class="nota">Guarda este enlace o agrégalo a tu pantalla de inicio (menú del navegador → «Agregar a pantalla de inicio»). Es tu tarjeta: no lo compartas.</p>
   </section>
@@ -196,6 +204,7 @@ export function cartel(n, qr, url) {
   <h1>${e(n.programa)}</h1>
   <p class="bajada">Junta <strong>${n.meta} sellos</strong> y gana <strong>${e(n.premio)}</strong></p>
   <div class="qr grande" role="img" aria-label="Código QR para crear tu tarjeta">${qr}</div>
+  ${n.suspendido ? '<p class="aviso-error solo-pantalla">Este negocio está suspendido: el QR mostrará «Programa en pausa».</p>' : ''}
   <p class="cartel-paso">Escanea con la cámara de tu celular y crea tu tarjeta gratis</p>
   <p class="nota">${e(url.replace(/^https?:\/\//, ''))}</p>
   <p class="nota solo-pantalla">Imprime esta página (menú del navegador → Imprimir) y ponla en el mostrador.</p>
@@ -265,6 +274,8 @@ export function panel(n) {
   </header>
 
   <noscript><p class="aviso-error">El panel necesita JavaScript activado.</p></noscript>
+  <section class="pausa" id="suspendido" role="alert" hidden><h2>Panel suspendido</h2><p>Comunícate con tu proveedor para reactivarlo. Tus clientes y sus sellos están guardados.</p></section>
+  <p class="aviso-plan" id="aviso-plan" role="status" hidden></p>
 
   <form id="login" class="tarjeta-form" hidden>
     <h2>Ingresar</h2>
@@ -364,9 +375,10 @@ export function admin() {
   <div id="app" hidden>
     <section class="bloque" aria-labelledby="t-negocios">
       <h2 id="t-negocios">Negocios</h2>
+      <div class="aviso-cobros" id="cobros" role="status" hidden></div>
       <div class="tabla-envoltura" role="region" aria-label="Tabla de negocios" tabindex="0">
         <table class="tabla">
-          <thead><tr><th scope="col">Negocio</th><th scope="col">Clientes</th><th scope="col">Escaneos del QR (30 días)</th><th scope="col">Visitas (30 días)</th><th scope="col">Cerca del premio</th><th scope="col">Enlaces</th></tr></thead>
+          <thead><tr><th scope="col">Negocio</th><th scope="col">Clientes</th><th scope="col">Escaneos del QR (30 días)</th><th scope="col">Visitas (30 días)</th><th scope="col">Cerca del premio</th><th scope="col">Plan y vencimiento</th><th scope="col">Enlaces</th></tr></thead>
           <tbody id="negocios"></tbody>
         </table>
       </div>
@@ -387,6 +399,8 @@ export function admin() {
         <div class="campo"><label for="f-ruc">RUC</label><input id="f-ruc" name="ruc" inputmode="numeric" pattern="\\d{11}" maxlength="11"></div>
         <div class="campo"><label for="f-direccion">Dirección</label><input id="f-direccion" name="direccion" maxlength="140"></div>
         <div class="campo"><label for="f-correo">Correo para derechos ARCO</label><input id="f-correo" name="correo" type="email" maxlength="100"></div>
+        <div class="campo"><label for="f-plan">Plan</label><select id="f-plan" name="plan"><option value="">Sin definir</option><option value="prueba">Prueba gratis</option><option value="mensual">Mensual</option><option value="anual">Anual</option><option value="esencial">Bio Esencial</option><option value="total">Bio Total</option><option value="cortesia">Cortesía</option></select></div>
+        <div class="campo"><label for="f-vence">Vence el</label><input id="f-vence" name="vence" type="date" aria-describedby="f-vence-ayuda"><p class="ayuda" id="f-vence-ayuda">Si lo dejas vacío en un negocio nuevo, vence en 1 mes (primer mes gratis).</p></div>
         <div class="campo"><label for="f-red-whatsapp">WhatsApp del negocio</label><input id="f-red-whatsapp" name="red_whatsapp" type="tel" inputmode="numeric" maxlength="11" placeholder="9XX XXX XXX"></div>
         <div class="campo"><label for="f-red-instagram">Instagram (enlace)</label><input id="f-red-instagram" name="red_instagram" type="url" placeholder="https://instagram.com/..."></div>
         <div class="campo"><label for="f-red-tiktok">TikTok (enlace)</label><input id="f-red-tiktok" name="red_tiktok" type="url" placeholder="https://tiktok.com/@..."></div>

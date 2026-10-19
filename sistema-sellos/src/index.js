@@ -4,6 +4,7 @@ import qrcode from 'qrcode-generator';
 import ESQUEMA from '../migrations/0001_inicial.sql';
 import * as P from './paginas.js';
 import { leerDiseno, temaCss, catalogo, mediosDe, colores } from './diseno.js';
+import { walletActivo, enlaceGuardar, actualizar as actualizarWallet } from './wallet.js';
 import {
   AVISO_VERSION, EN_MARCO, html, json, error, texto, redirigir, cookies, cookie, cuerpo, nuevoToken, nuevoCodigo, aleatorio,
   normalizarCodigo, celularPeru, celularVisible, limpiarTexto, SLUG, RESERVADOS, primerNombre,
@@ -14,14 +15,23 @@ import {
 
 // ---------- base de datos ----------
 let esquemaListo = false;
+const COLUMNAS_NUEVAS = [
+  ['negocios', 'diseno', "TEXT NOT NULL DEFAULT '{}'"],
+  ['negocios', 'plan', "TEXT NOT NULL DEFAULT ''"],
+  ['negocios', 'vence', "TEXT NOT NULL DEFAULT ''"],
+  ['negocios', 'suspendido', 'INTEGER NOT NULL DEFAULT 0'],
+  ['clientes', 'wallet', 'INTEGER NOT NULL DEFAULT 0'],
+];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
   const sentencias = ESQUEMA.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n')
     .split(';').map((s) => s.trim()).filter(Boolean);
   await env.DB.batch(sentencias.map((s) => env.DB.prepare(s)));
-  // Bases creadas antes de existir el diseño: agregamos la columna.
-  const col = await env.DB.prepare("SELECT COUNT(*) AS n FROM pragma_table_info('negocios') WHERE name = 'diseno'").first();
-  if (!col.n) await env.DB.prepare("ALTER TABLE negocios ADD COLUMN diseno TEXT NOT NULL DEFAULT '{}'").run();
+  // Bases creadas con una versión anterior: agregamos las columnas nuevas.
+  for (const [tabla, columna, def] of COLUMNAS_NUEVAS) {
+    const col = await env.DB.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('${tabla}') WHERE name = ?`).bind(columna).first();
+    if (!col.n) await env.DB.prepare(`ALTER TABLE ${tabla} ADD COLUMN ${columna} ${def}`).run();
+  }
   esquemaListo = true;
 }
 
@@ -31,7 +41,7 @@ async function negocioPorSlug(env, slug) {
   return n;
 }
 
-const CAMPOS_CLIENTE = 'id, token, codigo, nombre, celular, recordatorios, sellos, visitas, premios, ultima_visita, creado';
+const CAMPOS_CLIENTE = 'id, token, codigo, nombre, celular, recordatorios, sellos, visitas, premios, ultima_visita, creado, wallet';
 
 function clientePublico(c, n) {
   return { nombre: primerNombre(c.nombre), sellos: c.sellos, meta: n.meta, premio: n.premio, visitas: c.visitas, premios: c.premios };
@@ -85,6 +95,21 @@ function qrSvg(valor) {
   return `<svg viewBox="0 0 ${n + 2 * m} ${n + 2 * m}" shape-rendering="crispEdges" aria-hidden="true"><rect width="100%" height="100%" fill="#fff"/><path fill="#000" d="${d}"/></svg>`;
 }
 
+// ---------- vencimiento del plan ----------
+const PLANES = { '': 'Sin definir', prueba: 'Prueba gratis', mensual: 'Mensual', anual: 'Anual', esencial: 'Bio Esencial', total: 'Bio Total', cortesia: 'Cortesía' };
+const FECHA = /^\d{4}-\d{2}-\d{2}$/;
+const hoyLima = () => new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
+function sumarMeses(fecha, meses) {
+  const [a, m, d] = fecha.split('-').map(Number);
+  const f = new Date(Date.UTC(a, m - 1 + meses, 1));
+  const ultimo = new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth() + 1, 0)).getUTCDate();
+  f.setUTCDate(Math.min(d, ultimo));
+  return f.toISOString().slice(0, 10);
+}
+/** Días que faltan para el vencimiento (negativo si ya venció; null si no tiene fecha). */
+const diasPara = (vence) => (FECHA.test(vence || '') ? Math.round((Date.parse(vence) - Date.parse(hoyLima())) / 86400000) : null);
+const estadoPlan = (n) => ({ plan: n.plan || '', vence: n.vence || '', dias: diasPara(n.vence), suspendido: !!n.suspendido });
+
 // ---------- sesiones ----------
 async function puedeEntrar(req, env, n) {
   const s = await leerSesion(req, env);
@@ -113,6 +138,7 @@ async function registrar(req, env, n) {
   const fallo = (msg, status = 400) =>
     formulario ? html(P.registro(n, { error: msg, valores: { nombre, celular: String(datos.celular || '').slice(0, 11), origen: datos.origen === 'qr' ? 'qr' : 'enlace' } }), status) : error(msg, status);
 
+  if (n.suspendido) return fallo('Este programa está en pausa por ahora. Vuelve a intentarlo más adelante.', 403);
   if (nombre.length < 2) return fallo('Escribe tu nombre.');
   if (!celular) return fallo('Revisa tu celular: deben ser 9 dígitos y empezar con 9.');
   if (!(datos.acepta === true || datos.acepta === '1')) return fallo('Para crear tu tarjeta debes aceptar el aviso de privacidad.');
@@ -144,13 +170,18 @@ async function registrar(req, env, n) {
 }
 
 // ---------- API del panel ----------
-async function apiPanel(req, env, n, partes, url) {
+async function apiPanel(req, env, n, partes, url, ctx) {
   const [accion, id, sub] = partes;
   const metodo = req.method;
 
-  if (accion === 'yo' && metodo === 'GET') return json({ sesion: await puedeEntrar(req, env, n) });
+  if (accion === 'yo' && metodo === 'GET') {
+    const sesion = await puedeEntrar(req, env, n);
+    // La fecha de vencimiento solo la ve quien ya entró al panel.
+    return json({ sesion, ...(sesion ? estadoPlan(n) : { suspendido: !!n.suspendido, dias: null }) });
+  }
 
   if (accion === 'login' && metodo === 'POST') {
+    if (n.suspendido) return error('Este panel está suspendido. Comunícate con tu proveedor para reactivarlo.', 403);
     const llave = `login:${n.id}:${ip(req)}`;
     if (await bloqueado(env, llave, 8, 900)) return error('Demasiados intentos fallidos. Espera 15 minutos.', 429);
     let datos;
@@ -165,6 +196,7 @@ async function apiPanel(req, env, n, partes, url) {
   }
 
   if (!(await puedeEntrar(req, env, n))) return error('Inicia sesión.', 401);
+  if (n.suspendido && !(await esAdmin(req, env))) return error('Este panel está suspendido. Comunícate con tu proveedor para reactivarlo.', 403);
   let datos = {};
   if (metodo === 'POST') {
     try { datos = await cuerpo(req); } catch { return error('Solicitud no válida.'); }
@@ -241,6 +273,12 @@ async function apiPanel(req, env, n, partes, url) {
     if (!c) return error('Cliente no encontrado.', 404);
 
     if (!sub && metodo === 'GET') return json({ cliente: clientePanel(c, n, url.origin) });
+    // Tras cambiar los sellos, el pase de Google Wallet (si lo guardó) se actualiza en segundo plano.
+    const listo = async () => {
+      const nuevo = await leer();
+      if (nuevo && nuevo.wallet && walletActivo(env) && ctx) ctx.waitUntil(actualizarWallet(env, n, nuevo, url.origin));
+      return json({ cliente: clientePanel(nuevo, n, url.origin) });
+    };
 
     if (sub === 'sello' && metodo === 'POST') {
       const espera = `-${Math.max(0, n.espera_min | 0)} minutes`;
@@ -255,7 +293,7 @@ async function apiPanel(req, env, n, partes, url) {
         const hace = Math.max(0, Math.round((Date.now() - Date.parse(String(c.ultima_visita).replace(' ', 'T') + 'Z')) / 60000));
         return error(`Ya se le sumó un sello hace ${hace} min. Entre dos sellos deben pasar ${n.espera_min} minutos.`, 409);
       }
-      return json({ cliente: clientePanel(await leer(), n, url.origin) });
+      return listo();
     }
 
     if (sub === 'canje' && metodo === 'POST') {
@@ -264,7 +302,7 @@ async function apiPanel(req, env, n, partes, url) {
         env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo) SELECT ?, ?, 'canje' WHERE changes() > 0`).bind(n.id, cid),
       ]);
       if (!upd.meta.changes) return error(`Aún no completa los ${n.meta} sellos.`, 409);
-      return json({ cliente: clientePanel(await leer(), n, url.origin) });
+      return listo();
     }
 
     if (sub === 'deshacer' && metodo === 'POST') {
@@ -283,7 +321,7 @@ async function apiPanel(req, env, n, partes, url) {
         ).bind(cid, cid, n.id),
       ]);
       if (!upd.meta.changes) return error('Ese sello ya se deshizo.', 409);
-      return json({ cliente: clientePanel(await leer(), n, url.origin) });
+      return listo();
     }
 
     if (sub === 'recordatorios' && metodo === 'POST') {
@@ -335,7 +373,7 @@ async function apiAdmin(req, env, partes, url) {
 
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
-      `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno,
+      `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
          n.clave_hash != '' AS tiene_clave,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
@@ -343,12 +381,27 @@ async function apiAdmin(req, env, partes, url) {
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id AND c.recordatorios = 1 AND c.sellos >= MAX(n.meta - 2, 1)) AS cerca
        FROM negocios n WHERE n.activo = 1 ORDER BY n.nombre`
     ).all();
-    return json({ negocios: filas.results.map((n) => ({ ...n, diseno: leerDiseno(n, n.diseno) })) });
+    return json({ negocios: filas.results.map((n) => ({ ...n, diseno: leerDiseno(n, n.diseno), ...estadoPlan(n) })), hoy: hoyLima(), planes: PLANES });
   }
 
   if (accion === 'catalogo' && req.method === 'GET') return json({ ...catalogo(), medios: !!env.MEDIOS });
 
   if (accion === 'medios' && req.method === 'POST') return subirMedio(req, env, url);
+
+  if (accion === 'estado' && req.method === 'POST') {
+    let d;
+    try { d = await cuerpo(req); } catch { return error('Solicitud no válida.'); }
+    const n = await negocioPorSlug(env, String(d.slug || ''));
+    if (!n) return error('Negocio no encontrado.', 404);
+    if (d.accion === 'suspender') await env.DB.prepare('UPDATE negocios SET suspendido = 1 WHERE id = ?').bind(n.id).run();
+    else if (d.accion === 'reactivar') await env.DB.prepare('UPDATE negocios SET suspendido = 0 WHERE id = ?').bind(n.id).run();
+    else if (d.accion === 'renovar' && [1, 3, 6, 12].includes(Number(d.meses))) {
+      // Se suma desde el vencimiento si aún no llega; si ya venció, desde hoy.
+      const desde = FECHA.test(n.vence) && n.vence > hoyLima() ? n.vence : hoyLima();
+      await env.DB.prepare('UPDATE negocios SET vence = ?, suspendido = 0 WHERE id = ?').bind(sumarMeses(desde, Number(d.meses)), n.id).run();
+    } else return error('Acción no válida.');
+    return json({ ok: true, ...estadoPlan(await negocioPorSlug(env, n.slug)) });
+  }
 
   if (accion === 'negocios' && req.method === 'POST') {
     let d;
@@ -361,6 +414,8 @@ async function apiAdmin(req, env, partes, url) {
       razon_social: limpiarTexto(d.razon_social, 100), ruc: String(d.ruc || '').replace(/\D/g, ''),
       direccion: limpiarTexto(d.direccion, 140), correo: limpiarTexto(d.correo, 100),
     };
+    v.plan = Object.prototype.hasOwnProperty.call(PLANES, d.plan) ? d.plan : '';
+    v.vence = FECHA.test(d.vence || '') ? d.vence : '';
     const diseno = leerDiseno(null, d.diseno);
     // color y tema se mantienen por compatibilidad con versiones anteriores
     v.color = diseno.acento; v.tema = colores(diseno).claro ? 'claro' : 'oscuro';
@@ -387,16 +442,19 @@ async function apiAdmin(req, env, partes, url) {
     v.diseno = JSON.stringify(diseno);
     if (existe) {
       await env.DB.prepare(
-        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, activo=1
+        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, ...(hash ? [hash] : []), existe.id).run();
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, ...(hash ? [hash] : []), existe.id).run();
       return json({ ok: true, creado: false });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
+    // Negocio nuevo sin fecha: un mes desde hoy (el primer mes gratis).
+    if (!v.vence) v.vence = sumarMeses(hoyLima(), 1);
+    if (!v.plan) v.plan = 'prueba';
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, clave_hash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, hash).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash).run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);
@@ -479,7 +537,7 @@ async function vistaPrevia(req, env, pagina, url) {
 }
 
 // ---------- enrutador ----------
-async function manejar(req, env) {
+async function manejar(req, env, ctx) {
   const url = new URL(req.url);
   let partes;
   try { partes = url.pathname.split('/').filter(Boolean).map((p) => decodeURIComponent(p)); }
@@ -507,7 +565,7 @@ async function manejar(req, env) {
         }
         return error('No encontrado.', 404);
       }
-      return apiPanel(req, env, n, partes.slice(3), url);
+      return apiPanel(req, env, n, partes.slice(3), url, ctx);
     }
     return error('No encontrado.', 404);
   }
@@ -561,6 +619,15 @@ async function manejar(req, env) {
       if (!partes[2]) break;
       const c = await env.DB.prepare(`SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE token = ? AND negocio_id = ?`).bind(partes[2], n.id).first();
       if (!c) return html(P.noEncontrado(), 404);
+      if (partes[3] === 'wallet') {
+        if (!walletActivo(env)) return html(P.noEncontrado(), 404);
+        // Google exige un logo PNG o JPG público; si el del negocio es otro formato usamos el genérico.
+        const m = n.d.logo ? await env.DB.prepare('SELECT mime FROM medios WHERE id = ?').bind(n.d.logo).first() : null;
+        const logo = m && /png|jpeg/.test(m.mime) ? `${url.origin}/m/${n.d.logo}` : `${url.origin}/static/wallet-logo.png`;
+        await env.DB.prepare('UPDATE clientes SET wallet = 1 WHERE id = ?').bind(c.id).run();
+        return redirigir(await enlaceGuardar(env, n, c, url.origin, logo));
+      }
+      n.wallet = walletActivo(env) && !/iPhone|iPad|iPod/.test(req.headers.get('User-Agent') || '');
       const enlace = `${url.origin}/${n.slug}/t/${c.token}`;
       // El código va después de # para que no viaje al servidor ni quede en registros.
       return html(P.tarjeta(n, c, qrSvg(`${url.origin}/${n.slug}/panel#c=${c.codigo}`), enlace), 200, {
@@ -572,9 +639,9 @@ async function manejar(req, env) {
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     try {
-      return await manejar(req, env);
+      return await manejar(req, env, ctx);
     } catch (err) {
       console.error(err && err.stack ? err.stack : err);
       return error('Ocurrió un error. Intenta de nuevo.', 500);
