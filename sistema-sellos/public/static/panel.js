@@ -290,7 +290,7 @@
   function mayus(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
   function compacto(c) { var s = c / 100; return 'S/ ' + (Math.abs(s) >= 1000 ? (Math.round(s / 100) / 10) + ' mil' : Math.round(s)); }
   function plural(x, uno, varios) { return x + ' ' + (x === 1 ? uno : varios); }
-  var num = null;
+  var num = null, anchoAntes = 0;
 
   // Diferencia contra el mes anterior: flecha y signo, no solo color.
   function cambio(ahora, antes, mesAntes) {
@@ -403,6 +403,7 @@
 
     // 6 meses: lo que dejan los que regresan vs. lo que cuesta.
     var g = $('n-grafico');
+    anchoAntes = g.clientWidth;
     g.setAttribute('data-titulo', 'Ingresos de clientes que regresan y costo del programa, por mes');
     columnas(g, d.meses.map(function (x, k) {
       return { etiqueta: mayus(mesDe(x.mes)) + ' ' + x.mes.slice(0, 4), corta: mayus(mesDe(x.mes, true)), actual: k === i, valores: [x.ingresosRegreso, x.premios + x.inversion],
@@ -449,7 +450,7 @@
     var tramos = [];
     pico.forEach(function (h) { var t = tramos[tramos.length - 1]; if (t && t[1] === h) t[1] = h + 1; else tramos.push([h, h + 1]); });
     $('n-horas').textContent = pico.length
-      ? 'Tu día más fuerte es el ' + nombres[dias.indexOf(maxDia)] + '. Horas con más visitas: ' + tramos.map(function (t) { return 'de ' + hora(t[0]) + ' a ' + hora(t[1]); }).join(' y ') + '. Úsalo para tus turnos y para lanzar promociones en los días flojos.'
+      ? 'Tu día más fuerte es el ' + nombres[dias.indexOf(maxDia)] + '. Horas con más visitas: ' + tramos.map(function (t) { return 'de ' + hora(t[0]) + ' a ' + hora(t[1]); }).join(' y ') + ' Úsalo para tus turnos y para lanzar promociones en los días flojos.'
       : '';
 
     // Clientes que se están yendo.
@@ -483,7 +484,6 @@
     }
   }
   $('n-mes').addEventListener('change', function () { if (num) pintarNumeros(); });
-  var anchoAntes = 0;
   window.addEventListener('resize', function () { var w = $('n-grafico').clientWidth; if (num && Math.abs(w - anchoAntes) > 20) { anchoAntes = w; pintarNumeros(); } });
   $('f-ajustes').addEventListener('submit', async function (ev) {
     ev.preventDefault();
