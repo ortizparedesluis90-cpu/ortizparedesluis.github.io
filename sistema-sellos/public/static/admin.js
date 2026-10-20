@@ -177,6 +177,7 @@
       f.elements['red_' + k].value = k === 'whatsapp' && r[k] ? r[k].slice(2) : (r[k] || '');
     });
     f.elements.cuota.value = n.cuota ? String(n.cuota / 100) : '';
+    f.elements.precio.value = n.precio ? String(n.precio / 100) : '';
     f.elements.editar.value = n.slug;
     f.elements.clave.value = '';
     ponerDiseno(n.diseno || {});

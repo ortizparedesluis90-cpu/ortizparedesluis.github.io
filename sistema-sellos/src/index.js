@@ -411,10 +411,11 @@ async function numeros(env, n, origen) {
     ).bind(n.id),
     env.DB.prepare(
       `SELECT COUNT(*) AS clientes, COALESCE(SUM(visitas >= 2), 0) AS repiten,
+              COALESCE(SUM(visitas >= 2 AND ultima_visita < datetime('now', ?)), 0) AS riesgo,
               (SELECT AVG(d) FROM (SELECT (julianday(MAX(creado)) - julianday(MIN(creado))) / (COUNT(*) - 1) AS d
                  FROM movimientos WHERE negocio_id = ? AND tipo = 'sello' GROUP BY cliente_id HAVING COUNT(*) >= 2)) AS cada_dias
        FROM clientes WHERE negocio_id = ? AND visitas >= 1`
-    ).bind(n.id, n.id),
+    ).bind(`-${DIAS_RIESGO} days`, n.id, n.id),
     env.DB.prepare(
       `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND visitas >= 2 AND ultima_visita < datetime('now', ?)
        ORDER BY visitas DESC, ultima_visita DESC LIMIT 30`
@@ -439,7 +440,8 @@ async function numeros(env, n, origen) {
     for (const c of nuevos.results) if (dentro(c.dia)) x.nuevos += c.n;
     x.clientes = vinieron.size; x.volvieron = volvieron.size;
     x.premios = x.canjes * costoPremio;
-    x.inversion = mes >= inicio ? inversion : 0;
+    // En su mes gratis (plan «prueba») el negocio todavía no paga.
+    x.inversion = mes < inicio || (n.plan === 'prueba' && mes === hoy.slice(0, 7)) ? 0 : inversion;
     x.ganancia = x.ingresosRegreso - x.premios - x.inversion;
     return x;
   };
@@ -453,7 +455,7 @@ async function numeros(env, n, origen) {
     top: top.results.map((t) => ({ ...clientePanel(t, n, origen), visitas90: t.v90, gasto90: t.cobrado + (t.v90 - t.con_monto) * precio })),
     horas: horas.results,
     fidelidad: { clientes: f.clientes, repiten: f.repiten, cadaDias: f.cada_dias == null ? null : Math.round(f.cada_dias) },
-    riesgo: { dias: DIAS_RIESGO, clientes: riesgo.results.map((r) => clientePanel(r, n, origen)) },
+    riesgo: { dias: DIAS_RIESGO, total: f.riesgo, clientes: riesgo.results.map((r) => clientePanel(r, n, origen)) },
   };
 }
 
@@ -480,7 +482,7 @@ async function rendimiento(env) {
        FROM clientes GROUP BY negocio_id`
     ).bind(`-${DIAS_RIESGO} days`),
   ]);
-  const negocios = (await env.DB.prepare('SELECT id, slug, nombre, precio_visita, costo_premio, inversion_mes, creado FROM negocios WHERE activo = 1 ORDER BY nombre').all()).results;
+  const negocios = (await env.DB.prepare('SELECT id, slug, nombre, plan, precio_visita, costo_premio, inversion_mes, creado FROM negocios WHERE activo = 1 ORDER BY nombre').all()).results;
   const vacio = () => ({ visitas: 0, regreso: 0, volvieron: 0, ingresos: 0, ingresosRegreso: 0, canjes: 0 });
   const datos = new Map(negocios.map((n) => [n.id, { actual: vacio(), anteriorAlDia: vacio() }]));
   // Cada fila del mes en curso suma al actual; las del mes anterior hasta el mismo día, a la comparación.
@@ -503,7 +505,7 @@ async function rendimiento(env) {
       const d = datos.get(n.id), costoPremio = n.costo_premio || n.precio_visita;
       for (const x of [d.actual, d.anteriorAlDia]) {
         x.premios = x.canjes * costoPremio;
-        x.inversion = n.inversion_mes;
+        x.inversion = n.plan === 'prueba' && x === d.actual ? 0 : n.inversion_mes;
         x.ganancia = x.ingresosRegreso - x.premios - x.inversion;
       }
       if (String(n.creado).slice(0, 7) > anterior) d.anteriorAlDia = null; // aún no existía el mes pasado
@@ -532,7 +534,7 @@ async function apiAdmin(req, env, partes, url) {
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
       `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
-         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota,
+         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
          (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
@@ -578,6 +580,8 @@ async function apiAdmin(req, env, partes, url) {
     // Cuota mensual que paga el negocio: es su «inversión» en «Tus números». Vacía al editar = no cambia.
     const cuota = centimos(d.cuota);
     if (Number.isNaN(cuota)) return error('Revisa la cuota mensual: solo números, por ejemplo 69.');
+    const precio = centimos(d.precio);
+    if (Number.isNaN(precio)) return error('Revisa el precio por servicio: solo números, por ejemplo 35.');
     const diseno = leerDiseno(null, d.diseno);
     // color y tema se mantienen por compatibilidad con versiones anteriores
     v.color = diseno.acento; v.tema = colores(diseno).claro ? 'claro' : 'oscuro';
@@ -604,9 +608,9 @@ async function apiAdmin(req, env, partes, url) {
     v.diseno = JSON.stringify(diseno);
     if (existe) {
       await env.DB.prepare(
-        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes)
+        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita)
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, ...(hash ? [hash] : []), existe.id).run();
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, ...(hash ? [hash] : []), existe.id).run();
       return json({ ok: true, creado: false });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
@@ -614,9 +618,9 @@ async function apiAdmin(req, env, partes, url) {
     if (!v.vence) v.vence = sumarMeses(hoyLima(), 1);
     if (!v.plan) v.plan = 'prueba';
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0).run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);

@@ -3,7 +3,7 @@ import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './diseno.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-20';
+const V = '2026-10-21';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -285,6 +285,13 @@ export function panel(n) {
   </form>
 
   <div id="app" hidden>
+    <form class="bloque inicio-numeros" id="n-inicio" aria-labelledby="t-inicio" hidden>
+      <h2 id="t-inicio">Para empezar: ¿cuánto cobras en promedio por un servicio?</h2>
+      <p>Por ejemplo, lo que cuesta un corte. Con ese monto, en «Tus números» calculamos cuánto ganas con los clientes que regresan y cuánto dejas de ganar con los que no vuelven.</p>
+      <div class="fila-input"><label class="oculto-accesible" for="i-precio">Precio promedio por servicio, en soles</label><span class="prefijo" aria-hidden="true">S/</span><input id="i-precio" type="text" inputmode="decimal" maxlength="9" placeholder="35" required><button class="boton primario" type="submit">Guardar</button></div>
+      <p class="estado" id="i-msg" role="status"></p>
+    </form>
+    <p class="atajo"><a class="boton chico" href="#t-numeros">Ver tus números: ganancias y clientes</a></p>
     <section class="bloque" aria-labelledby="t-buscar">
       <h2 id="t-buscar">Registrar visita</h2>
       <button class="boton primario ancho grande" type="button" id="escanear">${icono('qr')}Escanear QR del cliente</button>
@@ -339,8 +346,13 @@ export function panel(n) {
 
     <section class="bloque numeros" aria-labelledby="t-numeros">
       <div class="fila"><h2 id="t-numeros">Tus números</h2><label class="mes"><span class="oculto-accesible">Mes</span><select id="n-mes"></select></label></div>
-      <p class="aviso-plan" id="n-falta" hidden>Escribe abajo cuánto cobras en promedio por visita y cuánto pagas al mes por el sistema para ver tus ingresos y tu ganancia.</p>
-      <div class="heroe" id="n-heroe" aria-live="polite"></div>
+      <div class="vacio-numeros" id="n-vacio" hidden>
+        <p><strong>Aún no hay visitas registradas.</strong> Cada vez que sumes un sello, aquí se irán llenando tus ganancias, tus mejores clientes y tus días más fuertes.</p>
+        <button class="boton chico" type="button" id="n-ver-ejemplo">Ver un ejemplo</button>
+      </div>
+      <div class="aviso-plan" id="n-ejemplo" role="status" hidden><span>Estás viendo un <strong>ejemplo con datos inventados</strong>.</span> <button class="boton chico" type="button" id="n-salir-ejemplo">Volver a mis números</button></div>
+      <div class="heroe" id="n-heroe" aria-live="polite" tabindex="-1"></div>
+      <p class="nota solo-tarjeta">Solo cuenta a tus clientes <strong>con tarjeta</strong>: las visitas de quienes no se registraron no aparecen aquí. Por eso estos números son menores que tu caja total; mientras más clientes registres, más completos serán.</p>
       <dl class="datos" id="n-datos"></dl>
 
       <h3 class="subtitulo">Lo que te dejan los clientes que regresan vs. lo que te cuesta el programa <span>(últimos 6 meses)</span></h3>
@@ -368,7 +380,7 @@ export function panel(n) {
           <div class="campo"><button class="boton primario" type="submit">Guardar montos</button><p class="estado" id="a-msg" role="status"></p></div>
         </form>
       </details>
-      <p class="nota">Cómo se calcula: cada sello es una visita. Si anotas lo cobrado, se usa ese monto; si no, tu precio promedio. «Clientes que regresan» son las visitas desde la 2.ª de cada cliente. La ganancia del programa es lo que dejaron esas visitas menos los premios entregados y lo que pagas por el sistema. Es una estimación: algunos habrían vuelto igual, pero es la mejor señal de cuánto te rinde la fidelización.</p>
+      <p class="nota">Cómo se calcula: solo cuentan los clientes con tarjeta, y cada sello es una visita. Si anotas lo cobrado, se usa ese monto; si no, tu precio promedio. «Clientes que regresan» son las visitas desde la 2.ª de cada cliente. La ganancia del programa es lo que dejaron esas visitas menos los premios entregados y lo que pagas por el sistema. Es una estimación: algunos habrían vuelto igual, pero es la mejor señal de cuánto te rinde la fidelización.</p>
     </section>
 
     <section class="bloque" aria-labelledby="t-resumen">
@@ -448,6 +460,7 @@ export function admin() {
         <div class="campo"><label for="f-direccion">Dirección</label><input id="f-direccion" name="direccion" maxlength="140"></div>
         <div class="campo"><label for="f-correo">Correo para derechos ARCO</label><input id="f-correo" name="correo" type="email" maxlength="100"></div>
         <div class="campo"><label for="f-plan">Plan</label><select id="f-plan" name="plan"><option value="">Sin definir</option><option value="prueba">Mes gratis</option><option value="mensual">Mensual</option><option value="cortesia">Cortesía</option></select></div>
+        <div class="campo"><label for="f-precio">Precio promedio por servicio (S/)</label><input id="f-precio" name="precio" type="text" inputmode="decimal" maxlength="7" placeholder="35" aria-describedby="f-precio-ayuda"><p class="ayuda" id="f-precio-ayuda">Lo que cobra en promedio (un corte, por ejemplo). Con eso su panel calcula cuánto gana y cuánto deja de ganar.</p></div>
         <div class="campo"><label for="f-cuota">Cuota mensual (S/)</label><input id="f-cuota" name="cuota" type="text" inputmode="decimal" maxlength="7" placeholder="69" aria-describedby="f-cuota-ayuda"><p class="ayuda" id="f-cuota-ayuda">De S/ 59 a S/ 79 según la zona y el tamaño del local. El negocio la ve en «Tus números».</p></div>
         <div class="campo"><label for="f-vence">Vence el</label><input id="f-vence" name="vence" type="date" aria-describedby="f-vence-ayuda"><p class="ayuda" id="f-vence-ayuda">Si lo dejas vacío en un negocio nuevo, vence en 1 mes (primer mes gratis).</p></div>
         <div class="campo"><label for="f-red-whatsapp">WhatsApp del negocio</label><input id="f-red-whatsapp" name="red_whatsapp" type="tel" inputmode="numeric" maxlength="11" placeholder="9XX XXX XXX"></div>

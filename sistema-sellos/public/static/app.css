@@ -354,3 +354,16 @@ html[data-tema="oscuro"] .boton.wallet{border-color:rgba(255,255,255,.35)}
 .dato-nota.alerta{color:color-mix(in srgb,#F2B33D 70%,var(--texto));font-weight:700}
 .tabla.rendimiento td{font-variant-numeric:tabular-nums}
 .tabla.rendimiento td:nth-child(n+2):nth-child(-n+6){white-space:nowrap}
+.inicio-numeros{border:1.5px solid var(--acento);background:color-mix(in srgb,var(--acento) 10%,var(--superficie))}
+.inicio-numeros h3{font-size:1.05rem;margin:0 0 6px}
+.inicio-numeros p{margin:0 0 10px}
+.inicio-numeros .fila-input{align-items:center}
+.inicio-numeros .prefijo{font-weight:800;font-size:1.1rem}
+.inicio-numeros input{max-width:140px}
+.vacio-numeros{background:var(--superficie-2);border-radius:14px;padding:14px;margin:0 0 14px}
+.vacio-numeros p{margin:0 0 10px}
+#n-ejemplo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+#n-ejemplo[hidden]{display:none}
+.solo-tarjeta{margin:-4px 0 14px}
+.inicio-numeros h2{font-size:1.15rem;margin:0 0 6px}
+.atajo{margin:-6px 0 14px;text-align:center}

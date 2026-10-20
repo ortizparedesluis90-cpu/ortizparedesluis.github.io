@@ -290,7 +290,7 @@
   function mayus(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
   function compacto(c) { var s = c / 100; return 'S/ ' + (Math.abs(s) >= 1000 ? (Math.round(s / 100) / 10) + ' mil' : Math.round(s)); }
   function plural(x, uno, varios) { return x + ' ' + (x === 1 ? uno : varios); }
-  var num = null, anchoAntes = 0;
+  var num = null, real = null, viendoEjemplo = false, anchoAntes = 0;
 
   // Diferencia contra el mes anterior: flecha y signo, no solo color.
   function cambio(ahora, antes, mesAntes) {
@@ -361,7 +361,9 @@
 
   async function cargarNumeros() {
     var r = await pedir(base + '/numeros');
-    if (r.ok) { num = r.datos; pintarNumeros(); }
+    if (!r.ok) return;
+    real = r.datos;
+    if (!viendoEjemplo) { num = real; pintarNumeros(); }
   }
   function pintarNumeros() {
     var d = num, sel = $('n-mes'), elegido = sel.value || d.meses[d.meses.length - 1].mes;
@@ -376,21 +378,29 @@
     // El mes en curso se compara con el anterior a la misma fecha (del 1 al día de hoy).
     if (a && i === d.meses.length - 1) { a = d.anteriorAlDia; antes = '1–' + a.hasta + ' ' + mesDe(a.mes, true); }
     var a0 = a || {};
-    var sinPrecio = !d.ajustes.precio;
-    $('n-falta').hidden = !(sinPrecio || !d.ajustes.inversion);
-    $('n-ajustes').open = sinPrecio;
+    var ej = viendoEjemplo, sinPrecio = !d.ajustes.precio;
+    // Sin precio, lo primero es preguntarlo; sin visitas, se ofrece un ejemplo.
+    $('n-inicio').hidden = ej || !!real.ajustes.precio;
+    $('n-vacio').hidden = ej || real.meses.some(function (x) { return x.visitas; });
+    $('n-ejemplo').hidden = !ej;
 
     // El número principal: la ganancia que deja el programa en el mes.
     var costo = m.premios + m.inversion, heroe = $('n-heroe');
     heroe.textContent = '';
     heroe.appendChild(Sellos.el('p', { clase: 'heroe-titulo', texto: 'Ganancia del programa en ' + mesDe(m.mes) }));
-    heroe.appendChild(Sellos.el('p', { clase: 'heroe-valor' + (m.ganancia < 0 ? ' negativo' : ''), texto: (m.ganancia < 0 ? '− ' : '') + plata(Math.abs(m.ganancia)) }));
-    heroe.appendChild(Sellos.el('p', { clase: 'heroe-nota', texto: costo > 0
+    var vacio = sinPrecio || !m.visitas;
+    heroe.appendChild(Sellos.el('p', { clase: 'heroe-valor' + (m.ganancia < 0 && !vacio ? ' negativo' : ''), texto: vacio ? '—' : (m.ganancia < 0 ? '− ' : '') + plata(Math.abs(m.ganancia)) }));
+    heroe.appendChild(Sellos.el('p', { clase: 'heroe-nota', texto: sinPrecio ? 'Escribe arriba cuánto cobras por servicio para ver tu ganancia.'
+      : !m.visitas ? 'Aún no hay visitas en ' + mesDe(m.mes) + '. Apenas sumes sellos, aquí verás tu ganancia.' : costo > 0
       ? 'Por cada S/ 1 que te cuesta (premios + sistema), tus clientes que regresan te dejaron ' + solesExactos.format(m.ingresosRegreso / costo) + '.'
       : 'Visitas de clientes que regresan: ' + plata(m.ingresosRegreso) + '. Configura lo que pagas al mes para ver tu retorno.' }));
 
     var f = d.fidelidad;
+    // Lo que se pierde: los que dejaron de venir, si volvieran a su ritmo de siempre.
+    var perdidos = d.riesgo.total == null ? d.riesgo.clientes.length : d.riesgo.total;
+    var perdida = Math.round(perdidos * d.ajustes.precio * 30 / (f.cadaDias || 30));
     tiles($('n-datos'), [
+      ['Dejas de ganar', sinPrecio ? '—' : plata(perdida), (sinPrecio ? '' : 'al mes · ') + plural(perdidos, 'cliente dejó', 'clientes dejaron') + ' de venir'],
       ['Ingresos estimados', plata(m.ingresos), plural(m.visitas, 'visita', 'visitas'), a && cambio(m.ingresos, a0.ingresos, antes)],
       ['De clientes que regresan', plata(m.ingresosRegreso), m.ingresos ? Math.round(m.ingresosRegreso / m.ingresos * 100) + ' % de tus ingresos' : '', a && cambio(m.ingresosRegreso, a0.ingresosRegreso, antes)],
       ['Clientes que volvieron', m.volvieron, 'de ' + plural(m.clientes, 'cliente', 'clientes') + ' que vinieron', a && cambio(m.volvieron, a0.volvieron, antes)],
@@ -423,8 +433,8 @@
     top.textContent = '';
     if (!d.top.length) top.appendChild(Sellos.el('li', { texto: 'Aún no hay visitas en los últimos 90 días.' }));
     d.top.forEach(function (c, k) {
-      var ver = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
-      ver.addEventListener('click', function () { mostrarCliente(c, true); });
+      var ver = ej ? null : Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
+      if (ver) ver.addEventListener('click', function () { mostrarCliente(c, true); });
       top.appendChild(Sellos.el('li', {}, [
         Sellos.el('span', { clase: 'puesto', texto: String(k + 1), 'aria-hidden': 'true' }),
         Sellos.el('div', { clase: 'quien' }, [
@@ -456,15 +466,19 @@
     // Clientes que se están yendo.
     var rz = $('n-riesgo');
     rz.textContent = '';
-    $('n-riesgo-nota').textContent = 'Vinieron 2 veces o más y no regresan hace más de ' + d.riesgo.dias + ' días. Un mensaje a tiempo los recupera.';
+    $('n-riesgo-nota').textContent = 'Vinieron 2 veces o más y no regresan hace más de ' + d.riesgo.dias + ' días.'
+      + (perdidos && !sinPrecio ? ' Si vuelven a su ritmo de siempre, son unos ' + plata(perdida) + ' más al mes.' : '') + ' Un mensaje a tiempo los recupera.';
     if (!d.riesgo.clientes.length) rz.appendChild(Sellos.el('li', { texto: 'Nadie por ahora. ¡Bien!' }));
     d.riesgo.clientes.forEach(function (c) {
       var hace = Math.round((Date.now() - Date.parse(c.ultimaVisita.replace(' ', 'T') + 'Z')) / 86400000);
       var nombre = c.nombre.split(' ')[0];
-      var ver = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
-      ver.addEventListener('click', function () { mostrarCliente(c, true); });
-      var botones = [ver];
-      if (c.recordatorios) {
+      var botones = [];
+      if (!ej) {
+        var ver = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
+        ver.addEventListener('click', function () { mostrarCliente(c, true); });
+        botones.push(ver);
+      }
+      if (c.recordatorios && !ej) {
         var msg = 'Hola ' + nombre + ', te extrañamos en ' + negocio + ' 💈 Tienes ' + c.sellos + ' de ' + meta + ' sellos en tu tarjeta ' + programa + '. ¿Te reservamos una cita esta semana? (Si no deseas recibir estos mensajes, responde BAJA.)';
         botones.push(Sellos.el('a', { clase: 'boton chico primario', href: 'https://wa.me/' + c.celularWa + '?text=' + encodeURIComponent(msg), target: '_blank', rel: 'noopener', texto: 'Escribir por WhatsApp' }));
       }
@@ -484,6 +498,50 @@
     }
   }
   $('n-mes').addEventListener('change', function () { if (num) pintarNumeros(); });
+
+  // Ejemplo con datos inventados, para ver cómo se llena «Tus números» antes de tener visitas.
+  function ejemplo() {
+    var p = real.ajustes.precio || 3500, cp = real.ajustes.costoPremio || p, inv = real.ajustes.inversion || 6900;
+    var vis = [38, 52, 61, 74, 70, 48], reg = [.45, .55, .6, .66, .7, .74], can = [0, 1, 2, 3, 3, 2], nue = [22, 18, 15, 14, 12, 7];
+    var mes = function (k, f) {
+      f = f || 1;
+      var v = Math.round(vis[k] * f), r = Math.round(v * reg[k]), c = Math.round(can[k] * f);
+      var x = { mes: real.meses[k].mes, visitas: v, regreso: r, volvieron: Math.round(r * .85), clientes: Math.round(v * .8), nuevos: Math.round(nue[k] * f), canjes: c,
+        ingresos: v * p, ingresosRegreso: r * p, premios: c * cp, inversion: inv };
+      x.ganancia = x.ingresosRegreso - x.premios - x.inversion;
+      return x;
+    };
+    var hoy = real.anteriorAlDia.hasta, ant = mes(4, hoy / 30);
+    ant.hasta = hoy;
+    var horas = [];
+    [6, 12, 10, 13, 16, 24, 28].forEach(function (total, dia) {
+      [10, 11, 12, 15, 16, 17, 18, 19].forEach(function (h, k) { horas.push({ dia: dia, hora: h, v: Math.max(1, Math.round(total * [.6, .7, .5, .6, .8, 1.4, 1.6, 1.2][k] / 7.4 * 3)) }); });
+    });
+    var persona = function (nombre, v, premios, dias) {
+      return { nombre: nombre, visitas90: v, gasto90: v * p, premios: premios, visitas: v + 4, sellos: v % 10, recordatorios: true, ultimaVisita: new Date(Date.now() - dias * 864e5).toISOString().slice(0, 19).replace('T', ' ') };
+    };
+    return {
+      ajustes: { precio: p, costoPremio: real.ajustes.costoPremio, inversion: inv }, meses: [0, 1, 2, 3, 4, 5].map(function (k) { return mes(k); }), anteriorAlDia: ant,
+      top: [persona('Carlos R.', 9, 1, 3), persona('Luis T.', 8, 1, 6), persona('Diego F.', 7, 0, 2), persona('Jorge C.', 7, 0, 9), persona('Miguel A.', 6, 0, 12)],
+      horas: horas, fidelidad: { clientes: 124, repiten: 79, cadaDias: 24 },
+      riesgo: { dias: 45, total: 9, clientes: [persona('Andrés V.', 6, 0, 52), persona('Kevin H.', 4, 0, 61), persona('Piero C.', 3, 0, 75)] },
+    };
+  }
+  $('n-ver-ejemplo').addEventListener('click', function () { viendoEjemplo = true; num = ejemplo(); pintarNumeros(); $('n-salir-ejemplo').focus(); });
+  $('n-salir-ejemplo').addEventListener('click', function () { viendoEjemplo = false; num = real; pintarNumeros(); $('n-ver-ejemplo').hidden || $('t-numeros').focus(); });
+  $('n-inicio').addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    var v = $('i-precio').value.trim(), msg = $('i-msg'), boton = this.querySelector('button');
+    if (!/^\d{1,6}([.,]\d{1,2})?$/.test(v) || !Number(v.replace(',', '.'))) { msg.textContent = 'Escribe el monto solo con números, por ejemplo 35.'; msg.className = 'estado mal'; return; }
+    var en = function (c) { return c ? String(c / 100) : ''; };
+    boton.disabled = true;
+    var r = await pedir(base + '/ajustes', { body: { precio: v, costoPremio: en(real.ajustes.costoPremio), inversion: en(real.ajustes.inversion) } });
+    boton.disabled = false;
+    if (!r.ok) { msg.textContent = r.datos.error || 'No se pudo guardar.'; msg.className = 'estado mal'; return; }
+    real = r.datos; viendoEjemplo = false; num = real; pintarNumeros();
+    $('a-msg').textContent = '✓ Listo: ya calculamos tus ganancias con S/ ' + v + ' por servicio.'; $('a-msg').className = 'estado ok';
+    $('n-heroe').focus();
+  });
   window.addEventListener('resize', function () { var w = $('n-grafico').clientWidth; if (num && Math.abs(w - anchoAntes) > 20) { anchoAntes = w; pintarNumeros(); } });
   $('f-ajustes').addEventListener('submit', async function (ev) {
     ev.preventDefault();
@@ -491,7 +549,7 @@
     boton.disabled = true;
     var r = await pedir(base + '/ajustes', { body: { precio: $('a-precio').value, costoPremio: $('a-premio').value, inversion: $('a-inversion').value } });
     boton.disabled = false;
-    if (r.ok) { num = r.datos; boton.focus(); pintarNumeros(); msg.textContent = '✓ Montos guardados.'; msg.className = 'estado ok'; }
+    if (r.ok) { real = num = r.datos; viendoEjemplo = false; boton.focus(); pintarNumeros(); msg.textContent = '✓ Montos guardados.'; msg.className = 'estado ok'; }
     else { msg.textContent = r.datos.error || 'No se pudieron guardar.'; msg.className = 'estado mal'; }
   });
 

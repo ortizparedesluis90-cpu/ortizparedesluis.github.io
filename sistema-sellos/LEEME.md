@@ -122,6 +122,9 @@ El conteo es anónimo y no guarda la IP ni ningún dato de la persona. Cada celu
 
 La sección **Tus números** del panel muestra cuánto le rinde la tarjeta al negocio, mes por mes:
 
+- **Solo cuenta a los clientes con tarjeta.** Las visitas de quien no se registró no aparecen, así que los números son menores que la caja total del negocio.
+- **Precio por servicio:** lo puedes poner tú al crear el negocio en `/admin`. Si falta, el panel lo pregunta arriba de todo («Para empezar: ¿cuánto cobras en promedio por un servicio?»). Sin visitas todavía, el botón **Ver un ejemplo** muestra la sección llena con datos inventados, marcada como ejemplo.
+- **Dejas de ganar:** estima cuánto dejan de dejar al mes los clientes que dejaron de venir, si volvieran a su ritmo de siempre.
 - **Montos del negocio** (en «Configurar tus montos»): el precio promedio por visita, lo que le cuesta dar el premio y lo que paga al mes por el sistema. Si anotaste su cuota en `/admin`, ya aparece puesta.
 - **Cobrado en esta visita** (opcional): al sumar un sello se puede anotar lo que pagó el cliente. Si se deja vacío, se cuenta el precio promedio.
 - **Ganancia del programa:** lo que dejaron los clientes que regresan (sus visitas desde la 2.ª) menos los premios entregados y lo que paga por el sistema. También muestra cuánto vuelve por cada S/ 1 invertido.
