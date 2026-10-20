@@ -89,7 +89,7 @@ Mientras no esté activado, todo lo demás del diseño funciona y el panel muest
 ## Planes, vencimientos y suspensión
 
 - **Al crear un negocio** queda con el plan «Mes gratis» y vence en **1 mes**. Puedes cambiar el plan y la fecha en el formulario.
-- **Cuota mensual:** lo que paga cada negocio (de S/ 59 a S/ 79 según la zona y el tamaño del local). Se anota en el formulario y el negocio la ve como «Lo que pagas por el sistema» en «Tus números». En «Rendimiento de tus negocios», **Cobras al mes** suma las cuotas de los negocios que ya pagan (no cuenta los suspendidos, los que están en su mes gratis ni las cortesías).
+- **Cuota mensual:** lo que paga cada negocio (de S/ 59 a S/ 79 según la zona y el tamaño del local). Se anota en el formulario. El negocio no la ve en «Tus números» ni la puede cambiar: solo se usa para tu cálculo de ganancia en «Rendimiento de tus negocios». En «Rendimiento de tus negocios», **Cobras al mes** suma las cuotas de los negocios que ya pagan (no cuenta los suspendidos, los que están en su mes gratis ni las cortesías).
 - **En la tabla de `/admin`:**
   - cada negocio muestra si está **al día**, si **vence en pocos días** o si **ya venció**;
   - arriba aparece un aviso con los vencidos y los que vencen en los próximos 7 días;
@@ -146,14 +146,14 @@ La sección **Tus números** del panel muestra cuánto le rinde la tarjeta al ne
 - **Solo cuenta a los clientes con tarjeta.** Las visitas de quien no se registró no aparecen, así que los números son menores que la caja total del negocio.
 - **Precio por servicio:** lo puedes poner tú al crear el negocio en `/admin`. Si falta, el panel lo pregunta arriba de todo («Para empezar: ¿cuánto cobras en promedio por un servicio?»). Sin visitas todavía, el botón **Ver un ejemplo** muestra la sección llena con datos inventados, marcada como ejemplo.
 - **Dejas de ganar:** estima cuánto dejan de dejar al mes los clientes que dejaron de venir, si volvieran a su ritmo de siempre.
-- **Montos del negocio** (en «Configurar tus montos»): el precio promedio por visita, lo que le cuesta dar el premio y lo que paga al mes por el sistema. Si anotaste su cuota en `/admin`, ya aparece puesta.
+- **Montos del negocio** (en «Configurar tus montos»): el precio promedio por visita, lo que le cuesta dar el premio y sus servicios con precio.
 - **Cobrado en esta visita** (opcional): al sumar un sello se puede anotar lo que pagó el cliente. Si se deja vacío, se cuenta el precio promedio.
-- **Ganancia del programa:** lo que dejaron los clientes que regresan (sus visitas desde la 2.ª) menos los premios entregados y lo que paga por el sistema. También muestra cuánto vuelve por cada S/ 1 invertido.
-- **Datos del mes:** ingresos estimados, clientes que volvieron, clientes nuevos, premios, el porcentaje de clientes que vuelve a venir y cada cuántos días regresan. Cada dato muestra la diferencia con el mes anterior; el mes en curso se compara con el anterior a la misma fecha.
-- **Gráfico de 6 meses** (lo que dejan los que regresan frente a lo que cuesta), con vista en tabla.
+- **Número principal:** «Este mes tus clientes con tarjeta te dejaron S/ …», con las visitas, los clientes que volvieron y la comparación con el mes anterior. A propósito no muestra costos ni la cuota del sistema, para que se entienda de un vistazo.
+- **Datos del mes:** clientes nuevos, clientes que volvieron, visitas, premios entregados (o saldo usado en cashback) y clientes que dejaron de venir. Cada dato muestra la diferencia con el mes anterior; el mes en curso se compara con el anterior a la misma fecha.
+- **Gráfico de 6 meses** con lo que dejaron los clientes con tarjeta cada mes, con vista en tabla.
 - **Ranking de los 10 clientes más fieles**, **días y horas con más visitas** (90 días) y **clientes que dejaron de venir** (2 visitas o más y nada en 45 días), con botón de WhatsApp si aceptaron recordatorios.
 
-Es una estimación: algunos clientes habrían vuelto igual, pero es la mejor señal de cuánto le rinde la fidelización.
+La ganancia del programa (lo que dejan los clientes que regresan menos premios y cuota) y el «por cada S/ 1» solo se ven en tu `/admin`, en «Rendimiento de tus negocios». El informe por WhatsApp que le mandas al negocio usa los datos simples.
 
 En `/admin`, **Rendimiento de tus negocios** muestra lo mismo para todos los negocios del mes en curso (comparado con el mes anterior a la misma fecha) y un botón **Enviar por WhatsApp** que le manda a cada negocio su informe del mes, listo para usar antes de cada renovación.
 

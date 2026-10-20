@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-23';
+const V = '2026-10-24';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -310,11 +310,11 @@ export function panel(n) {
   <div id="app" hidden>
     <form class="bloque inicio-numeros" id="n-inicio" aria-labelledby="t-inicio" hidden>
       <h2 id="t-inicio">Para empezar: ¿cuánto cobras en promedio por un servicio?</h2>
-      <p>Por ejemplo, lo que cuesta un corte. Con ese monto, en «Tus números» calculamos cuánto ganas con los clientes que regresan y cuánto dejas de ganar con los que no vuelven.</p>
+      <p>Por ejemplo, lo que cuesta un corte. Con ese monto, en «Tus números» calculamos cuánto te dejan tus clientes con tarjeta y cuánto dejas de ganar con los que no vuelven.</p>
       <div class="fila-input"><label class="oculto-accesible" for="i-precio">Precio promedio por servicio, en soles</label><span class="prefijo" aria-hidden="true">S/</span><input id="i-precio" type="text" inputmode="decimal" maxlength="9" placeholder="35" required><button class="boton primario" type="submit">Guardar</button></div>
       <p class="estado" id="i-msg" role="status"></p>
     </form>
-    <p class="atajo"><a class="boton chico" href="#t-numeros">Ver tus números: ganancias y clientes</a></p>
+    <p class="atajo"><a class="boton chico" href="#t-numeros">Ver tus números: ventas y clientes</a></p>
     <section class="bloque" aria-labelledby="t-buscar">
       <h2 id="t-buscar">Registrar visita</h2>
       <button class="boton primario ancho grande" type="button" id="escanear">${icono('qr')}Escanear QR del cliente</button>
@@ -373,7 +373,7 @@ export function panel(n) {
     <section class="bloque numeros" aria-labelledby="t-numeros">
       <div class="fila"><h2 id="t-numeros">Tus números</h2><label class="mes"><span class="oculto-accesible">Mes</span><select id="n-mes"></select></label></div>
       <div class="vacio-numeros" id="n-vacio" hidden>
-        <p><strong>Aún no hay visitas registradas.</strong> Cada vez que sumes un sello, aquí se irán llenando tus ganancias, tus mejores clientes y tus días más fuertes.</p>
+        <p><strong>Aún no hay visitas registradas.</strong> Cada vez que sumes un sello, aquí se irá llenando cuánto te dejan tus clientes, tus mejores clientes y tus días más fuertes.</p>
         <button class="boton chico" type="button" id="n-ver-ejemplo">Ver un ejemplo</button>
       </div>
       <div class="aviso-plan" id="n-ejemplo" role="status" hidden><span>Estás viendo un <strong>ejemplo con datos inventados</strong>.</span> <button class="boton chico" type="button" id="n-salir-ejemplo">Volver a mis números</button></div>
@@ -381,8 +381,7 @@ export function panel(n) {
       <p class="nota solo-tarjeta">Solo cuenta a tus clientes <strong>con tarjeta</strong>: las visitas de quienes no se registraron no aparecen aquí. Por eso estos números son menores que tu caja total; mientras más clientes registres, más completos serán.</p>
       <dl class="datos" id="n-datos"></dl>
 
-      <h3 class="subtitulo">Lo que te dejan los clientes que regresan vs. lo que te cuesta el programa <span>(últimos 6 meses)</span></h3>
-      <ul class="leyenda" aria-hidden="true"><li><i class="m-acento"></i>Ingresos de clientes que regresan</li><li><i class="m-suave"></i>Costo: premios + sistema</li></ul>
+      <h3 class="subtitulo">Lo que te dejaron tus clientes con tarjeta, mes a mes <span>(últimos 6 meses)</span></h3>
       <div class="grafico" id="n-grafico"></div>
       <details class="ver-tabla"><summary>Ver en tabla</summary><div class="tabla-envoltura"><table class="tabla" id="n-tabla"></table></div></details>
 
@@ -407,12 +406,11 @@ export function panel(n) {
         <form id="f-ajustes" class="rejilla">
           <div class="campo"><label for="a-precio">Precio o consumo promedio por visita (S/)</label><input id="a-precio" name="precio" type="text" inputmode="decimal" maxlength="9" placeholder="35" aria-describedby="a-precio-ayuda"><p class="ayuda" id="a-precio-ayuda">Lo que paga en promedio un cliente. Se usa en las visitas sin monto anotado.</p></div>
           <div class="campo"><label for="a-premio">Lo que te cuesta dar el premio (S/)</label><input id="a-premio" name="costoPremio" type="text" inputmode="decimal" maxlength="9" placeholder="Igual al precio" aria-describedby="a-premio-ayuda"><p class="ayuda" id="a-premio-ayuda">Vacío = se cuenta como una visita que no cobras.</p></div>
-          <div class="campo"><label for="a-inversion">Lo que pagas por el sistema al mes (S/)</label><input id="a-inversion" name="inversion" type="text" inputmode="decimal" maxlength="9" placeholder="69" aria-describedby="a-inversion-ayuda"><p class="ayuda" id="a-inversion-ayuda">Tu cuota mensual del sistema.</p></div>
           <div class="campo ancho-total"><label for="a-servicios">Tus servicios o productos y sus precios</label><textarea id="a-servicios" name="servicios" rows="5" placeholder="Corte = 30&#10;Barba = 15&#10;Corte + barba = 40" aria-describedby="a-servicios-ayuda"></textarea><p class="ayuda" id="a-servicios-ayuda">Uno por línea: nombre = precio. Al registrar una visita los eliges con un toque y el monto se suma solo.</p></div>
           <div class="campo"><button class="boton primario" type="submit">Guardar montos</button><p class="estado" id="a-msg" role="status"></p></div>
         </form>
       </details>
-      <p class="nota">Cómo se calcula: solo cuentan los clientes con tarjeta, y cada vez que registras una visita (sello o compra) cuenta como visita. Si anotas lo cobrado, se usa ese monto; si no, tu precio promedio. «Clientes que regresan» son las visitas desde la 2.ª de cada cliente. La ganancia del programa es lo que dejaron esas visitas menos los premios entregados y lo que pagas por el sistema. Es una estimación: algunos habrían vuelto igual, pero es la mejor señal de cuánto te rinde la fidelización.</p>
+      <p class="nota">Cómo se calcula: solo cuentan los clientes con tarjeta, y cada vez que registras una visita (sello o compra) cuenta como visita. Si anotas lo cobrado, se usa ese monto; si no, tu precio promedio. «Clientes que volvieron» son los que vinieron este mes y ya habían venido antes. «Dejaron de venir» son los que venían seguido y llevan más de 45 días sin aparecer.</p>
     </section>
 
     <section class="bloque" aria-labelledby="t-resumen">

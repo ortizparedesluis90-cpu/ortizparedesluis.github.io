@@ -406,7 +406,8 @@ async function apiPanel(req, env, n, partes, url, ctx) {
   if (accion === 'numeros' && metodo === 'GET') return json(await numeros(env, n, url.origin));
 
   if (accion === 'ajustes' && metodo === 'POST') {
-    const v = { precio_visita: centimos(datos.precio), costo_premio: centimos(datos.costoPremio), inversion_mes: centimos(datos.inversion) };
+    // La cuota del sistema (inversion_mes) la define el administrador, no el negocio.
+    const v = { precio_visita: centimos(datos.precio), costo_premio: centimos(datos.costoPremio) };
     if (Object.values(v).some(Number.isNaN)) return error('Revisa los montos: solo números, por ejemplo 35 o 35.50.');
     // Servicios: solo si vienen en la solicitud (el formulario corto del inicio no los manda).
     if (datos.servicios !== undefined) {
@@ -414,8 +415,8 @@ async function apiPanel(req, env, n, partes, url, ctx) {
       if (sv.error) return error(sv.error);
       v.servicios = JSON.stringify(sv.lista);
     }
-    await env.DB.prepare('UPDATE negocios SET precio_visita = ?, costo_premio = ?, inversion_mes = ?, servicios = COALESCE(?, servicios) WHERE id = ?')
-      .bind(v.precio_visita || 0, v.costo_premio || 0, v.inversion_mes || 0, v.servicios ?? null, n.id).run();
+    await env.DB.prepare('UPDATE negocios SET precio_visita = ?, costo_premio = ?, servicios = COALESCE(?, servicios) WHERE id = ?')
+      .bind(v.precio_visita || 0, v.costo_premio || 0, v.servicios ?? null, n.id).run();
     return json(await numeros(env, { ...n, ...v, servicios: v.servicios ?? n.servicios }, url.origin));
   }
 

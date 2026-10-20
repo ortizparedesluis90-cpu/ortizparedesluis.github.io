@@ -80,8 +80,8 @@
       try { wa = JSON.parse((neg && neg.redes) || '{}').whatsapp || ''; } catch (e) { wa = ''; }
       var informe = 'Hola, te comparto cómo va tu programa de fidelización en ' + n.nombre + ' (del 1 al ' + d.dia + ' de ' + nombreMes(d.mes).split(' ')[0] + '):\n'
         + '• ' + x.visitas + ' visitas registradas' + (a && cambio(x.visitas, a.visitas) ? ' (' + cambio(x.visitas, a.visitas) + ' vs. el mes pasado a la misma fecha)' : '') + '\n'
-        + '• ' + x.volvieron + ' clientes volvieron' + (n.conMontos ? ' y te dejaron ' + plata(x.ingresosRegreso) : '') + '\n'
-        + (n.conMontos ? '• Ganancia del programa: ' + plata(x.ganancia) + (x.premios + x.inversion > 0 ? ' · por cada S/ 1 que te cuesta, te vuelven ' + retorno(x) : '') + '\n' : '')
+        + (n.conMontos ? '• Tus clientes con tarjeta te dejaron ' + plata(x.ingresos) + '\n' : '')
+        + '• ' + x.volvieron + (x.volvieron === 1 ? ' cliente volvió' : ' clientes volvieron') + '\n'
         + (n.riesgo ? '• ' + n.riesgo + (n.riesgo === 1 ? ' cliente dejó' : ' clientes dejaron') + ' de venir: escríbeles desde «Tus números» en tu panel.\n' : '')
         + 'Revisa todo el detalle en tu panel: ' + location.origin + '/' + n.slug + '/panel';
       var acciones = [Sellos.el('a', { href: '/' + n.slug + '/panel', texto: 'Panel' })];

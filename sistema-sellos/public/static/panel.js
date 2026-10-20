@@ -417,7 +417,6 @@
 
   // ---------- tus números ----------
   var soles = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 0 });
-  var solesExactos = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', minimumFractionDigits: 2 });
   var nombreMes = new Intl.DateTimeFormat('es-PE', { month: 'long', timeZone: 'UTC' });
   var mesCorto = new Intl.DateTimeFormat('es-PE', { month: 'short', timeZone: 'UTC' });
   function plata(c) { return soles.format(Math.round(c / 100)); }
@@ -519,48 +518,44 @@
     $('n-vacio').hidden = ej || real.meses.some(function (x) { return x.visitas; });
     $('n-ejemplo').hidden = !ej;
 
-    // El número principal: la ganancia que deja el programa en el mes.
-    var costo = m.premios + m.inversion, heroe = $('n-heroe');
+    // El número principal: lo que dejaron los clientes con tarjeta en el mes.
+    var heroe = $('n-heroe'), enCurso = i === d.meses.length - 1;
     heroe.textContent = '';
-    heroe.appendChild(Sellos.el('p', { clase: 'heroe-titulo', texto: 'Ganancia del programa en ' + mesDe(m.mes) }));
+    heroe.appendChild(Sellos.el('p', { clase: 'heroe-titulo', texto: (enCurso ? 'Este mes' : 'En ' + mesDe(m.mes)) + ' tus clientes con tarjeta te dejaron' }));
     var vacio = sinPrecio || !m.visitas;
-    heroe.appendChild(Sellos.el('p', { clase: 'heroe-valor' + (m.ganancia < 0 && !vacio ? ' negativo' : ''), texto: vacio ? '—' : (m.ganancia < 0 ? '− ' : '') + plata(Math.abs(m.ganancia)) }));
-    heroe.appendChild(Sellos.el('p', { clase: 'heroe-nota', texto: sinPrecio ? 'Escribe arriba cuánto cobras por servicio para ver tu ganancia.'
-      : !m.visitas ? 'Aún no hay visitas en ' + mesDe(m.mes) + '. Apenas registres visitas, aquí verás tu ganancia.' : costo > 0
-      ? 'Por cada S/ 1 que te cuesta (premios + sistema), tus clientes que regresan te dejaron ' + solesExactos.format(m.ingresosRegreso / costo) + '.'
-      : 'Visitas de clientes que regresan: ' + plata(m.ingresosRegreso) + '. Configura lo que pagas al mes para ver tu retorno.' }));
+    heroe.appendChild(Sellos.el('p', { clase: 'heroe-valor', texto: vacio ? '—' : plata(m.ingresos) }));
+    heroe.appendChild(Sellos.el('p', { clase: 'heroe-nota', texto: sinPrecio ? 'Escribe arriba cuánto cobras por servicio para ver cuánto te dejan tus clientes.'
+      : !m.visitas ? 'Aún no hay visitas en ' + mesDe(m.mes) + '. Apenas registres visitas, aquí verás cuánto te dejan.'
+      : plural(m.visitas, 'visita', 'visitas') + ' · ' + plural(m.volvieron, 'cliente volvió', 'clientes volvieron') }));
+    var cm = !vacio && a && cambio(m.ingresos, a0.ingresos, antes);
+    if (cm) heroe.appendChild(Sellos.el('p', { clase: 'dato-nota cambio ' + cm.clase, texto: cm.texto }));
 
-    var f = d.fidelidad;
     // Lo que se pierde: los que dejaron de venir, si volvieran a su ritmo de siempre.
+    var f = d.fidelidad;
     var perdidos = d.riesgo.total == null ? d.riesgo.clientes.length : d.riesgo.total;
     var perdida = Math.round(perdidos * d.ajustes.precio * 30 / (f.cadaDias || 30));
     tiles($('n-datos'), [
-      ['Dejas de ganar', sinPrecio ? '—' : plata(perdida), (sinPrecio ? '' : 'al mes · ') + plural(perdidos, 'cliente dejó', 'clientes dejaron') + ' de venir'],
-      ['Ingresos estimados', plata(m.ingresos), plural(m.visitas, 'visita', 'visitas'), a && cambio(m.ingresos, a0.ingresos, antes)],
-      ['De clientes que regresan', plata(m.ingresosRegreso), m.ingresos ? Math.round(m.ingresosRegreso / m.ingresos * 100) + ' % de tus ingresos' : '', a && cambio(m.ingresosRegreso, a0.ingresosRegreso, antes)],
-      ['Clientes que volvieron', m.volvieron, 'de ' + plural(m.clientes, 'cliente', 'clientes') + ' que vinieron', a && cambio(m.volvieron, a0.volvieron, antes)],
       ['Clientes nuevos', m.nuevos, 'Crearon su tarjeta', a && cambio(m.nuevos, a0.nuevos, antes)],
-      ['Ticket promedio', m.visitas && !sinPrecio ? plata(m.ingresos / m.visitas) : '—', 'Lo que deja cada visita', a && a0.visitas && m.visitas ? cambio(m.ingresos / m.visitas, a0.ingresos / a0.visitas, antes) : null],
-      d.tipo === 'cashback' ? ['Saldo usado', plata(m.premios), plural(m.canjes, 'vez', 'veces') + ' que usaron su saldo'] : ['Premios entregados', m.canjes, 'Te costaron ' + plata(m.premios)],
-      ['Lo que pagas por el sistema', plata(m.inversion), 'Este mes'],
-      ['Vuelven a venir', f.clientes ? Math.round(f.repiten / f.clientes * 100) + ' %' : '—', plural(f.repiten, 'cliente vino', 'clientes vinieron') + ' 2 veces o más'],
-      ['Vuelven cada', f.cadaDias === null ? '—' : plural(f.cadaDias, 'día', 'días'), 'En promedio, entre visita y visita'],
+      ['Clientes que volvieron', m.volvieron, 'de ' + plural(m.clientes, 'cliente', 'clientes') + ' que vinieron', a && cambio(m.volvieron, a0.volvieron, antes)],
+      ['Visitas', m.visitas, 'Veces que vinieron en total', a && cambio(m.visitas, a0.visitas, antes)],
+      d.tipo === 'cashback' ? ['Saldo usado', plata(m.premios), plural(m.canjes, 'vez', 'veces') + ' que usaron su saldo'] : ['Premios entregados', m.canjes, 'Premios que canjearon'],
+      ['Dejaron de venir', perdidos, perdidos && !sinPrecio ? 'Dejas de ganar ' + plata(perdida) + ' al mes. Escríbeles abajo.' : 'Nadie se te ha ido'],
     ]);
 
-    // 6 meses: lo que dejan los que regresan vs. lo que cuesta.
+    // 6 meses: lo que dejaron los clientes con tarjeta.
     var g = $('n-grafico');
     anchoAntes = g.clientWidth;
-    g.setAttribute('data-titulo', 'Ingresos de clientes que regresan y costo del programa, por mes');
+    g.setAttribute('data-titulo', 'Lo que te dejaron tus clientes con tarjeta, por mes');
     columnas(g, d.meses.map(function (x, k) {
-      return { etiqueta: mayus(mesDe(x.mes)) + ' ' + x.mes.slice(0, 4), corta: mayus(mesDe(x.mes, true)), actual: k === i, valores: [x.ingresosRegreso, x.premios + x.inversion],
-        extra: 'Ganancia: ' + (x.ganancia < 0 ? '− ' : '') + plata(Math.abs(x.ganancia)) };
-    }), [{ nombre: 'Regresan', clase: 'acento' }, { nombre: 'Costo', clase: 'suave' }], { eje: compacto, tip: plata });
+      return { etiqueta: mayus(mesDe(x.mes)) + ' ' + x.mes.slice(0, 4), corta: mayus(mesDe(x.mes, true)), actual: k === i, valores: [x.ingresos],
+        extra: plural(x.visitas, 'visita', 'visitas') + ' · ' + plural(x.nuevos, 'cliente nuevo', 'clientes nuevos') };
+    }), [{ nombre: 'Te dejaron', clase: 'acento' }], { eje: compacto, tip: plata });
     var tabla = $('n-tabla');
     tabla.textContent = '';
-    var cab = Sellos.el('tr', {}, ['Mes', 'Visitas', 'Volvieron', 'Nuevos', 'Ingresos', 'De los que regresan', 'Premios', 'Sistema', 'Ganancia'].map(function (t) { return Sellos.el('th', { scope: 'col', texto: t }); }));
+    var cab = Sellos.el('tr', {}, ['Mes', 'Te dejaron', 'Visitas', 'Nuevos', 'Volvieron', 'Premios'].map(function (t) { return Sellos.el('th', { scope: 'col', texto: t }); }));
     tabla.appendChild(Sellos.el('thead', {}, [cab]));
     tabla.appendChild(Sellos.el('tbody', {}, d.meses.slice().reverse().map(function (x) {
-      return Sellos.el('tr', {}, [mayus(mesDe(x.mes)) + ' ' + x.mes.slice(0, 4), x.visitas, x.volvieron, x.nuevos, plata(x.ingresos), plata(x.ingresosRegreso), plata(x.premios), plata(x.inversion), (x.ganancia < 0 ? '− ' : '') + plata(Math.abs(x.ganancia))]
+      return Sellos.el('tr', {}, [mayus(mesDe(x.mes)) + ' ' + x.mes.slice(0, 4), plata(x.ingresos), x.visitas, x.nuevos, x.volvieron, d.tipo === 'cashback' ? plata(x.premios) : x.canjes]
         .map(function (v, k) { return Sellos.el(k ? 'td' : 'th', k ? { texto: String(v) } : { scope: 'row', texto: String(v) }); }));
     })));
 
@@ -641,7 +636,7 @@
     var aj = d.ajustes, en = function (c) { return c ? String(c / 100) : ''; };
     var foco = document.activeElement;
     if (!(foco && foco.tagName === 'INPUT' && $('f-ajustes').contains(foco))) {
-      $('a-precio').value = en(aj.precio); $('a-premio').value = en(aj.costoPremio); $('a-inversion').value = en(aj.inversion);
+      $('a-precio').value = en(aj.precio); $('a-premio').value = en(aj.costoPremio);
       if (!ej) $('a-servicios').value = (d.servicios || []).map(function (x) { return x.n + ' = ' + x.p / 100; }).join('\n');
     }
   }
@@ -649,14 +644,13 @@
 
   // Ejemplo con datos inventados, para ver cómo se llena «Tus números» antes de tener visitas.
   function ejemplo() {
-    var p = real.ajustes.precio || 3500, cp = real.ajustes.costoPremio || p, inv = real.ajustes.inversion || 6900;
+    var p = real.ajustes.precio || 3500, cp = real.ajustes.costoPremio || p;
     var vis = [38, 52, 61, 74, 70, 48], reg = [.45, .55, .6, .66, .7, .74], can = [0, 1, 2, 3, 3, 2], nue = [22, 18, 15, 14, 12, 7];
     var mes = function (k, f) {
       f = f || 1;
       var v = Math.round(vis[k] * f), r = Math.round(v * reg[k]), c = Math.round(can[k] * f);
       var x = { mes: real.meses[k].mes, visitas: v, regreso: r, volvieron: Math.round(r * .85), clientes: Math.round(v * .8), nuevos: Math.round(nue[k] * f), canjes: c,
-        ingresos: v * p, ingresosRegreso: r * p, premios: c * cp, inversion: inv };
-      x.ganancia = x.ingresosRegreso - x.premios - x.inversion;
+        ingresos: v * p, ingresosRegreso: r * p, premios: c * cp };
       return x;
     };
     var hoy = real.anteriorAlDia.hasta, ant = mes(4, hoy / 30);
@@ -669,7 +663,7 @@
       return { nombre: nombre, visitas90: v, gasto90: v * p, premios: premios, visitas: v + 4, sellos: v % 10, puntos: v * 30, saldo: v * 150, recordatorios: true, ultimaVisita: new Date(Date.now() - dias * 864e5).toISOString().slice(0, 19).replace('T', ' ') };
     };
     return {
-      ajustes: { precio: p, costoPremio: real.ajustes.costoPremio, inversion: inv }, meses: [0, 1, 2, 3, 4, 5].map(function (k) { return mes(k); }), anteriorAlDia: ant,
+      ajustes: { precio: p, costoPremio: real.ajustes.costoPremio }, meses: [0, 1, 2, 3, 4, 5].map(function (k) { return mes(k); }), anteriorAlDia: ant,
       top: [persona('Carlos R.', 9, 1, 3), persona('Luis T.', 8, 1, 6), persona('Diego F.', 7, 0, 2), persona('Jorge C.', 7, 0, 9), persona('Miguel A.', 6, 0, 12)],
       horas: horas, fidelidad: { clientes: 124, repiten: 79, cadaDias: 24 }, tipo: real.tipo,
       vendidos: (real.servicios.length ? real.servicios : [{ n: 'Servicio A', p: p }, { n: 'Servicio B', p: Math.round(p * 0.6) }, { n: 'Servicio C', p: Math.round(p * 1.4) }])
@@ -685,11 +679,11 @@
     if (!/^\d{1,6}([.,]\d{1,2})?$/.test(v) || !Number(v.replace(',', '.'))) { msg.textContent = 'Escribe el monto solo con números, por ejemplo 35.'; msg.className = 'estado mal'; return; }
     var en = function (c) { return c ? String(c / 100) : ''; };
     boton.disabled = true;
-    var r = await pedir(base + '/ajustes', { body: { precio: v, costoPremio: en(real.ajustes.costoPremio), inversion: en(real.ajustes.inversion) } });
+    var r = await pedir(base + '/ajustes', { body: { precio: v, costoPremio: en(real.ajustes.costoPremio) } });
     boton.disabled = false;
     if (!r.ok) { msg.textContent = r.datos.error || 'No se pudo guardar.'; msg.className = 'estado mal'; return; }
     real = r.datos; viendoEjemplo = false; num = real; pintarNumeros();
-    $('a-msg').textContent = '✓ Listo: ya calculamos tus ganancias con S/ ' + v + ' por servicio.'; $('a-msg').className = 'estado ok';
+    $('a-msg').textContent = '✓ Listo: ya calculamos tus números con S/ ' + v + ' por servicio.'; $('a-msg').className = 'estado ok';
     $('n-heroe').focus();
   });
   window.addEventListener('resize', function () { var w = $('n-grafico').clientWidth; if (num && Math.abs(w - anchoAntes) > 20) { anchoAntes = w; pintarNumeros(); } });
@@ -697,7 +691,7 @@
     ev.preventDefault();
     var boton = this.querySelector('button'), msg = $('a-msg');
     boton.disabled = true;
-    var r = await pedir(base + '/ajustes', { body: { precio: $('a-precio').value, costoPremio: $('a-premio').value, inversion: $('a-inversion').value, servicios: $('a-servicios').value } });
+    var r = await pedir(base + '/ajustes', { body: { precio: $('a-precio').value, costoPremio: $('a-premio').value, servicios: $('a-servicios').value } });
     boton.disabled = false;
     if (r.ok) { real = num = r.datos; servicios = r.datos.servicios || []; viendoEjemplo = false; boton.focus(); pintarNumeros(); msg.textContent = '✓ Montos guardados.'; msg.className = 'estado ok'; }
     else { msg.textContent = r.datos.error || 'No se pudieron guardar.'; msg.className = 'estado mal'; }
