@@ -827,6 +827,10 @@ async function manejar(req, env, ctx) {
   if (partes.length === 3 && /^k$/i.test(partes[1]) && SLUG.test(partes[0].toLowerCase()) && req.method === 'GET') {
     return redirigir(`/${partes[0].toLowerCase()}/panel#c=${normalizarCodigo(partes[2])}`);
   }
+  // QR del cartel (/SLUG/Q, en mayúsculas): abre la página de registro contando la visita como «qr».
+  if (partes.length === 2 && /^q$/i.test(partes[1]) && SLUG.test(partes[0].toLowerCase()) && req.method === 'GET') {
+    return redirigir(`/${partes[0].toLowerCase()}?o=qr`);
+  }
   await asegurarEsquema(env);
 
   if (partes[0] === 'api') {
@@ -894,9 +898,10 @@ async function manejar(req, env, ctx) {
     case 'panel':
       return html(P.panel(n));
     case 'cartel': {
-      // El QR del cartel lleva ?o=qr para contar cuántas personas lo escanean.
+      // El QR del cartel va en mayúsculas (/SLUG/Q, menos cuadritos y más fácil de leer de lejos)
+      // y redirige a /slug?o=qr para contar cuántas personas lo escanean.
       const enlace = `${url.origin}/${n.slug}`;
-      return html(P.cartel(n, qrSvg(`${enlace}?o=qr`), enlace));
+      return html(P.cartel(n, qrSvg(`${url.origin.toUpperCase()}/${n.slug.toUpperCase()}/Q`), enlace));
     }
     case 'tema.css':
       return texto(temaCss(n, n.d), 'text/css; charset=utf-8');

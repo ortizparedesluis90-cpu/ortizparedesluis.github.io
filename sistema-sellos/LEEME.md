@@ -10,7 +10,7 @@ Funciona en **Cloudflare Workers + D1**. El plan gratuito alcanza para empezar c
 |---|---|---|
 | **Cliente** | Crea su tarjeta con su nombre y celular. Ve sus sellos y su código QR. | `https://TU-WORKER/filo` |
 | **Negocio** | Escanea el QR del cliente con la cámara del celular y suma un sello o entrega el premio. Ve quién está cerca del premio y le escribe por WhatsApp con un toque. | `https://TU-WORKER/filo/panel` |
-| **Negocio** | Imprime el cartel con el QR para el mostrador. | `https://TU-WORKER/filo/cartel` |
+| **Negocio** | Imprime el cartel con el QR para el mostrador, en A5 (mostrador), A4 (pared) o 10 × 15 cm (mesa), con sus colores. | `https://TU-WORKER/filo/cartel` |
 | **Tú** | Creas los negocios, sus claves y su premio, y ves la actividad de todos. | `https://TU-WORKER/admin` |
 
 1. El cliente escanea el cartel del mostrador o abre el enlace desde la bio de Instagram o desde la página de enlaces, y crea su tarjeta.
@@ -137,7 +137,7 @@ El resumen del panel muestra dos grupos de datos:
   - las visitas de hoy y de los últimos 30 días;
   - los premios canjeados y cuántos aceptan recordatorios.
 
-El conteo es anónimo y no guarda la IP ni ningún dato de la persona. Cada celular cuenta una vez cada 12 horas gracias a una cookie técnica, y el QR del cartel lleva `?o=qr` para distinguirlo de los demás enlaces. En `/admin` también ves los escaneos del QR de cada negocio.
+El conteo es anónimo y no guarda la IP ni ningún dato de la persona. Cada celular cuenta una vez cada 12 horas gracias a una cookie técnica, y el QR del cartel (`/SLUG/Q`, en mayúsculas para que tenga menos cuadritos) redirige a `/slug?o=qr` para distinguirlo de los demás enlaces. Los carteles viejos con `?o=qr` siguen funcionando. En `/admin` también ves los escaneos del QR de cada negocio.
 
 ### Tus números: ingresos y retorno del programa
 

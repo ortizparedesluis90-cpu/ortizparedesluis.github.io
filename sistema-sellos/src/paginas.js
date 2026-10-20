@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-25';
+const V = '2026-10-26';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -17,6 +17,8 @@ const ICONOS = {
   facebook: 'M15 3h-2.5A3.5 3.5 0 0 0 9 6.5V10H6.5v3.5H9V21h3.5v-7.5H15l.5-3.5h-3V7a1 1 0 0 1 1-1H15z',
   maps: 'M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
   web: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z',
+  camara: 'M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  persona: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5c.8-3.6 3.9-5.5 7.5-5.5s6.7 1.9 7.5 5.5',
   wallet: 'M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3M4 7.5V17a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H6.5A2.5 2.5 0 0 1 4 7.5zM16 13.5h.01',
 };
 export const icono = (n) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${ICONOS[n]}"/></svg>`;
@@ -216,21 +218,46 @@ ${pie(n)}`,
 }
 
 export function cartel(n, qr, url) {
+  const pr = leerPrograma(n);
+  const tercero = pr.tipo === 'puntos' ? 'Muéstrala en cada compra y suma puntos' : pr.tipo === 'cashback' ? 'Muéstrala en cada compra y junta saldo' : 'Muéstrala en cada visita y suma sellos';
+  // En sellos, una fila con los sellos de la meta (los primeros llenos) para que se entienda de un vistazo.
+  const fila = pr.tipo === 'sellos'
+    ? `<div class="l-sellos" aria-hidden="true">${Array.from({ length: Math.min(n.meta, 12) }, (_, i) => `<i${i < 3 ? ' class="lleno"' : ''}></i>`).join('')}</div>` : '';
+  const formatos = [['a5', 'A5 · mostrador', '14.8 × 21 cm'], ['a4', 'A4 · pared', '21 × 29.7 cm'], ['mesa', 'Mesa', '10 × 15 cm']];
   return base({
     titulo: `Cartel · ${n.programa}`,
     negocio: n,
     clase: 'es-cartel',
+    scripts: ['cartel.js'],
     cuerpo: `
-<main id="principal" class="contenedor cartel">
-  ${logoHtml(n.d, n.nombre)}
-  <p class="antetitulo">${e(n.nombre)}</p>
-  <h1>${e(n.programa)}</h1>
-  <p class="bajada">${lemaHtml(n)}</p>
-  <div class="qr grande" role="img" aria-label="Código QR para crear tu tarjeta">${qr}</div>
-  ${n.suspendido ? '<p class="aviso-error solo-pantalla">Este negocio está suspendido: el QR mostrará «Programa en pausa».</p>' : ''}
-  <p class="cartel-paso">Escanea con la cámara de tu celular y crea tu tarjeta gratis</p>
-  <p class="nota">${e(url.replace(/^https?:\/\//, ''))}</p>
-  <p class="nota solo-pantalla">Imprime esta página (menú del navegador → Imprimir) y ponla en el mostrador.</p>
+<main id="principal" class="cartel-hoja">
+  <div class="cartel-barra solo-pantalla">
+    <div><h1>Cartel para imprimir</h1><p class="nota">Elige el tamaño y toca Imprimir. Usa papel mate (no brillante) para que el QR se lea mejor.</p></div>
+    <div class="formatos" role="group" aria-label="Tamaño del cartel">${formatos.map(([k, t, m], i) => `<button class="boton chico" type="button" data-f="${k}" aria-pressed="${i === 0}">${t}<span>${m}</span></button>`).join('')}</div>
+    <button class="boton primario" type="button" id="imprimir">Imprimir</button>
+    ${n.suspendido ? '<p class="aviso-error">Este negocio está suspendido: el QR mostrará «Programa en pausa».</p>' : ''}
+  </div>
+  <article class="lamina" id="lamina" data-f="a5" aria-label="Cartel de ${e(n.programa)}">
+    <div class="l-marco">
+      <header class="l-cabeza">
+        ${n.d.logo ? `<img class="l-logo" src="/m/${e(n.d.logo)}" alt="">` : ''}
+        <p class="l-negocio">${e(n.nombre)}</p>
+        <h2 class="l-programa">${e(n.programa)}</h2>
+        <p class="l-lema">${lemaHtml(n)}</p>
+        ${fila}
+      </header>
+      <div class="l-qr">
+        <p class="l-qr-k">Escanéame</p>
+        <div class="l-qr-img" role="img" aria-label="Código QR para crear tu tarjeta">${qr}</div>
+      </div>
+      <ol class="l-pasos">
+        <li>${icono('camara')}<span>Escanea el QR con la cámara de tu celular</span></li>
+        <li>${icono('persona')}<span>Pon tu nombre y celular: tu tarjeta queda lista</span></li>
+        <li>${icono('qr')}<span>${tercero}</span></li>
+      </ol>
+      <p class="l-pie"><strong>Gratis</strong> · Sin descargar apps<span class="l-url">${e(url.replace(/^https?:\/\//, ''))}</span></p>
+    </div>
+  </article>
 </main>`,
   });
 }
