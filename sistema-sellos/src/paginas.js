@@ -419,6 +419,19 @@ export function admin() {
       </div>
     </section>
 
+    <section class="bloque numeros" aria-labelledby="t-rend">
+      <div class="fila"><h2 id="t-rend">Rendimiento de tus negocios</h2><span class="chip" id="r-mes"></span></div>
+      <p class="nota" id="r-nota"></p>
+      <dl class="datos" id="r-total"></dl>
+      <div class="tabla-envoltura" role="region" aria-label="Rendimiento por negocio" tabindex="0">
+        <table class="tabla rendimiento">
+          <thead><tr><th scope="col">Negocio</th><th scope="col">Visitas</th><th scope="col">De clientes que regresan</th><th scope="col">Ganancia del programa</th><th scope="col">Por cada S/ 1</th><th scope="col">Dejaron de venir</th><th scope="col">Informe</th></tr></thead>
+          <tbody id="rendimiento"></tbody>
+        </table>
+      </div>
+      <p class="nota">Mismos cálculos que «Tus números» en el panel de cada negocio. «Informe» abre un WhatsApp al negocio con su resumen del mes: úsalo antes de cada renovación.</p>
+    </section>
+
     <section class="bloque" aria-labelledby="t-form">
       <h2 id="t-form">Agregar o editar negocio</h2>
       <p class="nota">Para editar uno existente, toca «Editar» en la tabla. Deja la clave en blanco para no cambiarla.</p>

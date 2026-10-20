@@ -130,6 +130,8 @@ La sección **Tus números** del panel muestra cuánto le rinde la tarjeta al ne
 
 Es una estimación: algunos clientes habrían vuelto igual, pero es la mejor señal de cuánto le rinde la fidelización.
 
+En `/admin`, **Rendimiento de tus negocios** muestra lo mismo para todos los negocios del mes en curso (comparado con el mes anterior a la misma fecha) y un botón **Enviar por WhatsApp** que le manda a cada negocio su informe del mes, listo para usar antes de cada renovación.
+
 ## Recordatorios por WhatsApp
 
 La sección **Cerca del premio** del panel lista a los clientes que **aceptaron recordatorios** y a quienes les faltan 2 sellos o menos, o que ya tienen su premio. Cada uno tiene un botón **Escribir por WhatsApp** con el mensaje ya escrito. El negocio lo envía desde su propio WhatsApp.

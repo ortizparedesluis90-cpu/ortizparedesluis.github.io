@@ -382,6 +382,7 @@ async function apiPanel(req, env, n, partes, url, ctx) {
 // ---------- números del negocio: visitas, ingresos y retorno del programa ----------
 // Las fechas se guardan en UTC; Lima es UTC-5 todo el año.
 const DIA_LIMA = "strftime('%Y-%m-%d', creado, '-5 hours')";
+const MES_LIMA = "strftime('%Y-%m', creado, '-5 hours')";
 const DIAS_RIESGO = 45;
 
 async function numeros(env, n, origen) {
@@ -455,6 +456,62 @@ async function numeros(env, n, origen) {
   };
 }
 
+/** Para /admin: cuánto le rinde el programa a cada negocio este mes, comparado con el mes
+ *  anterior a la misma fecha. Mismas reglas que numeros(), en una sola pasada para todos. */
+async function rendimiento(env) {
+  const hoy = hoyLima(), mes = hoy.slice(0, 7), anterior = sumarMeses(`${mes}-01`, -1).slice(0, 7), dia = Number(hoy.slice(8));
+  const desde = `${anterior}-01 05:00:00`;
+  const [visitas, canjes, clientes] = await env.DB.batch([
+    env.DB.prepare(
+      `WITH s AS (SELECT negocio_id, cliente_id, creado, monto, ROW_NUMBER() OVER (PARTITION BY cliente_id ORDER BY creado, id) AS k
+                  FROM movimientos WHERE tipo = 'sello')
+       SELECT s.negocio_id AS id, ${MES_LIMA.replace('creado', 's.creado')} AS mes, CAST(strftime('%d', s.creado, '-5 hours') AS INTEGER) <= ? AS al_dia,
+              COUNT(*) AS visitas, COALESCE(SUM(s.k > 1), 0) AS regreso, COUNT(DISTINCT CASE WHEN s.k > 1 THEN s.cliente_id END) AS volvieron,
+              SUM(COALESCE(s.monto, n.precio_visita)) AS ingresos, COALESCE(SUM(CASE WHEN s.k > 1 THEN COALESCE(s.monto, n.precio_visita) END), 0) AS ingresos_regreso
+       FROM s JOIN negocios n ON n.id = s.negocio_id WHERE s.creado >= ? GROUP BY id, mes, al_dia`
+    ).bind(dia, desde),
+    env.DB.prepare(
+      `SELECT negocio_id AS id, ${MES_LIMA} AS mes, CAST(strftime('%d', creado, '-5 hours') AS INTEGER) <= ? AS al_dia, COUNT(*) AS canjes
+       FROM movimientos WHERE tipo = 'canje' AND creado >= ? GROUP BY id, mes, al_dia`
+    ).bind(dia, desde),
+    env.DB.prepare(
+      `SELECT negocio_id AS id, COUNT(*) AS clientes, COALESCE(SUM(visitas >= 2 AND ultima_visita < datetime('now', ?)), 0) AS riesgo
+       FROM clientes GROUP BY negocio_id`
+    ).bind(`-${DIAS_RIESGO} days`),
+  ]);
+  const negocios = (await env.DB.prepare('SELECT id, slug, nombre, precio_visita, costo_premio, inversion_mes, creado FROM negocios WHERE activo = 1 ORDER BY nombre').all()).results;
+  const vacio = () => ({ visitas: 0, regreso: 0, volvieron: 0, ingresos: 0, ingresosRegreso: 0, canjes: 0 });
+  const datos = new Map(negocios.map((n) => [n.id, { actual: vacio(), anteriorAlDia: vacio() }]));
+  // Cada fila del mes en curso suma al actual; las del mes anterior hasta el mismo día, a la comparación.
+  const destino = (f) => {
+    const d = datos.get(f.id);
+    if (!d) return null;
+    if (f.mes === mes) return d.actual;
+    return f.mes === anterior && f.al_dia ? d.anteriorAlDia : null;
+  };
+  for (const f of visitas.results) {
+    const x = destino(f);
+    if (!x) continue;
+    x.visitas += f.visitas; x.regreso += f.regreso; x.volvieron += f.volvieron; x.ingresos += f.ingresos; x.ingresosRegreso += f.ingresos_regreso;
+  }
+  for (const f of canjes.results) { const x = destino(f); if (x) x.canjes += f.canjes; }
+  const cl = new Map(clientes.results.map((c) => [c.id, c]));
+  return {
+    mes, anterior, dia, diasRiesgo: DIAS_RIESGO,
+    negocios: negocios.map((n) => {
+      const d = datos.get(n.id), costoPremio = n.costo_premio || n.precio_visita;
+      for (const x of [d.actual, d.anteriorAlDia]) {
+        x.premios = x.canjes * costoPremio;
+        x.inversion = n.inversion_mes;
+        x.ganancia = x.ingresosRegreso - x.premios - x.inversion;
+      }
+      if (String(n.creado).slice(0, 7) > anterior) d.anteriorAlDia = null; // aún no existía el mes pasado
+      return { slug: n.slug, nombre: n.nombre, conMontos: n.precio_visita > 0, inversion: n.inversion_mes,
+        clientes: cl.get(n.id)?.clientes || 0, riesgo: cl.get(n.id)?.riesgo || 0, ...d };
+    }),
+  };
+}
+
 // ---------- API de administración ----------
 async function apiAdmin(req, env, partes, url) {
   const [accion] = partes;
@@ -485,6 +542,7 @@ async function apiAdmin(req, env, partes, url) {
   }
 
   if (accion === 'catalogo' && req.method === 'GET') return json({ ...catalogo(), medios: !!env.MEDIOS });
+  if (accion === 'rendimiento' && req.method === 'GET') return json(await rendimiento(env));
 
   if (accion === 'medios' && req.method === 'POST') return subirMedio(req, env, url);
 

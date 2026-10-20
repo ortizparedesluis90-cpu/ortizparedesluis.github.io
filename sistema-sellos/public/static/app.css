@@ -351,3 +351,6 @@ html[data-tema="oscuro"] .boton.wallet{border-color:rgba(255,255,255,.35)}
 .ajustes{margin:16px 0 4px;border-top:1px solid var(--borde);padding-top:6px}
 .campo.monto label span{color:var(--suave);font-weight:400}
 .campo.monto input{max-width:180px}
+.dato-nota.alerta{color:color-mix(in srgb,#F2B33D 70%,var(--texto));font-weight:700}
+.tabla.rendimiento td{font-variant-numeric:tabular-nums}
+.tabla.rendimiento td:nth-child(n+2):nth-child(-n+6){white-space:nowrap}

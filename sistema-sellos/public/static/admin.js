@@ -19,6 +19,7 @@
     if (!cat) await cargarCatalogo();
     negocios = r.datos.negocios;
     planes = r.datos.planes || {};
+    cargarRendimiento();
     var tb = $('negocios');
     tb.textContent = '';
     resumenCobros();
@@ -44,6 +45,68 @@
           editar,
         ]),
       ]));
+    });
+  }
+
+  // ---------- rendimiento de cada negocio ----------
+  var soles = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 0 });
+  var mesLargo = new Intl.DateTimeFormat('es-PE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  function plata(c) { return (c < 0 ? '− ' : '') + soles.format(Math.round(Math.abs(c) / 100)); }
+  function nombreMes(m) { return mesLargo.format(new Date(m + '-15T12:00:00Z')).toLowerCase(); }
+  function cambio(ahora, antes) {
+    if (!antes) return null;
+    var p = Math.round((ahora - antes) / antes * 100);
+    return p ? (p > 0 ? '▲ +' : '▼ ') + p + ' %' : '= igual';
+  }
+  function retorno(x) { var costo = x.premios + x.inversion; return costo > 0 ? 'S/ ' + (x.ingresosRegreso / costo).toFixed(2) : '—'; }
+  async function cargarRendimiento() {
+    var r = await Sellos.api('/api/admin/rendimiento');
+    if (!r.ok) return;
+    var d = r.datos, tb = $('rendimiento'), corto = d.anterior ? '1–' + d.dia + ' de ' + nombreMes(d.anterior).split(' ')[0] : '';
+    $('r-mes').textContent = nombreMes(d.mes).replace(/^./, function (c) { return c.toUpperCase(); }) + ' (en curso)';
+    $('r-nota').textContent = 'Del 1 al ' + d.dia + ' de este mes. Las flechas comparan con el ' + corto + '.';
+    var t = { visitas: 0, regreso: 0, ganancia: 0, riesgo: 0, positivos: 0, conMontos: 0 };
+    tb.textContent = '';
+    d.negocios.forEach(function (n) {
+      var x = n.actual, a = n.anteriorAlDia;
+      t.visitas += x.visitas; t.regreso += x.ingresosRegreso; t.riesgo += n.riesgo;
+      if (n.conMontos) { t.conMontos++; t.ganancia += x.ganancia; if (x.ganancia > 0) t.positivos++; }
+      var celda = function (texto, delta) {
+        return Sellos.el('td', {}, [document.createTextNode(texto), delta ? Sellos.el('span', { clase: 'dato-nota cambio ' + (/▲/.test(delta) ? 'sube' : /▼/.test(delta) ? 'baja' : ''), texto: delta }) : null]);
+      };
+      var neg = negocios.filter(function (m) { return m.slug === n.slug; })[0];
+      var wa = '';
+      try { wa = JSON.parse((neg && neg.redes) || '{}').whatsapp || ''; } catch (e) { wa = ''; }
+      var informe = 'Hola, te comparto cómo va tu programa de fidelización en ' + n.nombre + ' (del 1 al ' + d.dia + ' de ' + nombreMes(d.mes).split(' ')[0] + '):\n'
+        + '• ' + x.visitas + ' visitas registradas' + (a && cambio(x.visitas, a.visitas) ? ' (' + cambio(x.visitas, a.visitas) + ' vs. el mes pasado a la misma fecha)' : '') + '\n'
+        + '• ' + x.volvieron + ' clientes volvieron' + (n.conMontos ? ' y te dejaron ' + plata(x.ingresosRegreso) : '') + '\n'
+        + (n.conMontos ? '• Ganancia del programa: ' + plata(x.ganancia) + (x.premios + x.inversion > 0 ? ' · por cada S/ 1 que te cuesta, te vuelven ' + retorno(x) : '') + '\n' : '')
+        + (n.riesgo ? '• ' + n.riesgo + (n.riesgo === 1 ? ' cliente dejó' : ' clientes dejaron') + ' de venir: escríbeles desde «Tus números» en tu panel.\n' : '')
+        + 'Revisa todo el detalle en tu panel: ' + location.origin + '/' + n.slug + '/panel';
+      var acciones = [Sellos.el('a', { href: '/' + n.slug + '/panel', texto: 'Panel' })];
+      acciones.push(wa
+        ? Sellos.el('a', { href: 'https://wa.me/' + wa + '?text=' + encodeURIComponent(informe), target: '_blank', rel: 'noopener', texto: 'Enviar por WhatsApp' })
+        : Sellos.el('span', { clase: 'nota', texto: 'Sin WhatsApp del negocio' }));
+      tb.appendChild(Sellos.el('tr', {}, [
+        Sellos.el('td', {}, [Sellos.el('strong', { texto: n.nombre }), n.conMontos ? null : Sellos.el('span', { clase: 'dato-nota alerta', texto: 'Faltan sus montos en «Tus números»' })]),
+        celda(String(x.visitas), a && cambio(x.visitas, a.visitas)),
+        celda(n.conMontos ? plata(x.ingresosRegreso) : x.volvieron + ' clientes', a && cambio(n.conMontos ? x.ingresosRegreso : x.volvieron, n.conMontos ? a.ingresosRegreso : a.volvieron)),
+        celda(n.conMontos ? plata(x.ganancia) : '—'),
+        celda(n.conMontos ? retorno(x) : '—'),
+        celda(String(n.riesgo)),
+        Sellos.el('td', {}, acciones),
+      ]));
+    });
+    if (!d.negocios.length) tb.appendChild(Sellos.el('tr', {}, [Sellos.el('td', { colspan: '7', texto: 'Aún no hay negocios.' })]));
+    var dl = $('r-total');
+    dl.textContent = '';
+    [
+      ['Visitas en todos tus negocios', String(t.visitas), 'Este mes'],
+      ['Dejaron los clientes que regresan', plata(t.regreso), 'En los negocios con sus montos'],
+      ['Negocios con ganancia', t.positivos + ' de ' + t.conMontos, t.conMontos < d.negocios.length ? (d.negocios.length - t.conMontos) + ' sin montos configurados' : 'Todos con montos'],
+      ['Clientes que dejaron de venir', String(t.riesgo), 'Sin visitas en ' + d.diasRiesgo + ' días'],
+    ].forEach(function (p) {
+      dl.appendChild(Sellos.el('div', {}, [Sellos.el('dt', { texto: p[0] }), Sellos.el('dd', {}, [document.createTextNode(p[1]), Sellos.el('span', { clase: 'dato-nota', texto: p[2] })])]));
     });
   }
 
