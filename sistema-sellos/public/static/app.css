@@ -308,3 +308,46 @@ html[data-3d="1"] .carnet .brillo{display:block;position:absolute;inset:0;pointe
 html[data-tema="oscuro"] .boton.wallet{border-color:rgba(255,255,255,.35)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:380px){.botones{grid-template-columns:1fr}}
+/* Tus números */
+.numeros .fila{flex-wrap:wrap}
+.numeros .mes select{min-height:44px;padding:8px 12px;border-radius:12px;background:var(--superficie-2);color:var(--texto);border:1px solid var(--borde-campo);font:inherit}
+.heroe{background:var(--superficie-2);border-radius:16px;padding:18px;margin:0 0 14px}
+.heroe p{margin:0}
+.heroe-titulo{color:var(--suave);font-weight:600}
+.heroe-valor{font-size:clamp(2.6rem,9vw,3.4rem);font-weight:800;line-height:1.1;margin:4px 0 6px!important;color:var(--texto)}
+.heroe-valor.negativo{color:var(--error)}
+.heroe-nota{color:var(--suave)}
+.numeros .datos dd{font-size:1.35rem}
+.cambio{font-weight:700!important}
+.cambio.sube{color:var(--ok)}
+.cambio.baja{color:var(--error)}
+.leyenda{list-style:none;display:flex;flex-wrap:wrap;gap:6px 16px;padding:0;margin:0 0 6px;color:var(--suave);font-size:.88rem}
+.leyenda li{display:flex;align-items:center;gap:6px}
+.leyenda i,.tip i{display:inline-block;width:10px;height:10px;border-radius:3px;flex:none}
+.m-acento{background:var(--acento)}
+.m-suave{background:var(--suave);opacity:.55}
+.grafico{position:relative;margin:0 0 6px}
+.grafico svg{display:block;width:100%;height:auto;overflow:visible}
+.grafico .acento{fill:var(--acento)}
+.grafico .suave{fill:var(--suave);fill-opacity:.55}
+.grafico .rejilla-g{stroke:var(--borde);stroke-width:1}
+.grafico .eje{fill:var(--suave);font-size:12px;font-variant-numeric:tabular-nums}
+.grafico .eje.actual{fill:var(--texto);font-weight:700}
+.grafico .valor{fill:var(--texto);font-size:12px;font-weight:700}
+.grafico .golpe{fill:transparent}
+.grafico .grupo{outline:none;cursor:default}
+.grafico .grupo:hover .golpe,.grafico .grupo:focus-visible .golpe{fill:var(--superficie-2)}
+.grafico .grupo:focus-visible .golpe{stroke:var(--acento-texto);stroke-width:2}
+.tip{position:absolute;top:0;z-index:3;display:flex;flex-direction:column;gap:3px;min-width:170px;padding:10px 12px;border-radius:12px;background:var(--superficie);border:1px solid var(--borde);box-shadow:var(--sombra);font-size:.88rem;pointer-events:none}
+.tip span{display:flex;align-items:center;gap:6px}
+.tip-extra{color:var(--suave)}
+.ver-tabla summary,.ajustes summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+.ver-tabla .tabla{font-size:.88rem;font-variant-numeric:tabular-nums}
+.ver-tabla .tabla th,.ver-tabla .tabla td{white-space:nowrap}
+.ranking li{justify-content:flex-start}
+.ranking .quien{flex:1;min-width:0}
+.puesto{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--superficie);border:1px solid var(--borde);font-weight:800;flex:none}
+.ranking li:first-child .puesto{background:var(--acento);color:var(--sobre-acento);border-color:transparent}
+.ajustes{margin:16px 0 4px;border-top:1px solid var(--borde);padding-top:6px}
+.campo.monto label span{color:var(--suave);font-weight:400}
+.campo.monto input{max-width:180px}

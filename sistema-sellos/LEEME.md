@@ -117,6 +117,19 @@ El resumen del panel muestra dos grupos de datos:
 
 El conteo es anónimo y no guarda la IP ni ningún dato de la persona. Cada celular cuenta una vez cada 12 horas gracias a una cookie técnica, y el QR del cartel lleva `?o=qr` para distinguirlo de los demás enlaces. En `/admin` también ves los escaneos del QR de cada negocio.
 
+### Tus números: ingresos y retorno del programa
+
+La sección **Tus números** del panel muestra cuánto le rinde la tarjeta al negocio, mes por mes:
+
+- **Montos del negocio** (en «Configurar tus montos»): el precio promedio por visita, lo que le cuesta dar el premio y lo que paga al mes por el sistema. Si paga al año, se divide entre 12 (S/ 450 al año = S/ 37.50 al mes).
+- **Cobrado en esta visita** (opcional): al sumar un sello se puede anotar lo que pagó el cliente. Si se deja vacío, se cuenta el precio promedio.
+- **Ganancia del programa:** lo que dejaron los clientes que regresan (sus visitas desde la 2.ª) menos los premios entregados y lo que paga por el sistema. También muestra cuánto vuelve por cada S/ 1 invertido.
+- **Datos del mes:** ingresos estimados, clientes que volvieron, clientes nuevos, premios, el porcentaje de clientes que vuelve a venir y cada cuántos días regresan. Cada dato muestra la diferencia con el mes anterior; el mes en curso se compara con el anterior a la misma fecha.
+- **Gráfico de 6 meses** (lo que dejan los que regresan frente a lo que cuesta), con vista en tabla.
+- **Ranking de los 10 clientes más fieles**, **días y horas con más visitas** (90 días) y **clientes que dejaron de venir** (2 visitas o más y nada en 45 días), con botón de WhatsApp si aceptaron recordatorios.
+
+Es una estimación: algunos clientes habrían vuelto igual, pero es la mejor señal de cuánto le rinde la fidelización.
+
 ## Recordatorios por WhatsApp
 
 La sección **Cerca del premio** del panel lista a los clientes que **aceptaron recordatorios** y a quienes les faltan 2 sellos o menos, o que ya tienen su premio. Cada uno tiene un botón **Escribir por WhatsApp** con el mensaje ya escrito. El negocio lo envía desde su propio WhatsApp.

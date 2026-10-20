@@ -21,6 +21,10 @@ const COLUMNAS_NUEVAS = [
   ['negocios', 'vence', "TEXT NOT NULL DEFAULT ''"],
   ['negocios', 'suspendido', 'INTEGER NOT NULL DEFAULT 0'],
   ['clientes', 'wallet', 'INTEGER NOT NULL DEFAULT 0'],
+  ['negocios', 'precio_visita', 'INTEGER NOT NULL DEFAULT 0'],
+  ['negocios', 'costo_premio', 'INTEGER NOT NULL DEFAULT 0'],
+  ['negocios', 'inversion_mes', 'INTEGER NOT NULL DEFAULT 0'],
+  ['movimientos', 'monto', 'INTEGER'],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
@@ -109,6 +113,14 @@ function sumarMeses(fecha, meses) {
 /** Días que faltan para el vencimiento (negativo si ya venció; null si no tiene fecha). */
 const diasPara = (vence) => (FECHA.test(vence || '') ? Math.round((Date.parse(vence) - Date.parse(hoyLima())) / 86400000) : null);
 const estadoPlan = (n) => ({ plan: n.plan || '', vence: n.vence || '', dias: diasPara(n.vence), suspendido: !!n.suspendido });
+
+// ---------- dinero (se guarda en céntimos) ----------
+/** «35», «35.50» o «35,5» → 3550. Vacío → null. Fuera de rango → NaN. */
+function centimos(v) {
+  if (v === undefined || v === null || String(v).trim() === '') return null;
+  const x = Math.round(Number(String(v).trim().replace(',', '.')) * 100);
+  return Number.isFinite(x) && x >= 0 && x <= 10000000 ? x : NaN;
+}
 
 // ---------- sesiones ----------
 async function puedeEntrar(req, env, n) {
@@ -281,13 +293,15 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     };
 
     if (sub === 'sello' && metodo === 'POST') {
+      const monto = centimos(datos.monto);
+      if (Number.isNaN(monto)) return error('El monto cobrado no es válido.');
       const espera = `-${Math.max(0, n.espera_min | 0)} minutes`;
       const [upd] = await env.DB.batch([
         env.DB.prepare(
           `UPDATE clientes SET sellos = sellos + 1, visitas = visitas + 1, ultima_visita = datetime('now')
            WHERE id = ? AND negocio_id = ? AND (ultima_visita IS NULL OR ultima_visita <= datetime('now', ?))`
         ).bind(cid, n.id, espera),
-        env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo) SELECT ?, ?, 'sello' WHERE changes() > 0`).bind(n.id, cid),
+        env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, monto) SELECT ?, ?, 'sello', ? WHERE changes() > 0`).bind(n.id, cid, monto),
       ]);
       if (!upd.meta.changes) {
         const hace = Math.max(0, Math.round((Date.now() - Date.parse(String(c.ultima_visita).replace(' ', 'T') + 'Z')) / 60000));
@@ -338,6 +352,16 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     }
   }
 
+  if (accion === 'numeros' && metodo === 'GET') return json(await numeros(env, n, url.origin));
+
+  if (accion === 'ajustes' && metodo === 'POST') {
+    const v = { precio_visita: centimos(datos.precio), costo_premio: centimos(datos.costoPremio), inversion_mes: centimos(datos.inversion) };
+    if (Object.values(v).some(Number.isNaN)) return error('Revisa los montos: solo números, por ejemplo 35 o 35.50.');
+    await env.DB.prepare('UPDATE negocios SET precio_visita = ?, costo_premio = ?, inversion_mes = ? WHERE id = ?')
+      .bind(v.precio_visita || 0, v.costo_premio || 0, v.inversion_mes || 0, n.id).run();
+    return json(await numeros(env, { ...n, ...v }, url.origin));
+  }
+
   if (accion === 'clientes.csv' && metodo === 'GET') {
     const filas = await env.DB.prepare(
       'SELECT nombre, celular, codigo, sellos, visitas, premios, recordatorios, ultima_visita, creado, consentimiento FROM clientes WHERE negocio_id = ? ORDER BY creado'
@@ -353,6 +377,82 @@ async function apiPanel(req, env, n, partes, url, ctx) {
   }
 
   return error('No encontrado.', 404);
+}
+
+// ---------- números del negocio: visitas, ingresos y retorno del programa ----------
+// Las fechas se guardan en UTC; Lima es UTC-5 todo el año.
+const DIA_LIMA = "strftime('%Y-%m-%d', creado, '-5 hours')";
+const DIAS_RIESGO = 45;
+
+async function numeros(env, n, origen) {
+  const hoy = hoyLima();
+  const meses = Array.from({ length: 6 }, (_, i) => sumarMeses(`${hoy.slice(0, 7)}-01`, i - 5).slice(0, 7));
+  const desde = `${meses[0]}-01 05:00:00`; // 1.º del primer mes, 00:00 en Lima
+  const [visitas, canjes, nuevos, top, horas, fieles, riesgo] = await env.DB.batch([
+    // k = número de visita de ese cliente: la 1.ª es su primera vez; desde la 2.ª, un cliente que regresó.
+    env.DB.prepare(
+      `WITH s AS (SELECT cliente_id, creado, monto, ROW_NUMBER() OVER (PARTITION BY cliente_id ORDER BY creado, id) AS k
+                  FROM movimientos WHERE negocio_id = ? AND tipo = 'sello')
+       SELECT ${DIA_LIMA} AS dia, cliente_id, k, monto FROM s WHERE creado >= ?`
+    ).bind(n.id, desde),
+    env.DB.prepare(`SELECT ${DIA_LIMA} AS dia, COUNT(*) AS n FROM movimientos WHERE negocio_id = ? AND tipo = 'canje' AND creado >= ? GROUP BY dia`).bind(n.id, desde),
+    env.DB.prepare(`SELECT ${DIA_LIMA} AS dia, COUNT(*) AS n FROM clientes WHERE negocio_id = ? AND creado >= ? GROUP BY dia`).bind(n.id, desde),
+    env.DB.prepare(
+      `SELECT ${CAMPOS_CLIENTE.split(', ').map((c) => 'c.' + c).join(', ')}, COUNT(*) AS v90, COALESCE(SUM(m.monto), 0) AS cobrado, COUNT(m.monto) AS con_monto
+       FROM movimientos m JOIN clientes c ON c.id = m.cliente_id
+       WHERE m.negocio_id = ? AND m.tipo = 'sello' AND m.creado >= datetime('now', '-90 days')
+       GROUP BY c.id ORDER BY v90 DESC, c.ultima_visita DESC LIMIT 10`
+    ).bind(n.id),
+    env.DB.prepare(
+      `SELECT CAST(strftime('%w', creado, '-5 hours') AS INTEGER) AS dia, CAST(strftime('%H', creado, '-5 hours') AS INTEGER) AS hora, COUNT(*) AS v
+       FROM movimientos WHERE negocio_id = ? AND tipo = 'sello' AND creado >= datetime('now', '-90 days') GROUP BY dia, hora`
+    ).bind(n.id),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS clientes, COALESCE(SUM(visitas >= 2), 0) AS repiten,
+              (SELECT AVG(d) FROM (SELECT (julianday(MAX(creado)) - julianday(MIN(creado))) / (COUNT(*) - 1) AS d
+                 FROM movimientos WHERE negocio_id = ? AND tipo = 'sello' GROUP BY cliente_id HAVING COUNT(*) >= 2)) AS cada_dias
+       FROM clientes WHERE negocio_id = ? AND visitas >= 1`
+    ).bind(n.id, n.id),
+    env.DB.prepare(
+      `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND visitas >= 2 AND ultima_visita < datetime('now', ?)
+       ORDER BY visitas DESC, ultima_visita DESC LIMIT 30`
+    ).bind(n.id, `-${DIAS_RIESGO} days`),
+  ]);
+
+  const precio = n.precio_visita | 0, costoPremio = (n.costo_premio | 0) || precio, inversion = n.inversion_mes | 0;
+  const inicio = String(n.creado || '').slice(0, 7);
+  // Suma las visitas de un mes, opcionalmente solo hasta cierto día (para comparar el mes en curso
+  // con el mes anterior a la misma fecha). Las visitas sin monto anotado se cuentan al precio promedio.
+  const resumir = (mes, hastaDia = 31) => {
+    const dentro = (d) => d.slice(0, 7) === mes && Number(d.slice(8)) <= hastaDia;
+    const x = { mes, visitas: 0, regreso: 0, ingresos: 0, ingresosRegreso: 0, canjes: 0, nuevos: 0 };
+    const vinieron = new Set(), volvieron = new Set();
+    for (const v of visitas.results) {
+      if (!dentro(v.dia)) continue;
+      const plata = v.monto ?? precio;
+      x.visitas++; x.ingresos += plata; vinieron.add(v.cliente_id);
+      if (v.k > 1) { x.regreso++; x.ingresosRegreso += plata; volvieron.add(v.cliente_id); }
+    }
+    for (const c of canjes.results) if (dentro(c.dia)) x.canjes += c.n;
+    for (const c of nuevos.results) if (dentro(c.dia)) x.nuevos += c.n;
+    x.clientes = vinieron.size; x.volvieron = volvieron.size;
+    x.premios = x.canjes * costoPremio;
+    x.inversion = mes >= inicio ? inversion : 0;
+    x.ganancia = x.ingresosRegreso - x.premios - x.inversion;
+    return x;
+  };
+  const lista = meses.map((mes) => resumir(mes));
+  const f = fieles.results[0];
+  return {
+    ajustes: { precio, costoPremio: n.costo_premio | 0, inversion },
+    meses: lista,
+    // El mes en curso se compara con el anterior hasta el mismo día.
+    anteriorAlDia: { hasta: Number(hoy.slice(8)), ...resumir(meses[4], Number(hoy.slice(8))) },
+    top: top.results.map((t) => ({ ...clientePanel(t, n, origen), visitas90: t.v90, gasto90: t.cobrado + (t.v90 - t.con_monto) * precio })),
+    horas: horas.results,
+    fidelidad: { clientes: f.clientes, repiten: f.repiten, cadaDias: f.cada_dias == null ? null : Math.round(f.cada_dias) },
+    riesgo: { dias: DIAS_RIESGO, clientes: riesgo.results.map((r) => clientePanel(r, n, origen)) },
+  };
 }
 
 // ---------- API de administración ----------

@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS negocios (
   plan          TEXT NOT NULL DEFAULT '',         -- plan contratado (solo informativo para /admin)
   vence         TEXT NOT NULL DEFAULT '',         -- fecha de vencimiento AAAA-MM-DD (hora de Lima)
   suspendido    INTEGER NOT NULL DEFAULT 0,       -- 1 = servicio en pausa: no registra ni suma sellos
+  precio_visita INTEGER NOT NULL DEFAULT 0,       -- «Tus números»: ticket promedio, en céntimos
+  costo_premio  INTEGER NOT NULL DEFAULT 0,       -- lo que le cuesta al negocio dar el premio (0 = el ticket)
+  inversion_mes INTEGER NOT NULL DEFAULT 0,       -- lo que paga al mes por el sistema
   clave_hash    TEXT NOT NULL DEFAULT '',         -- clave del panel (PBKDF2)
   clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar la clave: cierra sesiones viejas
   activo        INTEGER NOT NULL DEFAULT 1,
@@ -52,6 +55,7 @@ CREATE TABLE IF NOT EXISTS movimientos (
   negocio_id  INTEGER NOT NULL,
   cliente_id  INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
   tipo        TEXT NOT NULL,                      -- sello | canje
+  monto       INTEGER,                            -- lo cobrado en esa visita, en céntimos (opcional)
   creado      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

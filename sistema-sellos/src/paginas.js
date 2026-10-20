@@ -3,7 +3,7 @@ import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './diseno.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-19';
+const V = '2026-10-20';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -306,6 +306,7 @@ export function panel(n) {
       <p class="sub" id="c-celular"></p>
       <ol class="sellos chicos" id="c-sellos" aria-hidden="true"></ol>
       <p class="progreso" id="c-progreso" aria-live="polite"></p>
+      <div class="campo monto"><label for="c-monto">Cobrado en esta visita (S/) <span>opcional</span></label><input id="c-monto" type="text" inputmode="decimal" autocomplete="off" maxlength="9" aria-describedby="c-monto-ayuda"><p class="ayuda" id="c-monto-ayuda">Si lo dejas vacío, se cuenta tu precio promedio en «Tus números».</p></div>
       <div class="botones">
         <button class="boton primario grande" type="button" id="sumar">+1 sello</button>
         <button class="boton grande" type="button" id="canjear" disabled>Canjear premio</button>
@@ -334,6 +335,40 @@ export function panel(n) {
       <div class="fila"><h2 id="t-cerca">Cerca del premio</h2><button class="boton chico" type="button" id="recargar">Actualizar</button></div>
       <p class="nota">Clientes que aceptaron recordatorios y les faltan 2 sellos o menos (o ya tienen su premio). Escríbeles con un toque.</p>
       <ul class="lista" id="cerca"></ul>
+    </section>
+
+    <section class="bloque numeros" aria-labelledby="t-numeros">
+      <div class="fila"><h2 id="t-numeros">Tus números</h2><label class="mes"><span class="oculto-accesible">Mes</span><select id="n-mes"></select></label></div>
+      <p class="aviso-plan" id="n-falta" hidden>Escribe abajo cuánto cobras en promedio por visita y cuánto pagas al mes por el sistema para ver tus ingresos y tu ganancia.</p>
+      <div class="heroe" id="n-heroe" aria-live="polite"></div>
+      <dl class="datos" id="n-datos"></dl>
+
+      <h3 class="subtitulo">Lo que te dejan los clientes que regresan vs. lo que te cuesta el programa <span>(últimos 6 meses)</span></h3>
+      <ul class="leyenda" aria-hidden="true"><li><i class="m-acento"></i>Ingresos de clientes que regresan</li><li><i class="m-suave"></i>Costo: premios + sistema</li></ul>
+      <div class="grafico" id="n-grafico"></div>
+      <details class="ver-tabla"><summary>Ver en tabla</summary><div class="tabla-envoltura"><table class="tabla" id="n-tabla"></table></div></details>
+
+      <h3 class="subtitulo">Tus clientes más fieles <span>(últimos 90 días)</span></h3>
+      <ol class="lista ranking" id="n-top"></ol>
+
+      <h3 class="subtitulo">Días con más visitas <span>(últimos 90 días)</span></h3>
+      <div class="grafico" id="n-dias"></div>
+      <p class="nota" id="n-horas"></p>
+
+      <h3 class="subtitulo">Hace tiempo que no vienen</h3>
+      <p class="nota" id="n-riesgo-nota"></p>
+      <ul class="lista" id="n-riesgo"></ul>
+
+      <details class="ajustes" id="n-ajustes">
+        <summary>Configurar tus montos</summary>
+        <form id="f-ajustes" class="rejilla">
+          <div class="campo"><label for="a-precio">Precio promedio por visita (S/)</label><input id="a-precio" name="precio" type="text" inputmode="decimal" maxlength="9" placeholder="35" aria-describedby="a-precio-ayuda"><p class="ayuda" id="a-precio-ayuda">Lo que paga en promedio un cliente (corte, barba, etc.).</p></div>
+          <div class="campo"><label for="a-premio">Lo que te cuesta dar el premio (S/)</label><input id="a-premio" name="costoPremio" type="text" inputmode="decimal" maxlength="9" placeholder="Igual al precio" aria-describedby="a-premio-ayuda"><p class="ayuda" id="a-premio-ayuda">Vacío = se cuenta como una visita que no cobras.</p></div>
+          <div class="campo"><label for="a-inversion">Lo que pagas por el sistema al mes (S/)</label><input id="a-inversion" name="inversion" type="text" inputmode="decimal" maxlength="9" placeholder="79" aria-describedby="a-inversion-ayuda"><p class="ayuda" id="a-inversion-ayuda">Si pagas al año, divide entre 12 (S/ 450 al año = 37.50).</p></div>
+          <div class="campo"><button class="boton primario" type="submit">Guardar montos</button><p class="estado" id="a-msg" role="status"></p></div>
+        </form>
+      </details>
+      <p class="nota">Cómo se calcula: cada sello es una visita. Si anotas lo cobrado, se usa ese monto; si no, tu precio promedio. «Clientes que regresan» son las visitas desde la 2.ª de cada cliente. La ganancia del programa es lo que dejaron esas visitas menos los premios entregados y lo que pagas por el sistema. Es una estimación: algunos habrían vuelto igual, pero es la mejor señal de cuánto te rinde la fidelización.</p>
     </section>
 
     <section class="bloque" aria-labelledby="t-resumen">
