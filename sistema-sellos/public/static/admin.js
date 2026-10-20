@@ -58,6 +58,7 @@
     var p = Math.round((ahora - antes) / antes * 100);
     return p ? (p > 0 ? '▲ +' : '▼ ') + p + ' %' : '= igual';
   }
+  function plural(x, uno, varios) { return x + ' ' + (x === 1 ? uno : varios); }
   function retorno(x) { var costo = x.premios + x.inversion; return costo > 0 ? 'S/ ' + (x.ingresosRegreso / costo).toFixed(2) : '—'; }
   async function cargarRendimiento() {
     var r = await Sellos.api('/api/admin/rendimiento');
@@ -98,9 +99,17 @@
       ]));
     });
     if (!d.negocios.length) tb.appendChild(Sellos.el('tr', {}, [Sellos.el('td', { colspan: '7', texto: 'Aún no hay negocios.' })]));
+    // Lo que cobras cada mes: cuotas de los negocios activos que ya pagan.
+    var cobro = { total: 0, pagan: 0, gratis: 0 };
+    negocios.forEach(function (n) {
+      if (n.suspendido) return;
+      if (n.plan === 'prueba') { cobro.gratis++; return; }
+      if (n.plan !== 'cortesia' && n.cuota) { cobro.total += n.cuota; cobro.pagan++; }
+    });
     var dl = $('r-total');
     dl.textContent = '';
     [
+      ['Cobras al mes', plata(cobro.total), plural(cobro.pagan, 'negocio paga', 'negocios pagan') + (cobro.gratis ? ' · ' + cobro.gratis + ' en mes gratis' : '')],
       ['Visitas en todos tus negocios', String(t.visitas), 'Este mes'],
       ['Dejaron los clientes que regresan', plata(t.regreso), 'En los negocios con sus montos'],
       ['Negocios con ganancia', t.positivos + ' de ' + t.conMontos, t.conMontos < d.negocios.length ? (d.negocios.length - t.conMontos) + ' sin montos configurados' : 'Todos con montos'],
@@ -125,7 +134,7 @@
     var e = estado(n);
     var td = Sellos.el('td', {}, [
       Sellos.el('span', { clase: 'estado-plan ' + e.clase, texto: e.texto }), Sellos.el('br'),
-      Sellos.el('span', { clase: 'nota', texto: (planes[n.plan] || 'Sin plan') + ' · vence ' + fecha(n.vence) }),
+      Sellos.el('span', { clase: 'nota', texto: (planes[n.plan] || 'Sin plan') + (n.cuota ? ' · S/ ' + n.cuota / 100 + ' al mes' : ' · sin cuota') + ' · vence ' + fecha(n.vence) }),
     ]);
     var botones = Sellos.el('div', { clase: 'botones chicos' });
     [['+1 mes', 1], ['+1 año', 12]].forEach(function (b) {
@@ -167,6 +176,7 @@
     ['whatsapp', 'instagram', 'tiktok', 'facebook', 'maps', 'web'].forEach(function (k) {
       f.elements['red_' + k].value = k === 'whatsapp' && r[k] ? r[k].slice(2) : (r[k] || '');
     });
+    f.elements.cuota.value = n.cuota ? String(n.cuota / 100) : '';
     f.elements.editar.value = n.slug;
     f.elements.clave.value = '';
     ponerDiseno(n.diseno || {});

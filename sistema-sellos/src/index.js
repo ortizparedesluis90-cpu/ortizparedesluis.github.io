@@ -100,7 +100,8 @@ function qrSvg(valor) {
 }
 
 // ---------- vencimiento del plan ----------
-const PLANES = { '': 'Sin definir', prueba: 'Prueba gratis', mensual: 'Mensual', anual: 'Anual', esencial: 'Bio Esencial', total: 'Bio Total', cortesia: 'Cortesía' };
+// anual, esencial y total quedan solo para negocios antiguos; el formulario ya no los ofrece.
+const PLANES = { '': 'Sin definir', prueba: 'Mes gratis', mensual: 'Mensual', cortesia: 'Cortesía', anual: 'Anual', esencial: 'Bio Esencial', total: 'Bio Total' };
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const hoyLima = () => new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
 function sumarMeses(fecha, meses) {
@@ -531,7 +532,7 @@ async function apiAdmin(req, env, partes, url) {
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
       `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
-         n.clave_hash != '' AS tiene_clave,
+         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
          (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
@@ -574,6 +575,9 @@ async function apiAdmin(req, env, partes, url) {
     };
     v.plan = Object.prototype.hasOwnProperty.call(PLANES, d.plan) ? d.plan : '';
     v.vence = FECHA.test(d.vence || '') ? d.vence : '';
+    // Cuota mensual que paga el negocio: es su «inversión» en «Tus números». Vacía al editar = no cambia.
+    const cuota = centimos(d.cuota);
+    if (Number.isNaN(cuota)) return error('Revisa la cuota mensual: solo números, por ejemplo 69.');
     const diseno = leerDiseno(null, d.diseno);
     // color y tema se mantienen por compatibilidad con versiones anteriores
     v.color = diseno.acento; v.tema = colores(diseno).claro ? 'claro' : 'oscuro';
@@ -600,9 +604,9 @@ async function apiAdmin(req, env, partes, url) {
     v.diseno = JSON.stringify(diseno);
     if (existe) {
       await env.DB.prepare(
-        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1
+        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes)
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, ...(hash ? [hash] : []), existe.id).run();
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, ...(hash ? [hash] : []), existe.id).run();
       return json({ ok: true, creado: false });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
@@ -610,9 +614,9 @@ async function apiAdmin(req, env, partes, url) {
     if (!v.vence) v.vence = sumarMeses(hoyLima(), 1);
     if (!v.plan) v.plan = 'prueba';
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0).run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);

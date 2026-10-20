@@ -364,7 +364,7 @@ export function panel(n) {
         <form id="f-ajustes" class="rejilla">
           <div class="campo"><label for="a-precio">Precio promedio por visita (S/)</label><input id="a-precio" name="precio" type="text" inputmode="decimal" maxlength="9" placeholder="35" aria-describedby="a-precio-ayuda"><p class="ayuda" id="a-precio-ayuda">Lo que paga en promedio un cliente (corte, barba, etc.).</p></div>
           <div class="campo"><label for="a-premio">Lo que te cuesta dar el premio (S/)</label><input id="a-premio" name="costoPremio" type="text" inputmode="decimal" maxlength="9" placeholder="Igual al precio" aria-describedby="a-premio-ayuda"><p class="ayuda" id="a-premio-ayuda">Vacío = se cuenta como una visita que no cobras.</p></div>
-          <div class="campo"><label for="a-inversion">Lo que pagas por el sistema al mes (S/)</label><input id="a-inversion" name="inversion" type="text" inputmode="decimal" maxlength="9" placeholder="79" aria-describedby="a-inversion-ayuda"><p class="ayuda" id="a-inversion-ayuda">Si pagas al año, divide entre 12 (S/ 450 al año = 37.50).</p></div>
+          <div class="campo"><label for="a-inversion">Lo que pagas por el sistema al mes (S/)</label><input id="a-inversion" name="inversion" type="text" inputmode="decimal" maxlength="9" placeholder="69" aria-describedby="a-inversion-ayuda"><p class="ayuda" id="a-inversion-ayuda">Tu cuota mensual del sistema.</p></div>
           <div class="campo"><button class="boton primario" type="submit">Guardar montos</button><p class="estado" id="a-msg" role="status"></p></div>
         </form>
       </details>
@@ -447,7 +447,8 @@ export function admin() {
         <div class="campo"><label for="f-ruc">RUC</label><input id="f-ruc" name="ruc" inputmode="numeric" pattern="\\d{11}" maxlength="11"></div>
         <div class="campo"><label for="f-direccion">Dirección</label><input id="f-direccion" name="direccion" maxlength="140"></div>
         <div class="campo"><label for="f-correo">Correo para derechos ARCO</label><input id="f-correo" name="correo" type="email" maxlength="100"></div>
-        <div class="campo"><label for="f-plan">Plan</label><select id="f-plan" name="plan"><option value="">Sin definir</option><option value="prueba">Prueba gratis</option><option value="mensual">Mensual</option><option value="anual">Anual</option><option value="esencial">Bio Esencial</option><option value="total">Bio Total</option><option value="cortesia">Cortesía</option></select></div>
+        <div class="campo"><label for="f-plan">Plan</label><select id="f-plan" name="plan"><option value="">Sin definir</option><option value="prueba">Mes gratis</option><option value="mensual">Mensual</option><option value="cortesia">Cortesía</option></select></div>
+        <div class="campo"><label for="f-cuota">Cuota mensual (S/)</label><input id="f-cuota" name="cuota" type="text" inputmode="decimal" maxlength="7" placeholder="69" aria-describedby="f-cuota-ayuda"><p class="ayuda" id="f-cuota-ayuda">De S/ 59 a S/ 79 según la zona y el tamaño del local. El negocio la ve en «Tus números».</p></div>
         <div class="campo"><label for="f-vence">Vence el</label><input id="f-vence" name="vence" type="date" aria-describedby="f-vence-ayuda"><p class="ayuda" id="f-vence-ayuda">Si lo dejas vacío en un negocio nuevo, vence en 1 mes (primer mes gratis).</p></div>
         <div class="campo"><label for="f-red-whatsapp">WhatsApp del negocio</label><input id="f-red-whatsapp" name="red_whatsapp" type="tel" inputmode="numeric" maxlength="11" placeholder="9XX XXX XXX"></div>
         <div class="campo"><label for="f-red-instagram">Instagram (enlace)</label><input id="f-red-instagram" name="red_instagram" type="url" placeholder="https://instagram.com/..."></div>

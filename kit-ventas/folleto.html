@@ -59,6 +59,17 @@ p{font-size:10.5pt;line-height:1.5}
 .plan ul{list-style:none;margin-top:2mm;display:grid;gap:1.2mm}
 .plan li{font-size:8.8pt;padding-left:3.8mm;position:relative}
 .plan li::before{content:"✓";position:absolute;left:0;color:var(--oro);font-weight:800}
+.unico{display:grid;grid-template-columns:52mm 1fr;gap:6mm;border:.6mm solid var(--oro2);border-radius:3.5mm;padding:4mm 5mm;background:#fff;box-shadow:0 2mm 5mm rgba(168,130,60,.18)}
+.unico .izq{display:flex;flex-direction:column}
+.unico .nom{font:800 7.6pt Manrope;letter-spacing:.16em;text-transform:uppercase;color:var(--oro)}
+.unico .desde{font-size:8.5pt;color:var(--suave);margin-top:2mm}
+.unico .pre{font:600 30pt/1 Playfair}
+.unico .mes{font:700 9.5pt Manrope;color:var(--oro)}
+.unico .cond{display:flex;flex-wrap:wrap;gap:1.5mm;margin-top:2.5mm}
+.unico .cond span{font:800 7.4pt Manrope;color:#15110a;background:var(--oro2);border-radius:999px;padding:1mm 2.6mm}
+.unico ul{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:1.6mm 4mm;align-content:center}
+.unico li{font-size:8.8pt;line-height:1.35;padding-left:3.8mm;position:relative}
+.unico li::before{content:"✓";position:absolute;left:0;color:var(--oro);font-weight:800}
 .oferta{margin-top:4mm;border:.4mm dashed var(--oro2);border-radius:3mm;padding:3mm;text-align:center;font:700 10.5pt Manrope}
 .contacto{margin-top:4mm;display:flex;justify-content:space-between;align-items:center;background:var(--tinta);color:#f3eadb;border-radius:4mm;padding:5mm 7mm}
 .contacto .q{font:600 15pt Playfair}
@@ -78,7 +89,7 @@ p{font-size:10.5pt;line-height:1.5}
       <p class="k">Barberías · Spas · Salones</p>
       <div class="regla"></div>
       <h1>¿Tus clientes <em>vuelven…</em> o se olvidan de ti?</h1>
-      <p class="sub">Tarjeta de sellos digital, Página Bio y un panel para tu negocio. Tus clientes juntan sellos en su celular y vuelven por su premio.</p>
+      <p class="sub">Tarjeta de sellos digital, una página con tus redes y un panel para tu negocio. Tus clientes juntan sellos en su celular y vuelven por su premio.</p>
       <div class="chips"><span class="chip">Sin apps</span><span class="chip">Sin tarjetas de papel</span><span class="chip">Desde tu celular</span></div>
     </div>
     <img src="img/f-hero.png" alt="Tarjeta de sellos en un celular">
@@ -113,7 +124,7 @@ p{font-size:10.5pt;line-height:1.5}
   <p class="k">Lo que ganas</p>
   <h2>Más visitas. Menos gastos. <em>Cero trabajo extra.</em></h2>
   <div class="col3">
-    <div class="caja"><p class="t">Gana más</p><h3>Clientes que vuelven</h3><ul><li>Vuelven más seguido por su premio.</li><li>Invitas por WhatsApp a quien está por ganar.</li><li>Tu propia lista de clientes con su celular.</li><li>Reservas directas desde tu Página Bio.</li></ul></div>
+    <div class="caja"><p class="t">Gana más</p><h3>Clientes que vuelven</h3><ul><li>Vuelven más seguido por su premio.</li><li>Invitas por WhatsApp a quien está por ganar.</li><li>Tu propia lista de clientes con su celular.</li><li>Te escriben por WhatsApp desde tu página.</li></ul></div>
     <div class="caja"><p class="t">Ahorra</p><h3>Sin papel ni apps</h3><ul><li>Nada que imprimir ni sellos físicos.</li><li>Tus clientes no pagan ni descargan nada.</li><li>Sin sellos falsos: todo con tu clave.</li><li>El cliente se registra solo.</li></ul></div>
     <div class="caja"><p class="t">Automatiza</p><h3>Todo en tu panel</h3><ul><li>Cada registro aparece al instante.</li><li>Sabes quién vino y cuántas veces.</li><li>Escaneos, tarjetas nuevas y visitas del mes.</li><li>Funciona en cualquier celular.</li></ul></div>
   </div>
@@ -125,7 +136,7 @@ p{font-size:10.5pt;line-height:1.5}
       <ul class="lista">
         <li><b>Clientes registrados</b><span>Aparecen solos, apenas crean su tarjeta.</span></li>
         <li><b>Cerca del premio</b><span>Un toque y le escribes por WhatsApp para que vuelva.</span></li>
-        <li><b>Tus números del mes</b><span>Escaneos del QR, tarjetas nuevas y visitas.</span></li>
+        <li><b>Tus números del mes</b><span>Ganancias, tus mejores clientes, tus días fuertes y quién dejó de venir.</span></li>
         <li><b>Con tu marca</b><span>Tu logo, tus colores, tu estilo y tu premio.</span></li>
       </ul>
     </div>
@@ -137,14 +148,14 @@ p{font-size:10.5pt;line-height:1.5}
       <div><b>20</b><small>clientes que vuelven<br>una vez más al mes</small></div><i>×</i>
       <div><b>S/ 25</b><small>por servicio</small></div><i>=</i>
       <div><b>S/ 500</b><small>más al mes</small></div>
-      <div style="border-left:.3mm solid rgba(238,217,164,.35);padding-left:5mm"><b>S/ 79</b><small>cuesta la tarjeta<br>al mes</small></div>
+      <div style="border-left:.3mm solid rgba(238,217,164,.35);padding-left:5mm"><b>S/ 59</b><small>desde, al mes<br>sin pago inicial</small></div>
     </div>
     <p class="nota">Ejemplo ilustrativo: tus números dependen de tu negocio y tus precios.</p>
   </div>
 
   <div class="bloque">
-    <p class="k">Planes</p>
-    <div class="planes" id="planes" style="margin-top:3mm"></div>
+    <p class="k">Precio</p>
+    <div id="planes" style="margin-top:3mm"></div>
     <p class="oferta">🎁 <span data-k="oferta"></span></p>
   </div>
 
@@ -157,7 +168,13 @@ p{font-size:10.5pt;line-height:1.5}
 <script>
 fetch('datos.json').then(r => r.json()).then(d => {
   document.querySelectorAll('[data-k]').forEach(el => { el.textContent = d[el.dataset.k] || ''; });
-  document.getElementById('planes').innerHTML = d.precios.map(p => `<div class="plan${p.destacado ? ' top' : ''}"><span class="nom">${p.plan}</span><span class="pre">${p.pago}</span><span class="mes">${p.mes || ''}</span><span class="det">${p.mes ? 'instalación' : p.detalle}</span><ul>${p.items.map(i => `<li>${i}</li>`).join('')}</ul></div>`).join('');
+  var p = d.plan, u = document.getElementById('planes');
+  u.innerHTML = '<div class="unico"><div class="izq"><span class="nom"></span><span class="desde">desde</span><span class="pre"></span><span class="mes"></span><span class="cond"></span></div><ul></ul></div>';
+  u.querySelector('.nom').textContent = p.nombre;
+  u.querySelector('.pre').textContent = p.desde;
+  u.querySelector('.mes').textContent = p.mes;
+  p.condiciones.forEach(function (c) { var s = document.createElement('span'); s.textContent = c; u.querySelector('.cond').appendChild(s); });
+  p.items.forEach(function (i) { var li = document.createElement('li'); li.textContent = i; u.querySelector('ul').appendChild(li); });
   document.body.dataset.listo = '1';
 });
 </script>
