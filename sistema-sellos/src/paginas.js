@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-24';
+const V = '2026-10-25';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -435,7 +435,7 @@ export function admin() {
     clase: 'es-panel',
     scripts: ['comun.js', 'admin.js'],
     cuerpo: `
-<main id="principal" class="contenedor ancho">
+<main id="principal" class="contenedor ancho admin">
   <header class="cabeza compacta fila">
     <div><p class="antetitulo">Sistema de sellos</p><h1>Administración</h1></div>
     <button class="boton chico" type="button" id="salir" hidden>${icono('salir')}Salir</button>
@@ -477,37 +477,27 @@ export function admin() {
     <section class="bloque" aria-labelledby="t-form">
       <h2 id="t-form">Agregar o editar negocio</h2>
       <p class="nota">Para editar uno existente, toca «Editar» en la tabla. Deja la clave en blanco para no cambiarla.</p>
-      <form id="form-negocio" class="rejilla">
+      <div class="editor">
+      <form id="form-negocio" class="editor-form">
         <input type="hidden" name="editar" value="">
-        <div class="campo"><label for="f-slug">Identificador (va en la dirección)</label><input id="f-slug" name="slug" required pattern="[a-z0-9-]{1,30}" placeholder="filo" aria-describedby="f-slug-ayuda"><p class="ayuda" id="f-slug-ayuda">Minúsculas, números y guiones.</p></div>
-        <div class="campo"><label for="f-nombre">Nombre comercial</label><input id="f-nombre" name="nombre" required maxlength="60"></div>
-        <div class="campo"><label for="f-programa">Nombre del programa</label><input id="f-programa" name="programa" required maxlength="40" placeholder="Club Filo"></div>
-        <div class="campo"><label for="f-tipo">Tipo de tarjeta</label><select id="f-tipo" name="tipo" aria-describedby="f-tipo-ayuda">${Object.entries(TIPOS).map(([k, v]) => `<option value="${k}">${e(v)}</option>`).join('')}</select><p class="ayuda" id="f-tipo-ayuda">Sellos: barberías y spas. Puntos o cashback: cafeterías, restaurantes y tiendas, donde cada cliente gasta distinto.</p></div>
-        <div class="campo" data-solo="puntos" hidden><label for="f-por-sol">Puntos por cada S/ 1</label><input id="f-por-sol" name="por_sol" type="text" inputmode="decimal" value="1" maxlength="5"></div>
-        <div class="campo" data-solo="puntos" hidden><label for="f-premios-texto">Premios por puntos</label><textarea id="f-premios-texto" name="premios_texto" rows="4" placeholder="100 = Café gratis&#10;250 = Postre gratis&#10;500 = Almuerzo gratis" aria-describedby="f-premios-ayuda"></textarea><p class="ayuda" id="f-premios-ayuda">Uno por línea: puntos = premio.</p></div>
-        <div class="campo" data-solo="cashback" hidden><label for="f-pct">Porcentaje de vuelta (%)</label><input id="f-pct" name="pct" type="text" inputmode="decimal" value="5" maxlength="5" aria-describedby="f-pct-ayuda"><p class="ayuda" id="f-pct-ayuda">De cada compra, este % queda como saldo del cliente.</p></div>
-        <div class="campo" data-solo="cashback" hidden><label for="f-minimo">Saldo mínimo para usar (S/)</label><input id="f-minimo" name="minimo" type="text" inputmode="decimal" value="5" maxlength="7"></div>
-        <div class="campo" data-solo="sellos"><label for="f-meta">Sellos para el premio</label><input id="f-meta" name="meta" type="number" min="3" max="20" value="10" required></div>
-        <div class="campo" data-solo="sellos"><label for="f-premio">Premio</label><input id="f-premio" name="premio" required maxlength="60" placeholder="Corte gratis"></div>
-        <div class="campo"><label for="f-espera">Minutos mínimos entre visitas</label><input id="f-espera" name="espera_min" type="number" min="0" max="10080" value="180"></div>
-        <div class="campo"><label for="f-razon">Razón social</label><input id="f-razon" name="razon_social" maxlength="100"></div>
-        <div class="campo"><label for="f-ruc">RUC</label><input id="f-ruc" name="ruc" inputmode="numeric" pattern="\\d{11}" maxlength="11"></div>
-        <div class="campo"><label for="f-direccion">Dirección</label><input id="f-direccion" name="direccion" maxlength="140"></div>
-        <div class="campo"><label for="f-correo">Correo para derechos ARCO</label><input id="f-correo" name="correo" type="email" maxlength="100"></div>
-        <div class="campo"><label for="f-plan">Plan</label><select id="f-plan" name="plan"><option value="">Sin definir</option><option value="prueba">Mes gratis</option><option value="mensual">Mensual</option><option value="cortesia">Cortesía</option></select></div>
-        <div class="campo"><label for="f-precio">Precio promedio por servicio (S/)</label><input id="f-precio" name="precio" type="text" inputmode="decimal" maxlength="7" placeholder="35" aria-describedby="f-precio-ayuda"><p class="ayuda" id="f-precio-ayuda">Lo que cobra en promedio (un corte, por ejemplo). Con eso su panel calcula cuánto gana y cuánto deja de ganar.</p></div>
-        <div class="campo ancho-total"><label for="f-servicios">Servicios o productos con precio (opcional)</label><textarea id="f-servicios" name="servicios_texto" rows="4" placeholder="Corte = 30&#10;Barba = 15&#10;Café americano = 8" aria-describedby="f-servicios-ayuda"></textarea><p class="ayuda" id="f-servicios-ayuda">Uno por línea: nombre = precio. En el panel se eligen con un toque al registrar la visita, y «Tus números» muestra los más vendidos.</p></div>
-        <div class="campo"><label for="f-cuota">Cuota mensual (S/)</label><input id="f-cuota" name="cuota" type="text" inputmode="decimal" maxlength="7" placeholder="69" aria-describedby="f-cuota-ayuda"><p class="ayuda" id="f-cuota-ayuda">De S/ 59 a S/ 79 según la zona y el tamaño del local. El negocio la ve en «Tus números».</p></div>
-        <div class="campo"><label for="f-vence">Vence el</label><input id="f-vence" name="vence" type="date" aria-describedby="f-vence-ayuda"><p class="ayuda" id="f-vence-ayuda">Si lo dejas vacío en un negocio nuevo, vence en 1 mes (primer mes gratis).</p></div>
-        <div class="campo"><label for="f-red-whatsapp">WhatsApp del negocio</label><input id="f-red-whatsapp" name="red_whatsapp" type="tel" inputmode="numeric" maxlength="11" placeholder="9XX XXX XXX"></div>
-        <div class="campo"><label for="f-red-instagram">Instagram (enlace)</label><input id="f-red-instagram" name="red_instagram" type="url" placeholder="https://instagram.com/..."></div>
-        <div class="campo"><label for="f-red-tiktok">TikTok (enlace)</label><input id="f-red-tiktok" name="red_tiktok" type="url" placeholder="https://tiktok.com/@..."></div>
-        <div class="campo"><label for="f-red-facebook">Facebook (enlace)</label><input id="f-red-facebook" name="red_facebook" type="url" placeholder="https://facebook.com/..."></div>
-        <div class="campo"><label for="f-red-maps">Google Maps (enlace)</label><input id="f-red-maps" name="red_maps" type="url" placeholder="https://maps.app.goo.gl/..."></div>
-        <div class="campo"><label for="f-red-web">Página Bio o web (enlace)</label><input id="f-red-web" name="red_web" type="url" placeholder="https://..."></div>
+        <fieldset class="grupo">
+          <legend>1. El negocio y su premio</legend>
+          <div class="rejilla">
+            <div class="campo"><label for="f-slug">Identificador (va en la dirección)</label><input id="f-slug" name="slug" required pattern="[a-z0-9\\-]{1,30}" placeholder="filo" aria-describedby="f-slug-ayuda"><p class="ayuda" id="f-slug-ayuda">Minúsculas, números y guiones.</p></div>
+            <div class="campo"><label for="f-nombre">Nombre comercial</label><input id="f-nombre" name="nombre" required maxlength="60"></div>
+            <div class="campo"><label for="f-programa">Nombre del programa</label><input id="f-programa" name="programa" required maxlength="40" placeholder="Club Filo"></div>
+            <div class="campo"><label for="f-tipo">Tipo de tarjeta</label><select id="f-tipo" name="tipo" aria-describedby="f-tipo-ayuda">${Object.entries(TIPOS).map(([k, v]) => `<option value="${k}">${e(v)}</option>`).join('')}</select><p class="ayuda" id="f-tipo-ayuda">Sellos: barberías y spas. Puntos o cashback: cafeterías, restaurantes y tiendas, donde cada cliente gasta distinto.</p></div>
+            <div class="campo" data-solo="puntos" hidden><label for="f-por-sol">Puntos por cada S/ 1</label><input id="f-por-sol" name="por_sol" type="text" inputmode="decimal" value="1" maxlength="5"></div>
+            <div class="campo" data-solo="puntos" hidden><label for="f-premios-texto">Premios por puntos</label><textarea id="f-premios-texto" name="premios_texto" rows="4" placeholder="100 = Café gratis&#10;250 = Postre gratis&#10;500 = Almuerzo gratis" aria-describedby="f-premios-ayuda"></textarea><p class="ayuda" id="f-premios-ayuda">Uno por línea: puntos = premio.</p></div>
+            <div class="campo" data-solo="cashback" hidden><label for="f-pct">Porcentaje de vuelta (%)</label><input id="f-pct" name="pct" type="text" inputmode="decimal" value="5" maxlength="5" aria-describedby="f-pct-ayuda"><p class="ayuda" id="f-pct-ayuda">De cada compra, este % queda como saldo del cliente.</p></div>
+            <div class="campo" data-solo="cashback" hidden><label for="f-minimo">Saldo mínimo para usar (S/)</label><input id="f-minimo" name="minimo" type="text" inputmode="decimal" value="5" maxlength="7"></div>
+            <div class="campo" data-solo="sellos"><label for="f-meta">Sellos para el premio</label><input id="f-meta" name="meta" type="number" min="3" max="20" value="10" required></div>
+            <div class="campo" data-solo="sellos"><label for="f-premio">Premio</label><input id="f-premio" name="premio" required maxlength="60" placeholder="Corte gratis"></div>
+          </div>
+        </fieldset>
         <fieldset class="diseno" id="diseno">
-          <legend>Diseño de la página y la tarjeta</legend>
-          <p class="nota">Elige un estilo rápido y luego ajusta lo que quieras. La vista previa se actualiza sola.</p>
+          <legend>2. Diseño de la página y la tarjeta</legend>
+          <p class="nota">Elige un estilo rápido y luego ajusta lo que quieras. La vista previa se actualiza sola mientras eliges.</p>
           <h3 class="subtitulo">Estilo rápido</h3>
           <div class="opciones" id="d-estilos" role="group" aria-label="Estilos rápidos"></div>
           <h3 class="subtitulo">Colores</h3>
@@ -570,16 +560,49 @@ export function admin() {
             <p class="ayuda">MP4 de 5 a 15 segundos, menos de 15 MB. Se reproduce sin sonido.</p>
           </div>
           </div>
-          <h3 class="subtitulo">Vista previa</h3>
-          <div class="vistas">
-            <figure><iframe id="v-registro" title="Vista previa de la página de registro" loading="lazy"></iframe><figcaption>Página de registro</figcaption></figure>
-            <figure><iframe id="v-tarjeta" title="Vista previa de la tarjeta del cliente" loading="lazy"></iframe><figcaption>Tarjeta del cliente</figcaption></figure>
+        </fieldset>
+        <fieldset class="grupo">
+          <legend>3. Redes y contacto</legend>
+          <div class="rejilla">
+            <div class="campo"><label for="f-red-whatsapp">WhatsApp del negocio</label><input id="f-red-whatsapp" name="red_whatsapp" type="tel" inputmode="numeric" maxlength="11" placeholder="9XX XXX XXX"></div>
+            <div class="campo"><label for="f-red-instagram">Instagram (enlace)</label><input id="f-red-instagram" name="red_instagram" type="url" placeholder="https://instagram.com/..."></div>
+            <div class="campo"><label for="f-red-tiktok">TikTok (enlace)</label><input id="f-red-tiktok" name="red_tiktok" type="url" placeholder="https://tiktok.com/@..."></div>
+            <div class="campo"><label for="f-red-facebook">Facebook (enlace)</label><input id="f-red-facebook" name="red_facebook" type="url" placeholder="https://facebook.com/..."></div>
+            <div class="campo"><label for="f-red-maps">Google Maps (enlace)</label><input id="f-red-maps" name="red_maps" type="url" placeholder="https://maps.app.goo.gl/..."></div>
+            <div class="campo"><label for="f-red-web">Página Bio o web (enlace)</label><input id="f-red-web" name="red_web" type="url" placeholder="https://..."></div>
           </div>
         </fieldset>
-        <div class="campo"><label for="f-clave">Clave del panel del negocio</label><input id="f-clave" name="clave" type="password" minlength="8" autocomplete="new-password" aria-describedby="f-clave-ayuda"><p class="ayuda" id="f-clave-ayuda">Mínimo 8 caracteres. Cámbiala si un empleado se va.</p></div>
-        <p class="aviso-error" id="form-msg" role="status" hidden></p>
-        <button class="boton primario" type="submit">Guardar negocio</button>
+        <fieldset class="grupo">
+          <legend>4. Precios y servicios</legend>
+          <div class="rejilla">
+            <div class="campo"><label for="f-precio">Precio promedio por servicio (S/)</label><input id="f-precio" name="precio" type="text" inputmode="decimal" maxlength="7" placeholder="35" aria-describedby="f-precio-ayuda"><p class="ayuda" id="f-precio-ayuda">Lo que cobra en promedio (un corte, por ejemplo). Con eso su panel calcula cuánto le dejan sus clientes y cuánto deja de ganar.</p></div>
+            <div class="campo"><label for="f-espera">Minutos mínimos entre visitas</label><input id="f-espera" name="espera_min" type="number" min="0" max="10080" value="180"></div>
+            <div class="campo ancho-total"><label for="f-servicios">Servicios o productos con precio (opcional)</label><textarea id="f-servicios" name="servicios_texto" rows="4" placeholder="Corte = 30&#10;Barba = 15&#10;Café americano = 8" aria-describedby="f-servicios-ayuda"></textarea><p class="ayuda" id="f-servicios-ayuda">Uno por línea: nombre = precio. En el panel se eligen con un toque al registrar la visita, y «Tus números» muestra los más vendidos.</p></div>
+          </div>
+        </fieldset>
+        <fieldset class="grupo">
+          <legend>5. Datos legales, plan y clave</legend>
+          <div class="rejilla">
+            <div class="campo"><label for="f-razon">Razón social</label><input id="f-razon" name="razon_social" maxlength="100"></div>
+            <div class="campo"><label for="f-ruc">RUC</label><input id="f-ruc" name="ruc" inputmode="numeric" pattern="\\d{11}" maxlength="11"></div>
+            <div class="campo"><label for="f-direccion">Dirección</label><input id="f-direccion" name="direccion" maxlength="140"></div>
+            <div class="campo"><label for="f-correo">Correo para derechos ARCO</label><input id="f-correo" name="correo" type="email" maxlength="100"></div>
+            <div class="campo"><label for="f-plan">Plan</label><select id="f-plan" name="plan"><option value="">Sin definir</option><option value="prueba">Mes gratis</option><option value="mensual">Mensual</option><option value="cortesia">Cortesía</option></select></div>
+            <div class="campo"><label for="f-cuota">Cuota mensual (S/)</label><input id="f-cuota" name="cuota" type="text" inputmode="decimal" maxlength="7" placeholder="69" aria-describedby="f-cuota-ayuda"><p class="ayuda" id="f-cuota-ayuda">De S/ 59 a S/ 79 según la zona y el tamaño del local. Solo la ves tú, en «Rendimiento».</p></div>
+            <div class="campo"><label for="f-vence">Vence el</label><input id="f-vence" name="vence" type="date" aria-describedby="f-vence-ayuda"><p class="ayuda" id="f-vence-ayuda">Si lo dejas vacío en un negocio nuevo, vence en 1 mes (primer mes gratis).</p></div>
+            <div class="campo"><label for="f-clave">Clave del panel del negocio</label><input id="f-clave" name="clave" type="password" minlength="8" autocomplete="new-password" aria-describedby="f-clave-ayuda"><p class="ayuda" id="f-clave-ayuda">Mínimo 8 caracteres. Cámbiala si un empleado se va.</p></div>
+          </div>
+        </fieldset>
       </form>
+      <aside class="editor-vista" aria-labelledby="t-vista">
+        <div class="fila"><h3 class="subtitulo" id="t-vista">Vista previa</h3>
+          <div class="pestanas" role="group" aria-label="Qué ver"><button class="boton chico" type="button" data-vista="v-tarjeta" aria-pressed="true">Tarjeta</button><button class="boton chico" type="button" data-vista="v-registro" aria-pressed="false">Registro</button></div></div>
+        <figure class="vista"><iframe id="v-tarjeta" title="Vista previa de la tarjeta del cliente"></iframe></figure>
+        <figure class="vista" hidden><iframe id="v-registro" title="Vista previa de la página de registro"></iframe></figure>
+        <p class="aviso-error" id="form-msg" role="status" hidden></p>
+        <button class="boton primario ancho" type="submit" form="form-negocio" id="guardar-negocio">Guardar negocio</button>
+      </aside>
+      </div>
     </section>
   </div>
 </main>`,

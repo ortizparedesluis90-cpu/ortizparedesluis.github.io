@@ -382,6 +382,16 @@
   }
   ['nombre', 'programa', 'premio', 'meta', 'por_sol', 'premios_texto', 'pct', 'minimo'].forEach(function (k) { $('form-negocio').elements[k].addEventListener('input', vistaPrevia); });
   $('form-negocio').elements.slug.addEventListener('input', pintarMedios);
+  // Pestañas de la vista previa: tarjeta o página de registro.
+  document.querySelectorAll('[data-vista]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('[data-vista]').forEach(function (x) {
+        var activa = x === b;
+        x.setAttribute('aria-pressed', String(activa));
+        $(x.getAttribute('data-vista')).parentNode.hidden = !activa;
+      });
+    });
+  });
 
   // ---------- sesión y guardado ----------
   $('login').addEventListener('submit', async function (ev) {
@@ -397,7 +407,7 @@
     var f = this, datos = {};
     Array.prototype.forEach.call(f.elements, function (el) { if (el.name) datos[el.name] = el.value; });
     datos.diseno = diseno;
-    var boton = f.querySelector('button[type=submit]');
+    var boton = $('guardar-negocio');
     boton.disabled = true;
     var r = await Sellos.api('/api/admin/negocios', { body: datos });
     boton.disabled = false;
