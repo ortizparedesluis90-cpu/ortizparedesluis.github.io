@@ -31,7 +31,7 @@
       var editar = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Editar' });
       editar.addEventListener('click', function () { llenar(n); });
       tb.appendChild(Sellos.el('tr', {}, [
-        Sellos.el('td', {}, [Sellos.el('strong', { texto: n.nombre }), Sellos.el('br'), Sellos.el('span', { clase: 'nota', texto: n.programa + ' · ' + n.meta + ' sellos → ' + n.premio })]),
+        Sellos.el('td', {}, [Sellos.el('strong', { texto: n.nombre }), Sellos.el('br'), Sellos.el('span', { clase: 'nota', texto: n.programa + ' · ' + resumenPrograma(n) })]),
         Sellos.el('td', { texto: String(n.clientes) }),
         Sellos.el('td', { texto: String(n.escaneos30) }),
         Sellos.el('td', { texto: String(n.visitas30) }),
@@ -119,6 +119,25 @@
     });
   }
 
+  // ---------- tipo de tarjeta ----------
+  function reglasDe(n) { try { return JSON.parse(n.reglas || '{}') || {}; } catch (e) { return {}; } }
+  function serviciosDe(n) { try { return JSON.parse(n.servicios || '[]') || []; } catch (e) { return []; } }
+  function resumenPrograma(n) {
+    var r = reglasDe(n);
+    if (n.tipo === 'puntos') return 'Puntos: ' + (r.porSol || 1) + ' por S/ 1 · ' + (r.premios || []).length + ' premios';
+    if (n.tipo === 'cashback') return 'Cashback: ' + (r.pct || 5) + ' % de vuelta';
+    return n.meta + ' sellos → ' + n.premio;
+  }
+  // Muestra solo los campos del tipo elegido; los ocultos no son obligatorios.
+  function mostrarTipo() {
+    var tipo = $('f-tipo').value;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-solo]'), function (c) {
+      var ver = c.getAttribute('data-solo') === tipo; c.hidden = !ver;
+      Array.prototype.forEach.call(c.querySelectorAll('input,textarea'), function (i) { if (i.name === 'premio') i.required = ver; });
+    });
+  }
+  $('f-tipo').addEventListener('change', function () { mostrarTipo(); vistaPrevia(); });
+
   // ---------- vencimientos y cobros ----------
   var planes = {};
   function fecha(f) { if (!f) return 'sin fecha'; var p = f.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
@@ -177,6 +196,14 @@
       f.elements['red_' + k].value = k === 'whatsapp' && r[k] ? r[k].slice(2) : (r[k] || '');
     });
     f.elements.cuota.value = n.cuota ? String(n.cuota / 100) : '';
+    var r = reglasDe(n);
+    f.elements.tipo.value = n.tipo || 'sellos';
+    f.elements.por_sol.value = r.porSol || 1;
+    f.elements.premios_texto.value = (r.premios || []).map(function (p) { return p.p + ' = ' + p.n; }).join('\n');
+    f.elements.pct.value = r.pct || 5;
+    f.elements.minimo.value = r.minimo !== undefined ? String(r.minimo / 100) : '5';
+    f.elements.servicios_texto.value = serviciosDe(n).map(function (x) { return x.n + ' = ' + x.p / 100; }).join('\n');
+    mostrarTipo();
     f.elements.precio.value = n.precio ? String(n.precio / 100) : '';
     f.elements.editar.value = n.slug;
     f.elements.clave.value = '';
@@ -346,13 +373,14 @@
     espera = setTimeout(function () {
       var f = $('form-negocio');
       var d = { nombre: f.elements.nombre.value, programa: f.elements.programa.value, premio: f.elements.premio.value, meta: f.elements.meta.value, diseno: diseno };
+      ['tipo', 'por_sol', 'premios_texto', 'pct', 'minimo'].forEach(function (k) { d[k] = f.elements[k].value; });
       ['whatsapp', 'instagram', 'tiktok', 'facebook', 'maps', 'web'].forEach(function (k) { d['red_' + k] = f.elements['red_' + k].value; });
       var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(d)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
       $('v-registro').src = '/admin/vista/registro?d=' + b64;
       $('v-tarjeta').src = '/admin/vista/tarjeta?d=' + b64;
     }, 450);
   }
-  ['nombre', 'programa', 'premio', 'meta'].forEach(function (k) { $('form-negocio').elements[k].addEventListener('input', vistaPrevia); });
+  ['nombre', 'programa', 'premio', 'meta', 'por_sol', 'premios_texto', 'pct', 'minimo'].forEach(function (k) { $('form-negocio').elements[k].addEventListener('input', vistaPrevia); });
   $('form-negocio').elements.slug.addEventListener('input', pintarMedios);
 
   // ---------- sesión y guardado ----------
@@ -382,6 +410,7 @@
     } else Sellos.mostrar($('form-msg'), r.datos.error || 'No se pudo guardar.');
   });
 
+  mostrarTipo();
   (async function () {
     var r = await Sellos.api('/api/admin/sesion');
     if (r.ok && r.datos.sesion) cargar(); else verLogin();

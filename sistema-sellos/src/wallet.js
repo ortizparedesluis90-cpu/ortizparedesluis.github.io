@@ -1,5 +1,6 @@
 // Google Wallet: pase de cliente frecuente (loyalty) firmado con una cuenta de servicio de Google Cloud.
 // Se activa con WALLET_ISSUER_ID, WALLET_SA_EMAIL y el secreto WALLET_SA_KEY (ver LEEME.md).
+import { estado } from './programa.js';
 
 export const walletActivo = (env) => Boolean(env.WALLET_ISSUER_ID && env.WALLET_SA_EMAIL && env.WALLET_SA_KEY);
 
@@ -39,7 +40,19 @@ function clase(env, n, logo) {
   };
 }
 
+// Lo que muestra el pase según el tipo de programa.
+function saldoPase(n, c) {
+  const st = estado(n, c);
+  if (st.tipo === 'puntos') return { loyaltyPoints: { label: 'Puntos', balance: { int: st.puntos } }, premio: st.premio };
+  if (st.tipo === 'cashback') return { loyaltyPoints: { label: 'Saldo', balance: { money: { micros: st.saldo * 10000, currencyCode: 'PEN' } } }, premio: st.premio };
+  return {
+    loyaltyPoints: sp.loyaltyPoints,
+    premio: c.sellos >= n.meta ? `¡Listo! Pide en caja: ${n.premio}` : `Al completar ${n.meta} sellos: ${n.premio}`,
+  };
+}
+
 function objeto(env, n, c, origen) {
+  const sp = saldoPase(n, c);
   return {
     id: idObjeto(env, n, c),
     classId: idClase(env, n),
@@ -48,7 +61,7 @@ function objeto(env, n, c, origen) {
     accountName: String(c.nombre || '').split(' ')[0].slice(0, 25),
     loyaltyPoints: { label: `Sellos (de ${n.meta})`, balance: { int: Math.min(c.sellos, n.meta) } },
     barcode: { type: 'QR_CODE', value: `${origen.toUpperCase()}/${n.slug.toUpperCase()}/K/${c.codigo}`, alternateText: c.codigo },
-    textModulesData: [{ id: 'premio', header: 'Premio', body: c.sellos >= n.meta ? `¡Listo! Pide en caja: ${n.premio}` : `Al completar ${n.meta} sellos: ${n.premio}` }],
+    textModulesData: [{ id: 'premio', header: 'Premio', body: sp.premio }],
     linksModuleData: { uris: [{ id: 'tarjeta', uri: `${origen}/${n.slug}/t/${c.token}`, description: 'Ver mi tarjeta' }] },
   };
 }

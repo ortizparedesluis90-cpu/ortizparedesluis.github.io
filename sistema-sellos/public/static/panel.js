@@ -1,10 +1,13 @@
-/* Panel del negocio: escanear QR, sumar sellos, canjear premios y ver quién está cerca del premio. */
+/* Panel del negocio: escanear QR, registrar visitas (sellos, puntos o cashback), canjear premios y ver quién está cerca del premio. */
 (function () {
   'use strict';
   var main = document.getElementById('principal');
   var slug = main.getAttribute('data-slug');
   var meta = Number(main.getAttribute('data-meta'));
   var premio = main.getAttribute('data-premio');
+  var tipo = main.getAttribute('data-tipo') || 'sellos';
+  var reglas = JSON.parse(main.getAttribute('data-reglas') || '{}');
+  var servicios = JSON.parse(main.getAttribute('data-servicios') || '[]');
   var negocio = main.getAttribute('data-negocio');
   var programa = main.getAttribute('data-programa');
   var base = '/api/n/' + slug;
@@ -159,7 +162,7 @@
     lista.forEach(function (c) {
       var b = Sellos.el('button', { clase: 'boton', type: 'button' }, [
         Sellos.el('span', { texto: c.nombre + ' · ' + c.celular }),
-        Sellos.el('span', { texto: c.sellos + '/' + meta }),
+        Sellos.el('span', { texto: resumenCli(c) }),
       ]);
       b.addEventListener('click', function () { ul.hidden = true; mostrarCliente(c, true); });
       ul.appendChild(Sellos.el('li', {}, [b]));
@@ -169,6 +172,79 @@
   }
   $('buscar').addEventListener('submit', function (ev) { ev.preventDefault(); var q = $('q').value.trim(); if (q) buscar(q); });
 
+  // ---------- tipo de programa ----------
+  function solesTxt(c) { return 'S/ ' + (c / 100).toFixed(2).replace(/\.00$/, ''); }
+  function resumenCli(c) {
+    if (tipo === 'puntos') return c.puntos + ' punto' + (c.puntos === 1 ? '' : 's');
+    if (tipo === 'cashback') return solesTxt(c.saldo) + ' de saldo';
+    return c.sellos + '/' + meta + ' sellos';
+  }
+  // Estado del cliente: si puede canjear, el texto de avance y el mensaje para escribirle.
+  function infoCli(c) {
+    var nombre = c.nombre.split(' ')[0], baja = ' (Si no deseas recibir estos mensajes, responde BAJA.)';
+    if (tipo === 'puntos') {
+      var alc = (reglas.premios || []).filter(function (p) { return p.p <= c.puntos; }), sig = (reglas.premios || []).filter(function (p) { return p.p > c.puntos; })[0];
+      var mejor = alc[alc.length - 1];
+      return {
+        listo: alc.length > 0,
+        progreso: 'Tiene ' + c.puntos + ' puntos' + (mejor ? ': puede canjear «' + mejor.n + '».' : sig ? ' · le faltan ' + (sig.p - c.puntos) + ' para «' + sig.n + '».' : '.'),
+        detalle: mejor ? 'Puede canjear «' + mejor.n + '»' : sig ? 'Le faltan ' + (sig.p - c.puntos) + ' puntos para «' + sig.n + '»' : c.puntos + ' puntos',
+        msg: 'Hola ' + nombre + ', te escribimos de ' + negocio + '. ¡Tienes ' + c.puntos + ' puntos en tu tarjeta ' + programa + '! '
+          + (mejor ? 'Ya puedes canjear: ' + mejor.n + '.' : sig ? 'Te faltan solo ' + (sig.p - c.puntos) + ' para ' + sig.n + '.' : '') + ' ¿Te esperamos esta semana?' + baja,
+      };
+    }
+    if (tipo === 'cashback') {
+      var ok = c.saldo > 0 && c.saldo >= (reglas.minimo || 0);
+      return {
+        listo: ok,
+        progreso: 'Tiene ' + solesTxt(c.saldo) + ' de saldo' + (ok ? ': puede usarlo en esta compra.' : reglas.minimo ? ' (se usa desde ' + solesTxt(reglas.minimo) + ').' : '.'),
+        detalle: 'Tiene ' + solesTxt(c.saldo) + ' de saldo para usar',
+        msg: 'Hola ' + nombre + ', te escribimos de ' + negocio + '. ¡Tienes ' + solesTxt(c.saldo) + ' de saldo a favor en tu tarjeta ' + programa + ' para tu próxima compra! ¿Te esperamos esta semana?' + baja,
+      };
+    }
+    var f = faltan(c);
+    return {
+      listo: c.sellos >= meta,
+      progreso: c.sellos >= meta ? '¡Premio listo! Tiene ' + c.sellos + ' sellos: puede canjear «' + premio + '».'
+        : c.sellos + ' de ' + meta + ' sellos · le falta' + (f === 1 ? '' : 'n') + ' ' + f + ' para «' + premio + '».',
+      detalle: f === 0 ? 'Premio listo para canjear' : 'Le falta' + (f === 1 ? '' : 'n') + ' ' + f + ' sello' + (f === 1 ? '' : 's'),
+      msg: f === 0
+        ? 'Hola ' + nombre + ', te escribimos de ' + negocio + '. ¡Completaste tu tarjeta ' + programa + '! Tu premio (' + premio + ') te espera. ¿Te reservamos una cita?' + baja
+        : 'Hola ' + nombre + ', te escribimos de ' + negocio + '. ¡Te falta' + (f === 1 ? '' : 'n') + ' solo ' + f + ' sello' + (f === 1 ? '' : 's') + ' para ' + premio + '! ¿Te reservamos una cita?' + baja,
+    };
+  }
+  // Botones y textos según el tipo de programa.
+  (function () {
+    $('sumar').textContent = tipo === 'puntos' ? 'Sumar puntos' : tipo === 'cashback' ? 'Registrar compra' : '+1 sello';
+    $('canjear').textContent = tipo === 'puntos' ? 'Canjear puntos' : tipo === 'cashback' ? 'Usar saldo' : 'Canjear premio';
+    if (tipo !== 'sellos') {
+      $('c-monto-label').textContent = 'Monto de la compra (S/)';
+      $('c-monto-ayuda').textContent = tipo === 'puntos' ? 'Con este monto se calculan sus puntos: ' + (reglas.porSol || 1) + ' por cada S/ 1.' : 'Con este monto se calcula su saldo: ' + reglas.pct + ' % de vuelta.';
+      $('c-sellos').hidden = true;
+    }
+  })();
+  // Servicios del catálogo: un toque los elige y el monto se suma solo.
+  function pintarServicios() {
+    var caja = $('c-servicios');
+    caja.textContent = '';
+    caja.hidden = !servicios.length;
+    servicios.forEach(function (sv) {
+      var b = Sellos.el('button', { clase: 'chip-servicio', type: 'button', 'aria-pressed': 'false' }, [Sellos.el('span', { texto: sv.n }), Sellos.el('small', { texto: solesTxt(sv.p) })]);
+      b.addEventListener('click', function () {
+        b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+        var total = 0;
+        caja.querySelectorAll('[aria-pressed=true]').forEach(function (x, k) { total += servicios[Array.prototype.indexOf.call(caja.children, x)].p; });
+        $('c-monto').value = total ? String(total / 100) : '';
+      });
+      caja.appendChild(b);
+    });
+  }
+  function elegidos() {
+    var caja = $('c-servicios');
+    return Array.prototype.filter.call(caja.children, function (x) { return x.getAttribute('aria-pressed') === 'true'; })
+      .map(function (x) { return servicios[Array.prototype.indexOf.call(caja.children, x)].n; });
+  }
+
   // ---------- cliente ----------
   function faltan(c) { return Math.max(0, meta - c.sellos); }
   function mostrarCliente(c, enfocar) {
@@ -177,15 +253,15 @@
     $('c-nombre').textContent = c.nombre;
     $('c-codigo').textContent = c.codigo.replace(/(.{4})(.{4})/, '$1 $2');
     $('c-celular').textContent = c.celular + ' · ' + c.visitas + ' visita' + (c.visitas === 1 ? '' : 's') + ' · ' + c.premios + ' premio' + (c.premios === 1 ? '' : 's') + ' canjeado' + (c.premios === 1 ? '' : 's');
-    Sellos.casillas($('c-sellos'), c.sellos, meta);
-    $('c-progreso').textContent = c.sellos >= meta
-      ? '¡Premio listo! Tiene ' + c.sellos + ' sellos: puede canjear «' + premio + '».'
-      : c.sellos + ' de ' + meta + ' sellos · le falta' + (faltan(c) === 1 ? '' : 'n') + ' ' + faltan(c) + ' para «' + premio + '».';
-    $('canjear').disabled = c.sellos < meta;
+    if (tipo === 'sellos') Sellos.casillas($('c-sellos'), c.sellos, meta);
+    var info = infoCli(c);
+    $('c-progreso').textContent = info.progreso;
+    $('canjear').disabled = !info.listo;
+    $('c-canje').hidden = true;
     $('c-recordatorios').checked = c.recordatorios;
     var texto = 'Hola ' + c.nombre.split(' ')[0] + ', esta es tu tarjeta ' + programa + ' de ' + negocio + ': ' + c.enlace;
     $('reenviar').href = 'https://wa.me/' + c.celularWa + '?text=' + encodeURIComponent(texto);
-    if (enfocar) { estado(''); $('cliente').focus(); $('cliente').scrollIntoView({ block: 'start' }); }
+    if (enfocar) { estado(''); pintarServicios(); $('c-monto').value = ''; $('cliente').focus(); $('cliente').scrollIntoView({ block: 'start' }); }
   }
   function ocultarCliente() { actual = null; $('cliente').hidden = true; }
   function estado(texto, tipo) { var n = $('c-msg'); n.textContent = texto; n.className = 'estado' + (tipo ? ' ' + tipo : ''); }
@@ -202,18 +278,53 @@
   $('sumar').addEventListener('click', function () {
     var monto = $('c-monto').value.trim();
     if (monto && !/^\d{1,6}([.,]\d{1,2})?$/.test(monto)) { estado('Escribe el monto solo con números, por ejemplo 35 o 35.50.', 'mal'); $('c-monto').focus(); return; }
-    accion('sello', { monto: monto }, this, function (c) {
-      $('c-monto').value = '';
+    if (tipo !== 'sellos' && !Number((monto || '0').replace(',', '.'))) { estado('Escribe el monto de la compra o elige los servicios.', 'mal'); $('c-monto').focus(); return; }
+    var antes = actual ? { puntos: actual.puntos, saldo: actual.saldo } : { puntos: 0, saldo: 0 };
+    accion('sello', { monto: monto, servicios: elegidos() }, this, function (c) {
+      $('c-monto').value = ''; pintarServicios();
       if (navigator.vibrate) navigator.vibrate(60);
+      if (tipo === 'puntos') return '✓ +' + (c.puntos - antes.puntos) + ' puntos. Ahora tiene ' + c.puntos + '.' + (infoCli(c).listo ? ' Ya puede canjear un premio.' : '');
+      if (tipo === 'cashback') return '✓ Ganó ' + solesTxt(c.saldo - antes.saldo) + ' de saldo. Ahora tiene ' + solesTxt(c.saldo) + '.';
       return c.sellos >= meta ? '✓ Sello sumado. ¡Completó su tarjeta! Ya puede canjear su premio.' : '✓ Sello sumado: ' + c.sellos + ' de ' + meta + '.';
     });
   });
   $('canjear').addEventListener('click', function () {
-    if (!confirm('¿Entregar «' + premio + '» a ' + actual.nombre + '? Se descontarán ' + meta + ' sellos.')) return;
-    accion('canje', {}, this, function () { return '✓ Premio canjeado. Su tarjeta empieza de nuevo.'; });
+    if (!actual) return;
+    var boton = this;
+    if (tipo === 'sellos') {
+      if (!confirm('¿Entregar «' + premio + '» a ' + actual.nombre + '? Se descontarán ' + meta + ' sellos.')) return;
+      return accion('canje', {}, boton, function () { return '✓ Premio canjeado. Su tarjeta empieza de nuevo.'; });
+    }
+    // Puntos: elige un premio que le alcance. Cashback: cuánto saldo usar en esta compra.
+    var caja = $('c-canje');
+    caja.textContent = '';
+    if (tipo === 'puntos') {
+      caja.appendChild(Sellos.el('p', { clase: 'nota', texto: 'Elige el premio que se lleva:' }));
+      (reglas.premios || []).forEach(function (p, i) {
+        var b = Sellos.el('button', { clase: 'boton', type: 'button', texto: p.n + ' · ' + p.p + ' pts' });
+        b.disabled = p.p > actual.puntos;
+        b.addEventListener('click', function () {
+          if (!confirm('¿Entregar «' + p.n + '» a ' + actual.nombre + '? Se descontarán ' + p.p + ' puntos.')) return;
+          accion('canje', { premio: i }, b, function (c) { return '✓ Canjeó «' + p.n + '». Le quedan ' + c.puntos + ' puntos.'; });
+        });
+        caja.appendChild(b);
+      });
+    } else {
+      var inp = Sellos.el('input', { id: 'c-usar', type: 'text', inputmode: 'decimal', maxlength: '9', value: String(actual.saldo / 100) });
+      var b = Sellos.el('button', { clase: 'boton primario', type: 'button', texto: 'Descontar de esta compra' });
+      b.addEventListener('click', function () {
+        var v = inp.value.trim();
+        if (!/^\d{1,6}([.,]\d{1,2})?$/.test(v)) return estado('Escribe el monto solo con números.', 'mal');
+        accion('canje', { monto: v }, b, function (c) { return '✓ Se descontaron S/ ' + v + '. Le queda ' + solesTxt(c.saldo) + ' de saldo.'; });
+      });
+      caja.appendChild(Sellos.el('label', { for: 'c-usar', texto: 'Saldo a usar (S/), máximo ' + solesTxt(actual.saldo) }));
+      caja.appendChild(Sellos.el('div', { clase: 'fila-input' }, [inp, b]));
+    }
+    caja.hidden = false;
+    var primero = caja.querySelector('button:not([disabled]), input'); if (primero) primero.focus();
   });
   $('deshacer').addEventListener('click', function () {
-    accion('deshacer', {}, this, function (c) { return 'Se quitó el último sello. Ahora tiene ' + c.sellos + '.'; });
+    accion('deshacer', {}, this, function (c) { return 'Se deshizo la última visita. Ahora tiene ' + resumenCli(c) + '.'; });
   });
   $('c-recordatorios').addEventListener('change', function () {
     var activo = this.checked;
@@ -244,7 +355,7 @@
       ul.appendChild(Sellos.el('li', {}, [
         Sellos.el('div', { clase: 'quien' }, [
           Sellos.el('strong', { texto: c.nombre }),
-          Sellos.el('span', { texto: c.sellos + '/' + meta + ' sellos · se registró el ' + cuando + (c.origen === 'qr' ? ' (QR del cartel)' : '') }),
+          Sellos.el('span', { texto: resumenCli(c) + ' · se registró el ' + cuando + (c.origen === 'qr' ? ' (QR del cartel)' : '') }),
         ]),
         ver,
       ]));
@@ -262,12 +373,7 @@
     ul.textContent = '';
     if (!r.datos.clientes.length) { ul.appendChild(Sellos.el('li', { texto: 'Nadie por ahora.' })); return; }
     r.datos.clientes.forEach(function (c) {
-      var f = faltan(c);
-      var nombre = c.nombre.split(' ')[0];
-      var detalle = f === 0 ? 'Premio listo para canjear' : 'Le falta' + (f === 1 ? '' : 'n') + ' ' + f + ' sello' + (f === 1 ? '' : 's');
-      var msg = f === 0
-        ? 'Hola ' + nombre + ', te escribimos de ' + negocio + '. ¡Completaste tu tarjeta ' + programa + '! Tu premio (' + premio + ') te espera. ¿Te reservamos una cita? (Si no deseas recibir estos mensajes, responde BAJA.)'
-        : 'Hola ' + nombre + ', te escribimos de ' + negocio + '. ¡Te falta' + (f === 1 ? '' : 'n') + ' solo ' + f + ' sello' + (f === 1 ? '' : 's') + ' para ' + premio + '! ¿Te reservamos una cita? (Si no deseas recibir estos mensajes, responde BAJA.)';
+      var info = infoCli(c), detalle = info.detalle, msg = info.msg;
       var ver = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
       ver.addEventListener('click', function () { mostrarCliente(c, true); });
       ul.appendChild(Sellos.el('li', {}, [
@@ -391,7 +497,7 @@
   async function cargarNumeros() {
     var r = await pedir(base + '/numeros');
     if (!r.ok) return;
-    real = r.datos;
+    real = r.datos; servicios = r.datos.servicios || servicios;
     if (!viendoEjemplo) { num = real; pintarNumeros(); }
   }
   function pintarNumeros() {
@@ -420,7 +526,7 @@
     var vacio = sinPrecio || !m.visitas;
     heroe.appendChild(Sellos.el('p', { clase: 'heroe-valor' + (m.ganancia < 0 && !vacio ? ' negativo' : ''), texto: vacio ? '—' : (m.ganancia < 0 ? '− ' : '') + plata(Math.abs(m.ganancia)) }));
     heroe.appendChild(Sellos.el('p', { clase: 'heroe-nota', texto: sinPrecio ? 'Escribe arriba cuánto cobras por servicio para ver tu ganancia.'
-      : !m.visitas ? 'Aún no hay visitas en ' + mesDe(m.mes) + '. Apenas sumes sellos, aquí verás tu ganancia.' : costo > 0
+      : !m.visitas ? 'Aún no hay visitas en ' + mesDe(m.mes) + '. Apenas registres visitas, aquí verás tu ganancia.' : costo > 0
       ? 'Por cada S/ 1 que te cuesta (premios + sistema), tus clientes que regresan te dejaron ' + solesExactos.format(m.ingresosRegreso / costo) + '.'
       : 'Visitas de clientes que regresan: ' + plata(m.ingresosRegreso) + '. Configura lo que pagas al mes para ver tu retorno.' }));
 
@@ -434,7 +540,8 @@
       ['De clientes que regresan', plata(m.ingresosRegreso), m.ingresos ? Math.round(m.ingresosRegreso / m.ingresos * 100) + ' % de tus ingresos' : '', a && cambio(m.ingresosRegreso, a0.ingresosRegreso, antes)],
       ['Clientes que volvieron', m.volvieron, 'de ' + plural(m.clientes, 'cliente', 'clientes') + ' que vinieron', a && cambio(m.volvieron, a0.volvieron, antes)],
       ['Clientes nuevos', m.nuevos, 'Crearon su tarjeta', a && cambio(m.nuevos, a0.nuevos, antes)],
-      ['Premios entregados', m.canjes, 'Te costaron ' + plata(m.premios)],
+      ['Ticket promedio', m.visitas && !sinPrecio ? plata(m.ingresos / m.visitas) : '—', 'Lo que deja cada visita', a && a0.visitas && m.visitas ? cambio(m.ingresos / m.visitas, a0.ingresos / a0.visitas, antes) : null],
+      d.tipo === 'cashback' ? ['Saldo usado', plata(m.premios), plural(m.canjes, 'vez', 'veces') + ' que usaron su saldo'] : ['Premios entregados', m.canjes, 'Te costaron ' + plata(m.premios)],
       ['Lo que pagas por el sistema', plata(m.inversion), 'Este mes'],
       ['Vuelven a venir', f.clientes ? Math.round(f.repiten / f.clientes * 100) + ' %' : '—', plural(f.repiten, 'cliente vino', 'clientes vinieron') + ' 2 veces o más'],
       ['Vuelven cada', f.cadaDias === null ? '—' : plural(f.cadaDias, 'día', 'días'), 'En promedio, entre visita y visita'],
@@ -474,6 +581,17 @@
       ]));
     });
 
+    // Servicios más vendidos.
+    var vend = d.vendidos || [];
+    $('n-vendidos-caja').hidden = !vend.length;
+    var ol = $('n-vendidos'); ol.textContent = '';
+    vend.forEach(function (x, k) {
+      ol.appendChild(Sellos.el('li', {}, [
+        Sellos.el('span', { clase: 'puesto', texto: String(k + 1), 'aria-hidden': 'true' }),
+        Sellos.el('div', { clase: 'quien' }, [Sellos.el('strong', { texto: x.n }), Sellos.el('span', { texto: plural(x.veces, 'vez', 'veces') + ' · ' + plata(x.ingresos) })]),
+      ]));
+    });
+
     // Días de la semana (lunes primero) y horas pico.
     var dias = [0, 0, 0, 0, 0, 0, 0], horas = {};
     d.horas.forEach(function (h) { dias[(h.dia + 6) % 7] += h.v; horas[h.hora] = (horas[h.hora] || 0) + h.v; });
@@ -508,7 +626,7 @@
         botones.push(ver);
       }
       if (c.recordatorios && !ej) {
-        var msg = 'Hola ' + nombre + ', te extrañamos en ' + negocio + ' 💈 Tienes ' + c.sellos + ' de ' + meta + ' sellos en tu tarjeta ' + programa + '. ¿Te reservamos una cita esta semana? (Si no deseas recibir estos mensajes, responde BAJA.)';
+        var msg = 'Hola ' + nombre + ', te extrañamos en ' + negocio + ' 💈 Tienes ' + resumenCli(c) + ' en tu tarjeta ' + programa + '. ¿Te reservamos una cita esta semana? (Si no deseas recibir estos mensajes, responde BAJA.)';
         botones.push(Sellos.el('a', { clase: 'boton chico primario', href: 'https://wa.me/' + c.celularWa + '?text=' + encodeURIComponent(msg), target: '_blank', rel: 'noopener', texto: 'Escribir por WhatsApp' }));
       }
       rz.appendChild(Sellos.el('li', {}, [
@@ -524,6 +642,7 @@
     var foco = document.activeElement;
     if (!(foco && foco.tagName === 'INPUT' && $('f-ajustes').contains(foco))) {
       $('a-precio').value = en(aj.precio); $('a-premio').value = en(aj.costoPremio); $('a-inversion').value = en(aj.inversion);
+      if (!ej) $('a-servicios').value = (d.servicios || []).map(function (x) { return x.n + ' = ' + x.p / 100; }).join('\n');
     }
   }
   $('n-mes').addEventListener('change', function () { if (num) pintarNumeros(); });
@@ -547,12 +666,14 @@
       [10, 11, 12, 15, 16, 17, 18, 19].forEach(function (h, k) { horas.push({ dia: dia, hora: h, v: Math.max(1, Math.round(total * [.6, .7, .5, .6, .8, 1.4, 1.6, 1.2][k] / 7.4 * 3)) }); });
     });
     var persona = function (nombre, v, premios, dias) {
-      return { nombre: nombre, visitas90: v, gasto90: v * p, premios: premios, visitas: v + 4, sellos: v % 10, recordatorios: true, ultimaVisita: new Date(Date.now() - dias * 864e5).toISOString().slice(0, 19).replace('T', ' ') };
+      return { nombre: nombre, visitas90: v, gasto90: v * p, premios: premios, visitas: v + 4, sellos: v % 10, puntos: v * 30, saldo: v * 150, recordatorios: true, ultimaVisita: new Date(Date.now() - dias * 864e5).toISOString().slice(0, 19).replace('T', ' ') };
     };
     return {
       ajustes: { precio: p, costoPremio: real.ajustes.costoPremio, inversion: inv }, meses: [0, 1, 2, 3, 4, 5].map(function (k) { return mes(k); }), anteriorAlDia: ant,
       top: [persona('Carlos R.', 9, 1, 3), persona('Luis T.', 8, 1, 6), persona('Diego F.', 7, 0, 2), persona('Jorge C.', 7, 0, 9), persona('Miguel A.', 6, 0, 12)],
-      horas: horas, fidelidad: { clientes: 124, repiten: 79, cadaDias: 24 },
+      horas: horas, fidelidad: { clientes: 124, repiten: 79, cadaDias: 24 }, tipo: real.tipo,
+      vendidos: (real.servicios.length ? real.servicios : [{ n: 'Servicio A', p: p }, { n: 'Servicio B', p: Math.round(p * 0.6) }, { n: 'Servicio C', p: Math.round(p * 1.4) }])
+        .slice(0, 5).map(function (x, k) { var v = [46, 31, 22, 14, 9][k]; return { n: x.n, veces: v, ingresos: v * x.p }; }),
       riesgo: { dias: 45, total: 9, clientes: [persona('Andrés V.', 6, 0, 52), persona('Kevin H.', 4, 0, 61), persona('Piero C.', 3, 0, 75)] },
     };
   }
@@ -576,9 +697,9 @@
     ev.preventDefault();
     var boton = this.querySelector('button'), msg = $('a-msg');
     boton.disabled = true;
-    var r = await pedir(base + '/ajustes', { body: { precio: $('a-precio').value, costoPremio: $('a-premio').value, inversion: $('a-inversion').value } });
+    var r = await pedir(base + '/ajustes', { body: { precio: $('a-precio').value, costoPremio: $('a-premio').value, inversion: $('a-inversion').value, servicios: $('a-servicios').value } });
     boton.disabled = false;
-    if (r.ok) { real = num = r.datos; viendoEjemplo = false; boton.focus(); pintarNumeros(); msg.textContent = '✓ Montos guardados.'; msg.className = 'estado ok'; }
+    if (r.ok) { real = num = r.datos; servicios = r.datos.servicios || []; viendoEjemplo = false; boton.focus(); pintarNumeros(); msg.textContent = '✓ Montos guardados.'; msg.className = 'estado ok'; }
     else { msg.textContent = r.datos.error || 'No se pudieron guardar.'; msg.className = 'estado mal'; }
   });
 

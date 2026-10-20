@@ -1,9 +1,10 @@
 // Plantillas HTML. Todo el JavaScript va en /static (la política CSP no permite scripts en línea).
 import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './diseno.js';
+import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-22';
+const V = '2026-10-23';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -66,6 +67,8 @@ const pie = (n) => `<footer class="pie">
   <p>${e(n.programa)} · ${e(n.nombre)}</p>
 </footer>`;
 
+// «Junta <b>10 sellos</b> y gana <b>Corte gratis</b>» según el tipo de programa.
+const lemaHtml = (n) => { const [a, b, c, d] = lema(n); return `${e(a)}<strong>${e(b)}</strong>${e(c)}${d ? `<strong>${e(d)}</strong>` : ''}`; };
 const pausa = (texto) => `<section class="pausa" role="status"><h2>Programa en pausa</h2><p>${texto}</p></section>`;
 
 export function registro(n, { error = '', valores = {} } = {}) {
@@ -82,7 +85,7 @@ export function registro(n, { error = '', valores = {} } = {}) {
     ${logoHtml(n.d, n.nombre)}
     <p class="antetitulo">${e(n.nombre)}</p>
     <h1>${e(n.programa)}</h1>
-    <p class="bajada">Junta <strong>${n.meta} sellos</strong> y gana <strong>${e(n.premio)}</strong>.</p>
+    <p class="bajada">${lemaHtml(n)}.</p>
   </header>
 
   ${redes(n, 'Síguenos y reserva')}
@@ -91,8 +94,8 @@ export function registro(n, { error = '', valores = {} } = {}) {
   <div${n.suspendido ? ' hidden' : ''}>
   <ol class="pasos" aria-label="Cómo funciona">
     <li><span class="num" aria-hidden="true">1</span><span>Crea tu tarjeta gratis con tu nombre y celular.</span></li>
-    <li><span class="num" aria-hidden="true">2</span><span>En cada visita muestra tu código QR en caja y te sumamos un sello.</span></li>
-    <li><span class="num" aria-hidden="true">3</span><span>Al completar ${n.meta} sellos, reclamas tu premio.</span></li>
+    <li><span class="num" aria-hidden="true">2</span><span>${e(pasos(n)[0])}</span></li>
+    <li><span class="num" aria-hidden="true">3</span><span>${e(pasos(n)[1])}</span></li>
   </ol>
 
   <form class="tarjeta-form" id="form-registro" method="post" action="/${e(n.slug)}/registro" novalidate>
@@ -112,7 +115,7 @@ export function registro(n, { error = '', valores = {} } = {}) {
     </div>
     <div class="check">
       <input id="acepta" name="acepta" type="checkbox" value="1" required>
-      <label for="acepta">Tengo 14 años o más, leí el <a href="/${e(n.slug)}/privacidad" target="_blank" rel="noopener">aviso de privacidad</a> y acepto que ${e(titular)} use mi nombre y celular para administrar mi tarjeta de sellos.</label>
+      <label for="acepta">Tengo 14 años o más, leí el <a href="/${e(n.slug)}/privacidad" target="_blank" rel="noopener">aviso de privacidad</a> y acepto que ${e(titular)} use mi nombre y celular para administrar mi tarjeta de cliente frecuente.</label>
     </div>
     <div class="check">
       <input id="recordatorios" name="recordatorios" type="checkbox" value="1">
@@ -127,7 +130,27 @@ ${pie(n)}`,
   });
 }
 
+/** Carnet de puntos o cashback (en sellos se usan las casillas). */
+function carnetSaldo(n, c) {
+  const st = estado(n, c), pr = leerPrograma(n);
+  if (st.tipo === 'puntos') {
+    const sig = st.siguiente, base = sig ? sig.p : (pr.premios[pr.premios.length - 1]?.p || 1);
+    const avance = Math.min(100, Math.round((st.puntos / base) * 100));
+    return `
+    <div class="saldo-grande"><strong id="saldo-valor">${st.puntos}</strong><span>punto${st.puntos === 1 ? '' : 's'}</span></div>
+    <div class="barra" role="progressbar" aria-label="Avance al siguiente premio" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${avance}"><span style="width:${avance}%"></span></div>
+    <p class="premio${st.listo ? ' listo' : ''}" id="premio">${icono('regalo')}<span>${e(st.premio)}</span></p>
+    <ul class="premios-lista">${pr.premios.map((p) => `<li class="${p.p <= st.puntos ? 'alcanzado' : ''}"><span>${e(p.n)}</span><strong>${p.p} pts</strong></li>`).join('')}</ul>
+    <p class="nota">Ganas ${pr.porSol === 1 ? '1 punto' : `${pr.porSol} puntos`} por cada S/ 1 de compra.</p>`;
+  }
+  return `
+    <div class="saldo-grande"><strong id="saldo-valor">${e(soles(st.saldo))}</strong><span>de saldo a favor</span></div>
+    <p class="premio${st.listo ? ' listo' : ''}" id="premio">${icono('regalo')}<span>${e(st.premio)}</span></p>
+    <p class="nota">Recibes el ${pr.pct} % de cada compra como saldo para tus próximas compras.</p>`;
+}
+
 export function tarjeta(n, c, qrSvg, url) {
+  const tipo = leerPrograma(n).tipo;
   const sellos = Math.min(c.sellos, n.meta);
   const extra = Math.max(0, c.sellos - n.meta);
   const listo = c.sellos >= n.meta;
@@ -141,7 +164,7 @@ export function tarjeta(n, c, qrSvg, url) {
     scripts: ['comun.js', 'tarjeta.js', 'efectos.js'],
     decorar: true,
     cuerpo: `
-<main id="principal" class="contenedor"${n.vista ? '' : ` data-api="/api/n/${e(n.slug)}/t/${e(c.token)}"`} data-meta="${n.meta}">
+<main id="principal" class="contenedor"${n.vista ? '' : ` data-api="/api/n/${e(n.slug)}/t/${e(c.token)}"`} data-meta="${n.meta}" data-tipo="${tipo}">
   <template id="sello-lleno">${selloLleno(n.d)}</template>
   <header class="cabeza compacta">
     ${logoHtml(n.d, n.nombre)}
@@ -154,11 +177,11 @@ export function tarjeta(n, c, qrSvg, url) {
     <span class="brillo" aria-hidden="true"></span>
     <div class="carnet-top">
       <h2 id="hola">Hola, ${e(primerNombre(c.nombre))}</h2>
-      <p class="progreso" id="progreso" aria-live="polite">${listo ? '¡Completaste tu tarjeta!' : `Llevas <strong>${c.sellos}</strong> de ${n.meta} sellos`}</p>
+      ${tipo === 'sellos' ? `<p class="progreso" id="progreso" aria-live="polite">${listo ? '¡Completaste tu tarjeta!' : `Llevas <strong>${c.sellos}</strong> de ${n.meta} sellos`}</p>` : ''}
     </div>
-    <ol class="sellos" id="sellos" aria-label="Sellos: ${sellos} de ${n.meta}">${casillas}</ol>
+    ${tipo === 'sellos' ? `<ol class="sellos" id="sellos" aria-label="Sellos: ${sellos} de ${n.meta}">${casillas}</ol>
     <p class="extra" id="extra"${extra ? '' : ' hidden'}>+${extra} sello${extra === 1 ? '' : 's'} para tu próxima tarjeta</p>
-    <p class="premio${listo ? ' listo' : ''}" id="premio">${icono('regalo')}<span>${listo ? `<strong>¡Premio listo!</strong> Pide en caja: ${e(n.premio)}` : `Premio: ${e(n.premio)}`}</span></p>
+    <p class="premio${listo ? ' listo' : ''}" id="premio">${icono('regalo')}<span>${listo ? `<strong>¡Premio listo!</strong> Pide en caja: ${e(n.premio)}` : `Premio: ${e(n.premio)}`}</span></p>` : carnetSaldo(n, c)}
   </section>
 
   <section class="qr-caja" aria-labelledby="qr-titulo">
@@ -178,12 +201,12 @@ export function tarjeta(n, c, qrSvg, url) {
 
   <dl class="datos">
     <div><dt>Visitas</dt><dd id="visitas">${c.visitas}</dd></div>
-    <div><dt>Premios canjeados</dt><dd id="premios">${c.premios}</dd></div>
+    <div><dt>${tipo === 'cashback' ? 'Veces que usaste tu saldo' : 'Premios canjeados'}</dt><dd id="premios">${c.premios}</dd></div>
   </dl>
 
   <details class="borrar">
     <summary>Eliminar mis datos</summary>
-    <p>Se borrarán tu tarjeta, tus sellos y tu celular de forma permanente.</p>
+    <p>Se borrarán tu tarjeta, tu historial y tu celular de forma permanente.</p>
     <button class="boton peligro" type="button" id="eliminar">Eliminar mi tarjeta</button>
     <p class="aviso-error" id="eliminar-msg" role="alert" hidden></p>
   </details>
@@ -202,7 +225,7 @@ export function cartel(n, qr, url) {
   ${logoHtml(n.d, n.nombre)}
   <p class="antetitulo">${e(n.nombre)}</p>
   <h1>${e(n.programa)}</h1>
-  <p class="bajada">Junta <strong>${n.meta} sellos</strong> y gana <strong>${e(n.premio)}</strong></p>
+  <p class="bajada">${lemaHtml(n)}</p>
   <div class="qr grande" role="img" aria-label="Código QR para crear tu tarjeta">${qr}</div>
   ${n.suspendido ? '<p class="aviso-error solo-pantalla">Este negocio está suspendido: el QR mostrará «Programa en pausa».</p>' : ''}
   <p class="cartel-paso">Escanea con la cámara de tu celular y crea tu tarjeta gratis</p>
@@ -267,7 +290,7 @@ export function panel(n) {
     clase: 'es-panel',
     scripts: ['jsqr.js', 'comun.js', 'panel.js'],
     cuerpo: `
-<main id="principal" class="contenedor ancho" data-slug="${e(n.slug)}" data-meta="${n.meta}" data-premio="${e(n.premio)}" data-negocio="${e(n.nombre)}" data-programa="${e(n.programa)}">
+<main id="principal" class="contenedor ancho" data-slug="${e(n.slug)}" data-meta="${n.meta}" data-premio="${e(n.premio)}" data-negocio="${e(n.nombre)}" data-programa="${e(n.programa)}" data-tipo="${leerPrograma(n).tipo}" data-reglas="${e(JSON.stringify(leerPrograma(n)))}" data-servicios="${e(JSON.stringify(leerServicios(n)))}">
   <header class="cabeza compacta fila">
     <div><p class="antetitulo">Panel del negocio</p><h1>${e(n.nombre)}</h1></div>
     <button class="boton chico" type="button" id="salir" hidden>${icono('salir')}Salir</button>
@@ -314,14 +337,16 @@ export function panel(n) {
       <p class="sub" id="c-celular"></p>
       <ol class="sellos chicos" id="c-sellos" aria-hidden="true"></ol>
       <p class="progreso" id="c-progreso" aria-live="polite"></p>
-      <div class="campo monto"><label for="c-monto">Cobrado en esta visita (S/) <span>opcional</span></label><input id="c-monto" type="text" inputmode="decimal" autocomplete="off" maxlength="9" aria-describedby="c-monto-ayuda"><p class="ayuda" id="c-monto-ayuda">Si lo dejas vacío, se cuenta tu precio promedio en «Tus números».</p></div>
+      <div class="servicios-elegir" id="c-servicios" role="group" aria-label="Servicios de esta visita" hidden></div>
+      <div class="campo monto"><label for="c-monto" id="c-monto-label">Cobrado en esta visita (S/) <span>opcional</span></label><input id="c-monto" type="text" inputmode="decimal" autocomplete="off" maxlength="9" aria-describedby="c-monto-ayuda"><p class="ayuda" id="c-monto-ayuda">Si lo dejas vacío, se cuenta tu precio promedio en «Tus números».</p></div>
       <div class="botones">
         <button class="boton primario grande" type="button" id="sumar">+1 sello</button>
         <button class="boton grande" type="button" id="canjear" disabled>Canjear premio</button>
       </div>
+      <div class="canje-opciones" id="c-canje" hidden></div>
       <p class="estado" id="c-msg" role="status"></p>
       <div class="botones chicos">
-        <button class="boton chico" type="button" id="deshacer">Deshacer último sello</button>
+        <button class="boton chico" type="button" id="deshacer">Deshacer última visita</button>
         <a class="boton chico" id="reenviar" target="_blank" rel="noopener">${icono('wa')}Enviarle su tarjeta</a>
         <label class="interruptor"><input type="checkbox" id="c-recordatorios"> Acepta recordatorios</label>
       </div>
@@ -364,6 +389,11 @@ export function panel(n) {
       <h3 class="subtitulo">Tus clientes más fieles <span>(últimos 90 días)</span></h3>
       <ol class="lista ranking" id="n-top"></ol>
 
+      <div id="n-vendidos-caja" hidden>
+        <h3 class="subtitulo">Servicios más vendidos <span>(últimos 90 días)</span></h3>
+        <ol class="lista ranking" id="n-vendidos"></ol>
+      </div>
+
       <h3 class="subtitulo">Días con más visitas <span>(últimos 90 días)</span></h3>
       <div class="grafico" id="n-dias"></div>
       <p class="nota" id="n-horas"></p>
@@ -375,13 +405,14 @@ export function panel(n) {
       <details class="ajustes" id="n-ajustes">
         <summary>Configurar tus montos</summary>
         <form id="f-ajustes" class="rejilla">
-          <div class="campo"><label for="a-precio">Precio promedio por visita (S/)</label><input id="a-precio" name="precio" type="text" inputmode="decimal" maxlength="9" placeholder="35" aria-describedby="a-precio-ayuda"><p class="ayuda" id="a-precio-ayuda">Lo que paga en promedio un cliente (corte, barba, etc.).</p></div>
+          <div class="campo"><label for="a-precio">Precio o consumo promedio por visita (S/)</label><input id="a-precio" name="precio" type="text" inputmode="decimal" maxlength="9" placeholder="35" aria-describedby="a-precio-ayuda"><p class="ayuda" id="a-precio-ayuda">Lo que paga en promedio un cliente. Se usa en las visitas sin monto anotado.</p></div>
           <div class="campo"><label for="a-premio">Lo que te cuesta dar el premio (S/)</label><input id="a-premio" name="costoPremio" type="text" inputmode="decimal" maxlength="9" placeholder="Igual al precio" aria-describedby="a-premio-ayuda"><p class="ayuda" id="a-premio-ayuda">Vacío = se cuenta como una visita que no cobras.</p></div>
           <div class="campo"><label for="a-inversion">Lo que pagas por el sistema al mes (S/)</label><input id="a-inversion" name="inversion" type="text" inputmode="decimal" maxlength="9" placeholder="69" aria-describedby="a-inversion-ayuda"><p class="ayuda" id="a-inversion-ayuda">Tu cuota mensual del sistema.</p></div>
+          <div class="campo ancho-total"><label for="a-servicios">Tus servicios o productos y sus precios</label><textarea id="a-servicios" name="servicios" rows="5" placeholder="Corte = 30&#10;Barba = 15&#10;Corte + barba = 40" aria-describedby="a-servicios-ayuda"></textarea><p class="ayuda" id="a-servicios-ayuda">Uno por línea: nombre = precio. Al registrar una visita los eliges con un toque y el monto se suma solo.</p></div>
           <div class="campo"><button class="boton primario" type="submit">Guardar montos</button><p class="estado" id="a-msg" role="status"></p></div>
         </form>
       </details>
-      <p class="nota">Cómo se calcula: solo cuentan los clientes con tarjeta, y cada sello es una visita. Si anotas lo cobrado, se usa ese monto; si no, tu precio promedio. «Clientes que regresan» son las visitas desde la 2.ª de cada cliente. La ganancia del programa es lo que dejaron esas visitas menos los premios entregados y lo que pagas por el sistema. Es una estimación: algunos habrían vuelto igual, pero es la mejor señal de cuánto te rinde la fidelización.</p>
+      <p class="nota">Cómo se calcula: solo cuentan los clientes con tarjeta, y cada vez que registras una visita (sello o compra) cuenta como visita. Si anotas lo cobrado, se usa ese monto; si no, tu precio promedio. «Clientes que regresan» son las visitas desde la 2.ª de cada cliente. La ganancia del programa es lo que dejaron esas visitas menos los premios entregados y lo que pagas por el sistema. Es una estimación: algunos habrían vuelto igual, pero es la mejor señal de cuánto te rinde la fidelización.</p>
     </section>
 
     <section class="bloque" aria-labelledby="t-resumen">
@@ -453,15 +484,21 @@ export function admin() {
         <div class="campo"><label for="f-slug">Identificador (va en la dirección)</label><input id="f-slug" name="slug" required pattern="[a-z0-9-]{1,30}" placeholder="filo" aria-describedby="f-slug-ayuda"><p class="ayuda" id="f-slug-ayuda">Minúsculas, números y guiones.</p></div>
         <div class="campo"><label for="f-nombre">Nombre comercial</label><input id="f-nombre" name="nombre" required maxlength="60"></div>
         <div class="campo"><label for="f-programa">Nombre del programa</label><input id="f-programa" name="programa" required maxlength="40" placeholder="Club Filo"></div>
-        <div class="campo"><label for="f-meta">Sellos para el premio</label><input id="f-meta" name="meta" type="number" min="3" max="20" value="10" required></div>
-        <div class="campo"><label for="f-premio">Premio</label><input id="f-premio" name="premio" required maxlength="60" placeholder="Corte gratis"></div>
-        <div class="campo"><label for="f-espera">Minutos mínimos entre sellos</label><input id="f-espera" name="espera_min" type="number" min="0" max="10080" value="180"></div>
+        <div class="campo"><label for="f-tipo">Tipo de tarjeta</label><select id="f-tipo" name="tipo" aria-describedby="f-tipo-ayuda">${Object.entries(TIPOS).map(([k, v]) => `<option value="${k}">${e(v)}</option>`).join('')}</select><p class="ayuda" id="f-tipo-ayuda">Sellos: barberías y spas. Puntos o cashback: cafeterías, restaurantes y tiendas, donde cada cliente gasta distinto.</p></div>
+        <div class="campo" data-solo="puntos" hidden><label for="f-por-sol">Puntos por cada S/ 1</label><input id="f-por-sol" name="por_sol" type="text" inputmode="decimal" value="1" maxlength="5"></div>
+        <div class="campo" data-solo="puntos" hidden><label for="f-premios-texto">Premios por puntos</label><textarea id="f-premios-texto" name="premios_texto" rows="4" placeholder="100 = Café gratis&#10;250 = Postre gratis&#10;500 = Almuerzo gratis" aria-describedby="f-premios-ayuda"></textarea><p class="ayuda" id="f-premios-ayuda">Uno por línea: puntos = premio.</p></div>
+        <div class="campo" data-solo="cashback" hidden><label for="f-pct">Porcentaje de vuelta (%)</label><input id="f-pct" name="pct" type="text" inputmode="decimal" value="5" maxlength="5" aria-describedby="f-pct-ayuda"><p class="ayuda" id="f-pct-ayuda">De cada compra, este % queda como saldo del cliente.</p></div>
+        <div class="campo" data-solo="cashback" hidden><label for="f-minimo">Saldo mínimo para usar (S/)</label><input id="f-minimo" name="minimo" type="text" inputmode="decimal" value="5" maxlength="7"></div>
+        <div class="campo" data-solo="sellos"><label for="f-meta">Sellos para el premio</label><input id="f-meta" name="meta" type="number" min="3" max="20" value="10" required></div>
+        <div class="campo" data-solo="sellos"><label for="f-premio">Premio</label><input id="f-premio" name="premio" required maxlength="60" placeholder="Corte gratis"></div>
+        <div class="campo"><label for="f-espera">Minutos mínimos entre visitas</label><input id="f-espera" name="espera_min" type="number" min="0" max="10080" value="180"></div>
         <div class="campo"><label for="f-razon">Razón social</label><input id="f-razon" name="razon_social" maxlength="100"></div>
         <div class="campo"><label for="f-ruc">RUC</label><input id="f-ruc" name="ruc" inputmode="numeric" pattern="\\d{11}" maxlength="11"></div>
         <div class="campo"><label for="f-direccion">Dirección</label><input id="f-direccion" name="direccion" maxlength="140"></div>
         <div class="campo"><label for="f-correo">Correo para derechos ARCO</label><input id="f-correo" name="correo" type="email" maxlength="100"></div>
         <div class="campo"><label for="f-plan">Plan</label><select id="f-plan" name="plan"><option value="">Sin definir</option><option value="prueba">Mes gratis</option><option value="mensual">Mensual</option><option value="cortesia">Cortesía</option></select></div>
         <div class="campo"><label for="f-precio">Precio promedio por servicio (S/)</label><input id="f-precio" name="precio" type="text" inputmode="decimal" maxlength="7" placeholder="35" aria-describedby="f-precio-ayuda"><p class="ayuda" id="f-precio-ayuda">Lo que cobra en promedio (un corte, por ejemplo). Con eso su panel calcula cuánto gana y cuánto deja de ganar.</p></div>
+        <div class="campo ancho-total"><label for="f-servicios">Servicios o productos con precio (opcional)</label><textarea id="f-servicios" name="servicios_texto" rows="4" placeholder="Corte = 30&#10;Barba = 15&#10;Café americano = 8" aria-describedby="f-servicios-ayuda"></textarea><p class="ayuda" id="f-servicios-ayuda">Uno por línea: nombre = precio. En el panel se eligen con un toque al registrar la visita, y «Tus números» muestra los más vendidos.</p></div>
         <div class="campo"><label for="f-cuota">Cuota mensual (S/)</label><input id="f-cuota" name="cuota" type="text" inputmode="decimal" maxlength="7" placeholder="69" aria-describedby="f-cuota-ayuda"><p class="ayuda" id="f-cuota-ayuda">De S/ 59 a S/ 79 según la zona y el tamaño del local. El negocio la ve en «Tus números».</p></div>
         <div class="campo"><label for="f-vence">Vence el</label><input id="f-vence" name="vence" type="date" aria-describedby="f-vence-ayuda"><p class="ayuda" id="f-vence-ayuda">Si lo dejas vacío en un negocio nuevo, vence en 1 mes (primer mes gratis).</p></div>
         <div class="campo"><label for="f-red-whatsapp">WhatsApp del negocio</label><input id="f-red-whatsapp" name="red_whatsapp" type="tel" inputmode="numeric" maxlength="11" placeholder="9XX XXX XXX"></div>

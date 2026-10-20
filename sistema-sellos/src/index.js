@@ -5,6 +5,7 @@ import ESQUEMA from '../migrations/0001_inicial.sql';
 import * as P from './paginas.js';
 import { leerDiseno, temaCss, catalogo, mediosDe, colores } from './diseno.js';
 import { walletActivo, enlaceGuardar, actualizar as actualizarWallet } from './wallet.js';
+import { TIPOS, leerPrograma, leerServicios, textoAServicios, textoAPremios, ganar, estado } from './programa.js';
 import {
   AVISO_VERSION, EN_MARCO, html, json, error, texto, redirigir, cookies, cookie, cuerpo, nuevoToken, nuevoCodigo, aleatorio,
   normalizarCodigo, celularPeru, celularVisible, limpiarTexto, SLUG, RESERVADOS, primerNombre,
@@ -25,10 +26,19 @@ const COLUMNAS_NUEVAS = [
   ['negocios', 'costo_premio', 'INTEGER NOT NULL DEFAULT 0'],
   ['negocios', 'inversion_mes', 'INTEGER NOT NULL DEFAULT 0'],
   ['movimientos', 'monto', 'INTEGER'],
+  ['negocios', 'tipo', "TEXT NOT NULL DEFAULT 'sellos'"],
+  ['negocios', 'reglas', "TEXT NOT NULL DEFAULT '{}'"],
+  ['negocios', 'servicios', "TEXT NOT NULL DEFAULT '[]'"],
+  ['clientes', 'puntos', 'INTEGER NOT NULL DEFAULT 0'],
+  ['clientes', 'saldo', 'INTEGER NOT NULL DEFAULT 0'],
+  ['movimientos', 'servicio', 'TEXT'],
+  ['movimientos', 'puntos', 'INTEGER'],
+  ['movimientos', 'saldo', 'INTEGER'],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
-  const sentencias = ESQUEMA.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n')
+  // Se quitan los comentarios (también los del final de línea) antes de separar por «;».
+  const sentencias = ESQUEMA.split('\n').map((l) => l.replace(/--.*$/, '')).join('\n')
     .split(';').map((s) => s.trim()).filter(Boolean);
   await env.DB.batch(sentencias.map((s) => env.DB.prepare(s)));
   // Bases creadas con una versión anterior: agregamos las columnas nuevas.
@@ -45,16 +55,16 @@ async function negocioPorSlug(env, slug) {
   return n;
 }
 
-const CAMPOS_CLIENTE = 'id, token, codigo, nombre, celular, recordatorios, sellos, visitas, premios, ultima_visita, creado, wallet';
+const CAMPOS_CLIENTE = 'id, token, codigo, nombre, celular, recordatorios, sellos, puntos, saldo, visitas, premios, ultima_visita, creado, wallet';
 
 function clientePublico(c, n) {
-  return { nombre: primerNombre(c.nombre), sellos: c.sellos, meta: n.meta, premio: n.premio, visitas: c.visitas, premios: c.premios };
+  return { nombre: primerNombre(c.nombre), sellos: c.sellos, puntos: c.puntos, saldo: c.saldo, meta: n.meta, premio: n.premio, visitas: c.visitas, premios: c.premios, ...estado(n, c) };
 }
 
 function clientePanel(c, n, origen) {
   return {
     id: c.id, nombre: c.nombre, codigo: c.codigo, celular: celularVisible(c.celular), celularWa: c.celular,
-    recordatorios: !!c.recordatorios, sellos: c.sellos, visitas: c.visitas, premios: c.premios,
+    recordatorios: !!c.recordatorios, sellos: c.sellos, puntos: c.puntos | 0, saldo: c.saldo | 0, visitas: c.visitas, premios: c.premios,
     ultimaVisita: c.ultima_visita, creado: c.creado, meta: n.meta,
     enlace: `${origen}/${n.slug}/t/${c.token}`,
   };
@@ -254,10 +264,14 @@ async function apiPanel(req, env, n, partes, url, ctx) {
   }
 
   if (accion === 'cerca' && metodo === 'GET') {
+    // Sellos: les faltan 2 o menos. Puntos: tienen el 80 % del premio más barato. Cashback: tienen saldo para usar.
+    const pr = leerPrograma(n);
+    const [col, umbral] = pr.tipo === 'puntos' ? ['puntos', Math.max(1, Math.floor((pr.premios[0]?.p || 1) * 0.8))]
+      : pr.tipo === 'cashback' ? ['saldo', Math.max(1, pr.minimo)] : ['sellos', Math.max(1, n.meta - 2)];
     const filas = await env.DB.prepare(
-      `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND recordatorios = 1 AND sellos >= ?
-       ORDER BY sellos DESC, ultima_visita ASC LIMIT 100`
-    ).bind(n.id, Math.max(1, n.meta - 2)).all();
+      `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND recordatorios = 1 AND ${col} >= ?
+       ORDER BY ${col} DESC, ultima_visita ASC LIMIT 100`
+    ).bind(n.id, umbral).all();
     return json({ clientes: filas.results.map((c) => clientePanel(c, n, url.origin)) });
   }
 
@@ -301,22 +315,52 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     if (sub === 'sello' && metodo === 'POST') {
       const monto = centimos(datos.monto);
       if (Number.isNaN(monto)) return error('El monto cobrado no es válido.');
+      const pr = leerPrograma(n);
+      if (pr.tipo !== 'sellos' && !monto) return error(`Escribe el monto de la compra: con eso se calculan ${pr.tipo === 'puntos' ? 'sus puntos' : 'su saldo'}.`);
+      const gana = ganar(pr, monto || 0);
+      // Servicios elegidos (solo los del catálogo), para «Servicios más vendidos».
+      const nombres = new Set(leerServicios(n).map((x) => x.n));
+      const servicio = (Array.isArray(datos.servicios) ? datos.servicios : []).map(String).filter((x) => nombres.has(x)).slice(0, 6).join(' + ') || null;
       const espera = `-${Math.max(0, n.espera_min | 0)} minutes`;
       const [upd] = await env.DB.batch([
         env.DB.prepare(
-          `UPDATE clientes SET sellos = sellos + 1, visitas = visitas + 1, ultima_visita = datetime('now')
+          `UPDATE clientes SET sellos = sellos + ?, puntos = puntos + ?, saldo = saldo + ?, visitas = visitas + 1, ultima_visita = datetime('now')
            WHERE id = ? AND negocio_id = ? AND (ultima_visita IS NULL OR ultima_visita <= datetime('now', ?))`
-        ).bind(cid, n.id, espera),
-        env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, monto) SELECT ?, ?, 'sello', ? WHERE changes() > 0`).bind(n.id, cid, monto),
+        ).bind(gana.sellos, gana.puntos, gana.saldo, cid, n.id, espera),
+        // puntos y saldo quedan NULL en programas de sellos: así «deshacer» sabe qué devolver.
+        env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, monto, servicio, puntos, saldo) SELECT ?, ?, 'sello', ?, ?, ?, ? WHERE changes() > 0`)
+          .bind(n.id, cid, monto, servicio, pr.tipo === 'puntos' ? gana.puntos : null, pr.tipo === 'cashback' ? gana.saldo : null),
       ]);
       if (!upd.meta.changes) {
         const hace = Math.max(0, Math.round((Date.now() - Date.parse(String(c.ultima_visita).replace(' ', 'T') + 'Z')) / 60000));
-        return error(`Ya se le sumó un sello hace ${hace} min. Entre dos sellos deben pasar ${n.espera_min} minutos.`, 409);
+        return error(`Ya se registró una visita hace ${hace} min. Entre dos visitas deben pasar ${n.espera_min} minutos.`, 409);
       }
       return listo();
     }
 
     if (sub === 'canje' && metodo === 'POST') {
+      const pr = leerPrograma(n);
+      if (pr.tipo === 'puntos') {
+        const premio = pr.premios[Math.round(Number(datos.premio))];
+        if (!premio) return error('Elige un premio.');
+        const [upd] = await env.DB.batch([
+          env.DB.prepare('UPDATE clientes SET puntos = puntos - ?, premios = premios + 1 WHERE id = ? AND negocio_id = ? AND puntos >= ?').bind(premio.p, cid, n.id, premio.p),
+          env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, servicio, puntos) SELECT ?, ?, 'canje', ?, ? WHERE changes() > 0`).bind(n.id, cid, premio.n, -premio.p),
+        ]);
+        if (!upd.meta.changes) return error(`Le faltan puntos: «${premio.n}» cuesta ${premio.p}.`, 409);
+        return listo();
+      }
+      if (pr.tipo === 'cashback') {
+        const usar = datos.monto === undefined || datos.monto === '' ? (c.saldo | 0) : centimos(datos.monto);
+        if (Number.isNaN(usar) || !(usar > 0)) return error('Escribe cuánto saldo usar.');
+        if ((c.saldo | 0) < pr.minimo) return error(`El saldo se usa desde S/ ${(pr.minimo / 100).toFixed(2)}.`, 409);
+        const [upd] = await env.DB.batch([
+          env.DB.prepare('UPDATE clientes SET saldo = saldo - ?, premios = premios + 1 WHERE id = ? AND negocio_id = ? AND saldo >= ?').bind(usar, cid, n.id, usar),
+          env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, monto, saldo) SELECT ?, ?, 'canje', ?, ? WHERE changes() > 0`).bind(n.id, cid, usar, -usar),
+        ]);
+        if (!upd.meta.changes) return error('No tiene ese saldo.', 409);
+        return listo();
+      }
       const [upd] = await env.DB.batch([
         env.DB.prepare('UPDATE clientes SET sellos = sellos - ?, premios = premios + 1 WHERE id = ? AND negocio_id = ? AND sellos >= ?').bind(n.meta, cid, n.id, n.meta),
         env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo) SELECT ?, ?, 'canje' WHERE changes() > 0`).bind(n.id, cid),
@@ -327,20 +371,21 @@ async function apiPanel(req, env, n, partes, url, ctx) {
 
     if (sub === 'deshacer' && metodo === 'POST') {
       const ultimo = await env.DB.prepare(
-        `SELECT id FROM movimientos WHERE cliente_id = ? AND negocio_id = ? AND tipo = 'sello' AND creado >= datetime('now', '-30 minutes')
+        `SELECT id, puntos, saldo FROM movimientos WHERE cliente_id = ? AND negocio_id = ? AND tipo = 'sello' AND creado >= datetime('now', '-30 minutes')
          AND NOT EXISTS (SELECT 1 FROM movimientos m2 WHERE m2.cliente_id = ? AND m2.tipo = 'canje' AND m2.id > movimientos.id)
          ORDER BY id DESC LIMIT 1`
       ).bind(cid, n.id, cid).first();
-      if (!ultimo) return error('Solo se puede deshacer un sello de los últimos 30 minutos (y antes de un canje).', 409);
+      if (!ultimo) return error('Solo se puede deshacer una visita de los últimos 30 minutos (y antes de un canje).', 409);
+      const dSellos = ultimo.puntos === null && ultimo.saldo === null ? 1 : 0;
       const [, upd] = await env.DB.batch([
         env.DB.prepare('DELETE FROM movimientos WHERE id = ?').bind(ultimo.id),
         env.DB.prepare(
-          `UPDATE clientes SET sellos = MAX(sellos - 1, 0), visitas = MAX(visitas - 1, 0),
+          `UPDATE clientes SET sellos = MAX(sellos - ?, 0), puntos = MAX(puntos - ?, 0), saldo = MAX(saldo - ?, 0), visitas = MAX(visitas - 1, 0),
            ultima_visita = (SELECT MAX(creado) FROM movimientos WHERE cliente_id = ? AND tipo = 'sello')
            WHERE id = ? AND negocio_id = ? AND changes() > 0`
-        ).bind(cid, cid, n.id),
+        ).bind(dSellos, ultimo.puntos || 0, ultimo.saldo || 0, cid, cid, n.id),
       ]);
-      if (!upd.meta.changes) return error('Ese sello ya se deshizo.', 409);
+      if (!upd.meta.changes) return error('Esa visita ya se deshizo.', 409);
       return listo();
     }
 
@@ -363,22 +408,28 @@ async function apiPanel(req, env, n, partes, url, ctx) {
   if (accion === 'ajustes' && metodo === 'POST') {
     const v = { precio_visita: centimos(datos.precio), costo_premio: centimos(datos.costoPremio), inversion_mes: centimos(datos.inversion) };
     if (Object.values(v).some(Number.isNaN)) return error('Revisa los montos: solo números, por ejemplo 35 o 35.50.');
-    await env.DB.prepare('UPDATE negocios SET precio_visita = ?, costo_premio = ?, inversion_mes = ? WHERE id = ?')
-      .bind(v.precio_visita || 0, v.costo_premio || 0, v.inversion_mes || 0, n.id).run();
-    return json(await numeros(env, { ...n, ...v }, url.origin));
+    // Servicios: solo si vienen en la solicitud (el formulario corto del inicio no los manda).
+    if (datos.servicios !== undefined) {
+      const sv = textoAServicios(datos.servicios);
+      if (sv.error) return error(sv.error);
+      v.servicios = JSON.stringify(sv.lista);
+    }
+    await env.DB.prepare('UPDATE negocios SET precio_visita = ?, costo_premio = ?, inversion_mes = ?, servicios = COALESCE(?, servicios) WHERE id = ?')
+      .bind(v.precio_visita || 0, v.costo_premio || 0, v.inversion_mes || 0, v.servicios ?? null, n.id).run();
+    return json(await numeros(env, { ...n, ...v, servicios: v.servicios ?? n.servicios }, url.origin));
   }
 
   if (accion === 'clientes.csv' && metodo === 'GET') {
     const filas = await env.DB.prepare(
-      'SELECT nombre, celular, codigo, sellos, visitas, premios, recordatorios, ultima_visita, creado, consentimiento FROM clientes WHERE negocio_id = ? ORDER BY creado'
+      'SELECT nombre, celular, codigo, sellos, puntos, saldo, visitas, premios, recordatorios, ultima_visita, creado, consentimiento FROM clientes WHERE negocio_id = ? ORDER BY creado'
     ).bind(n.id).all();
     const celda = (v) => {
       let s = String(v ?? '');
       if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // evita fórmulas al abrir en Excel
       return `"${s.replace(/"/g, '""')}"`;
     };
-    const cab = ['nombre', 'celular', 'codigo', 'sellos', 'visitas', 'premios', 'acepta_recordatorios', 'ultima_visita_utc', 'creado_utc', 'consentimiento'];
-    const lineas = [cab.join(','), ...filas.results.map((f) => [f.nombre, f.celular, f.codigo, f.sellos, f.visitas, f.premios, f.recordatorios ? 'si' : 'no', f.ultima_visita, f.creado, f.consentimiento].map(celda).join(','))];
+    const cab = ['nombre', 'celular', 'codigo', 'sellos', 'puntos', 'saldo_soles', 'visitas', 'premios', 'acepta_recordatorios', 'ultima_visita_utc', 'creado_utc', 'consentimiento'];
+    const lineas = [cab.join(','), ...filas.results.map((f) => [f.nombre, f.celular, f.codigo, f.sellos, f.puntos, (f.saldo / 100).toFixed(2), f.visitas, f.premios, f.recordatorios ? 'si' : 'no', f.ultima_visita, f.creado, f.consentimiento].map(celda).join(','))];
     return texto('﻿' + lineas.join('\r\n'), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="clientes-${n.slug}.csv"` });
   }
 
@@ -386,6 +437,23 @@ async function apiPanel(req, env, n, partes, url, ctx) {
 }
 
 // ---------- números del negocio: visitas, ingresos y retorno del programa ----------
+/** Servicios más vendidos (90 días). Una visita con varios servicios reparte lo cobrado según sus precios. */
+function masVendidos(filas, catalogo) {
+  const precio = new Map(catalogo.map((s) => [s.n, s.p])), total = new Map();
+  for (const f of filas) {
+    const nombres = f.servicio.split(' + ');
+    const base = nombres.reduce((a, x) => a + (precio.get(x) || 0), 0);
+    // Visitas sin monto anotado: al precio del catálogo.
+    const cobrado = f.cobrado + (f.veces - f.con_monto) * base;
+    for (const x of nombres) {
+      const t = total.get(x) || { n: x, veces: 0, ingresos: 0 };
+      t.veces += f.veces; t.ingresos += base ? Math.round(cobrado * (precio.get(x) || 0) / base) : Math.round(cobrado / nombres.length);
+      total.set(x, t);
+    }
+  }
+  return [...total.values()].sort((a, b) => b.veces - a.veces || b.ingresos - a.ingresos).slice(0, 10);
+}
+
 // Las fechas se guardan en UTC; Lima es UTC-5 todo el año.
 const DIA_LIMA = "strftime('%Y-%m-%d', creado, '-5 hours')";
 const MES_LIMA = "strftime('%Y-%m', creado, '-5 hours')";
@@ -395,14 +463,14 @@ async function numeros(env, n, origen) {
   const hoy = hoyLima();
   const meses = Array.from({ length: 6 }, (_, i) => sumarMeses(`${hoy.slice(0, 7)}-01`, i - 5).slice(0, 7));
   const desde = `${meses[0]}-01 05:00:00`; // 1.º del primer mes, 00:00 en Lima
-  const [visitas, canjes, nuevos, top, horas, fieles, riesgo] = await env.DB.batch([
+  const [visitas, canjes, nuevos, top, horas, fieles, riesgo, vendidos] = await env.DB.batch([
     // k = número de visita de ese cliente: la 1.ª es su primera vez; desde la 2.ª, un cliente que regresó.
     env.DB.prepare(
       `WITH s AS (SELECT cliente_id, creado, monto, ROW_NUMBER() OVER (PARTITION BY cliente_id ORDER BY creado, id) AS k
                   FROM movimientos WHERE negocio_id = ? AND tipo = 'sello')
        SELECT ${DIA_LIMA} AS dia, cliente_id, k, monto FROM s WHERE creado >= ?`
     ).bind(n.id, desde),
-    env.DB.prepare(`SELECT ${DIA_LIMA} AS dia, COUNT(*) AS n FROM movimientos WHERE negocio_id = ? AND tipo = 'canje' AND creado >= ? GROUP BY dia`).bind(n.id, desde),
+    env.DB.prepare(`SELECT ${DIA_LIMA} AS dia, COUNT(*) AS n, COALESCE(SUM(-saldo), 0) AS usado FROM movimientos WHERE negocio_id = ? AND tipo = 'canje' AND creado >= ? GROUP BY dia`).bind(n.id, desde),
     env.DB.prepare(`SELECT ${DIA_LIMA} AS dia, COUNT(*) AS n FROM clientes WHERE negocio_id = ? AND creado >= ? GROUP BY dia`).bind(n.id, desde),
     env.DB.prepare(
       `SELECT ${CAMPOS_CLIENTE.split(', ').map((c) => 'c.' + c).join(', ')}, COUNT(*) AS v90, COALESCE(SUM(m.monto), 0) AS cobrado, COUNT(m.monto) AS con_monto
@@ -425,15 +493,19 @@ async function numeros(env, n, origen) {
       `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND visitas >= 2 AND ultima_visita < datetime('now', ?)
        ORDER BY visitas DESC, ultima_visita DESC LIMIT 30`
     ).bind(n.id, `-${DIAS_RIESGO} days`),
+    env.DB.prepare(
+      `SELECT servicio, COUNT(*) AS veces, COALESCE(SUM(monto), 0) AS cobrado, COUNT(monto) AS con_monto FROM movimientos
+       WHERE negocio_id = ? AND tipo = 'sello' AND servicio IS NOT NULL AND creado >= datetime('now', '-90 days') GROUP BY servicio`
+    ).bind(n.id),
   ]);
 
-  const precio = n.precio_visita | 0, costoPremio = (n.costo_premio | 0) || precio, inversion = n.inversion_mes | 0;
+  const precio = n.precio_visita | 0, costoPremio = (n.costo_premio | 0) || precio, inversion = n.inversion_mes | 0, pr = leerPrograma(n);
   const inicio = String(n.creado || '').slice(0, 7);
   // Suma las visitas de un mes, opcionalmente solo hasta cierto día (para comparar el mes en curso
   // con el mes anterior a la misma fecha). Las visitas sin monto anotado se cuentan al precio promedio.
   const resumir = (mes, hastaDia = 31) => {
     const dentro = (d) => d.slice(0, 7) === mes && Number(d.slice(8)) <= hastaDia;
-    const x = { mes, visitas: 0, regreso: 0, ingresos: 0, ingresosRegreso: 0, canjes: 0, nuevos: 0 };
+    const x = { mes, visitas: 0, regreso: 0, ingresos: 0, ingresosRegreso: 0, canjes: 0, usado: 0, nuevos: 0 };
     const vinieron = new Set(), volvieron = new Set();
     for (const v of visitas.results) {
       if (!dentro(v.dia)) continue;
@@ -441,10 +513,11 @@ async function numeros(env, n, origen) {
       x.visitas++; x.ingresos += plata; vinieron.add(v.cliente_id);
       if (v.k > 1) { x.regreso++; x.ingresosRegreso += plata; volvieron.add(v.cliente_id); }
     }
-    for (const c of canjes.results) if (dentro(c.dia)) x.canjes += c.n;
+    for (const c of canjes.results) if (dentro(c.dia)) { x.canjes += c.n; x.usado += c.usado; }
     for (const c of nuevos.results) if (dentro(c.dia)) x.nuevos += c.n;
     x.clientes = vinieron.size; x.volvieron = volvieron.size;
-    x.premios = x.canjes * costoPremio;
+    // En cashback el costo real es el saldo que usaron; en sellos y puntos, el costo de cada premio.
+    x.premios = pr.tipo === 'cashback' ? x.usado : x.canjes * costoPremio;
     // En su mes gratis (plan «prueba») el negocio todavía no paga.
     x.inversion = mes < inicio || (n.plan === 'prueba' && mes === hoy.slice(0, 7)) ? 0 : inversion;
     x.ganancia = x.ingresosRegreso - x.premios - x.inversion;
@@ -454,6 +527,7 @@ async function numeros(env, n, origen) {
   const f = fieles.results[0];
   return {
     ajustes: { precio, costoPremio: n.costo_premio | 0, inversion },
+    tipo: pr.tipo, servicios: leerServicios(n), vendidos: masVendidos(vendidos.results, leerServicios(n)),
     meses: lista,
     // El mes en curso se compara con el anterior hasta el mismo día.
     anteriorAlDia: { hasta: Number(hoy.slice(8)), ...resumir(meses[4], Number(hoy.slice(8))) },
@@ -479,7 +553,7 @@ async function rendimiento(env) {
        FROM s JOIN negocios n ON n.id = s.negocio_id WHERE s.creado >= ? GROUP BY id, mes, al_dia`
     ).bind(dia, desde),
     env.DB.prepare(
-      `SELECT negocio_id AS id, ${MES_LIMA} AS mes, CAST(strftime('%d', creado, '-5 hours') AS INTEGER) <= ? AS al_dia, COUNT(*) AS canjes
+      `SELECT negocio_id AS id, ${MES_LIMA} AS mes, CAST(strftime('%d', creado, '-5 hours') AS INTEGER) <= ? AS al_dia, COUNT(*) AS canjes, COALESCE(SUM(-saldo), 0) AS usado
        FROM movimientos WHERE tipo = 'canje' AND creado >= ? GROUP BY id, mes, al_dia`
     ).bind(dia, desde),
     env.DB.prepare(
@@ -487,8 +561,8 @@ async function rendimiento(env) {
        FROM clientes GROUP BY negocio_id`
     ).bind(`-${DIAS_RIESGO} days`),
   ]);
-  const negocios = (await env.DB.prepare('SELECT id, slug, nombre, plan, precio_visita, costo_premio, inversion_mes, creado FROM negocios WHERE activo = 1 ORDER BY nombre').all()).results;
-  const vacio = () => ({ visitas: 0, regreso: 0, volvieron: 0, ingresos: 0, ingresosRegreso: 0, canjes: 0 });
+  const negocios = (await env.DB.prepare('SELECT id, slug, nombre, plan, tipo, precio_visita, costo_premio, inversion_mes, creado FROM negocios WHERE activo = 1 ORDER BY nombre').all()).results;
+  const vacio = () => ({ visitas: 0, regreso: 0, volvieron: 0, ingresos: 0, ingresosRegreso: 0, canjes: 0, usado: 0 });
   const datos = new Map(negocios.map((n) => [n.id, { actual: vacio(), anteriorAlDia: vacio() }]));
   // Cada fila del mes en curso suma al actual; las del mes anterior hasta el mismo día, a la comparación.
   const destino = (f) => {
@@ -502,14 +576,14 @@ async function rendimiento(env) {
     if (!x) continue;
     x.visitas += f.visitas; x.regreso += f.regreso; x.volvieron += f.volvieron; x.ingresos += f.ingresos; x.ingresosRegreso += f.ingresos_regreso;
   }
-  for (const f of canjes.results) { const x = destino(f); if (x) x.canjes += f.canjes; }
+  for (const f of canjes.results) { const x = destino(f); if (x) { x.canjes += f.canjes; x.usado += f.usado; } }
   const cl = new Map(clientes.results.map((c) => [c.id, c]));
   return {
     mes, anterior, dia, diasRiesgo: DIAS_RIESGO,
     negocios: negocios.map((n) => {
       const d = datos.get(n.id), costoPremio = n.costo_premio || n.precio_visita;
       for (const x of [d.actual, d.anteriorAlDia]) {
-        x.premios = x.canjes * costoPremio;
+        x.premios = n.tipo === 'cashback' ? x.usado : x.canjes * costoPremio;
         x.inversion = n.plan === 'prueba' && x === d.actual ? 0 : n.inversion_mes;
         x.ganancia = x.ingresosRegreso - x.premios - x.inversion;
       }
@@ -518,6 +592,32 @@ async function rendimiento(env) {
         clientes: cl.get(n.id)?.clientes || 0, riesgo: cl.get(n.id)?.riesgo || 0, ...d };
     }),
   };
+}
+
+/** Tipo de programa, reglas y servicios del formulario de /admin. En puntos y cashback, el campo
+ *  «premio» se completa solo (lo usan el cartel, Google Wallet y los mensajes). */
+function programaDe(d, v) {
+  const tipo = Object.prototype.hasOwnProperty.call(TIPOS, d.tipo) ? d.tipo : 'sellos';
+  const sv = textoAServicios(d.servicios_texto);
+  if (sv.error) return sv;
+  const reglas = {};
+  if (tipo === 'puntos') {
+    const pm = textoAPremios(d.premios_texto);
+    if (pm.error) return pm;
+    if (!pm.lista.length) return { error: 'Escribe al menos un premio para canjear puntos, por ejemplo «100 = Café gratis».' };
+    reglas.porSol = Number(String(d.por_sol || '1').replace(',', '.'));
+    if (!(reglas.porSol >= 0.1 && reglas.porSol <= 100)) return { error: 'Los puntos por cada S/ 1 deben estar entre 0.1 y 100.' };
+    reglas.premios = pm.lista;
+    v.premio = pm.lista[0].n.slice(0, 60);
+  } else if (tipo === 'cashback') {
+    reglas.pct = Number(String(d.pct || '').replace(',', '.'));
+    if (!(reglas.pct >= 0.5 && reglas.pct <= 50)) return { error: 'El porcentaje de vuelta debe estar entre 0.5 y 50.' };
+    const minimo = centimos(d.minimo);
+    if (Number.isNaN(minimo)) return { error: 'Revisa el saldo mínimo para usar: solo números, por ejemplo 5.' };
+    reglas.minimo = minimo || 0;
+    v.premio = `${reglas.pct} % de vuelta en cada compra`.slice(0, 60);
+  }
+  return { tipo, reglas: JSON.stringify(reglas), servicios: JSON.stringify(sv.lista) };
 }
 
 // ---------- API de administración ----------
@@ -539,11 +639,14 @@ async function apiAdmin(req, env, partes, url) {
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
       `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
-         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio,
+         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
          (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
-         (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id AND c.recordatorios = 1 AND c.sellos >= MAX(n.meta - 2, 1)) AS cerca
+         (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id AND c.recordatorios = 1 AND CASE n.tipo
+            WHEN 'puntos' THEN c.puntos >= MAX(CAST(COALESCE(json_extract(n.reglas, '$.premios[0].p'), 1) * 0.8 AS INTEGER), 1)
+            WHEN 'cashback' THEN c.saldo >= MAX(COALESCE(json_extract(n.reglas, '$.minimo'), 1), 1)
+            ELSE c.sellos >= MAX(n.meta - 2, 1) END) AS cerca
        FROM negocios n WHERE n.activo = 1 ORDER BY n.nombre`
     ).all();
     return json({ negocios: filas.results.map((n) => ({ ...n, diseno: leerDiseno(n, n.diseno), ...estadoPlan(n) })), hoy: hoyLima(), planes: PLANES });
@@ -583,6 +686,8 @@ async function apiAdmin(req, env, partes, url) {
     v.plan = Object.prototype.hasOwnProperty.call(PLANES, d.plan) ? d.plan : '';
     v.vence = FECHA.test(d.vence || '') ? d.vence : '';
     // Cuota mensual que paga el negocio: es su «inversión» en «Tus números». Vacía al editar = no cambia.
+    const prog = programaDe(d, v);
+    if (prog.error) return error(prog.error);
     const cuota = centimos(d.cuota);
     if (Number.isNaN(cuota)) return error('Revisa la cuota mensual: solo números, por ejemplo 69.');
     const precio = centimos(d.precio);
@@ -592,6 +697,7 @@ async function apiAdmin(req, env, partes, url) {
     v.color = diseno.acento; v.tema = colores(diseno).claro ? 'claro' : 'oscuro';
     if (!v.nombre || !v.programa || !v.premio) return error('Completa nombre, programa y premio.');
     if (!(v.meta >= 3 && v.meta <= 20)) return error('Los sellos para el premio deben estar entre 3 y 20.');
+    v.tipo = prog.tipo; v.reglas = prog.reglas; v.servicios = prog.servicios;
     if (!(v.espera_min >= 0 && v.espera_min <= 10080)) return error('Los minutos entre sellos deben estar entre 0 y 10080.');
     if (v.ruc && v.ruc.length !== 11) return error('El RUC debe tener 11 dígitos.');
     if (v.correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.correo)) return error('Revisa el correo.');
@@ -613,9 +719,9 @@ async function apiAdmin(req, env, partes, url) {
     v.diseno = JSON.stringify(diseno);
     if (existe) {
       await env.DB.prepare(
-        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita)
+        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, ...(hash ? [hash] : []), existe.id).run();
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, ...(hash ? [hash] : []), existe.id).run();
       return json({ ok: true, creado: false });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
@@ -623,9 +729,9 @@ async function apiAdmin(req, env, partes, url) {
     if (!v.vence) v.vence = sumarMeses(hoyLima(), 1);
     if (!v.plan) v.plan = 'prueba';
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios).run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);
@@ -694,14 +800,17 @@ async function vistaPrevia(req, env, pagina, url) {
   const meta = Math.min(20, Math.max(3, Math.round(Number(d.meta)) || 10));
   const n = {
     slug: 'vista', nombre: limpiarTexto(d.nombre, 60) || 'Tu negocio', programa: limpiarTexto(d.programa, 40) || 'Club de clientes',
-    premio: limpiarTexto(d.premio, 60) || 'Premio', meta, redes: '{}', razon_social: '', vista: true,
+    premio: limpiarTexto(d.premio, 60) || 'Premio', meta, redes: '{}', razon_social: '', vista: true, tipo: 'sellos', reglas: '{}',
     d: leerDiseno(null, d.diseno), temaUrl: `/admin/vista/tema.css?d=${encodeURIComponent(crudo)}`,
   };
   try { n.redes = leerRedes(d).redes || '{}'; } catch { n.redes = '{}'; }
+  { const pg = programaDe(d, n); if (!pg.error) { n.tipo = pg.tipo; n.reglas = pg.reglas; } }
   if (pagina === 'tema.css') return texto(temaCss(n, n.d), 'text/css; charset=utf-8');
   if (pagina === 'registro') return html(P.registro(n), 200, EN_MARCO);
   if (pagina === 'tarjeta') {
-    const c = { token: 'vista', codigo: 'ABCD2345', nombre: 'Cliente', celular: '51900000000', sellos: Math.max(1, meta - 3), visitas: meta - 3, premios: 1 };
+    const pr = leerPrograma(n);
+    const c = { token: 'vista', codigo: 'ABCD2345', nombre: 'Cliente', celular: '51900000000', sellos: Math.max(1, meta - 3), visitas: meta - 3, premios: 1,
+      puntos: Math.round((pr.premios[0]?.p || 100) * 0.7), saldo: 1250 };
     return html(P.tarjeta(n, c, qrSvg(`${url.origin}/vista`), url.origin), 200, EN_MARCO);
   }
   return html(P.noEncontrado(), 404);

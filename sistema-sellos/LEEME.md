@@ -28,6 +28,27 @@ Funciona en **Cloudflare Workers + D1**. El plan gratuito alcanza para empezar c
 - En `/admin` puedes cargar el WhatsApp, Instagram, TikTok, Facebook, Google Maps y la Página Bio o web de cada negocio. Esos enlaces aparecen en la página que abre el QR del cartel, junto con el registro, y también en la tarjeta del cliente.
 - En el panel, la sección **Clientes registrados** muestra a cada cliente apenas crea su tarjeta: sus sellos, la fecha en que se registró y si llegó por el QR del cartel. Se actualiza sola cada minuto.
 
+## Tipos de tarjeta: sellos, puntos o cashback
+
+En `/admin`, **Tipo de tarjeta** define cómo gana el cliente:
+
+| Tipo | Ideal para | Cómo funciona |
+|---|---|---|
+| **Sellos** | Barberías, spas, salones | 1 sello por visita; al llegar a la meta (por ejemplo, 10) canjea el premio. El monto es opcional. |
+| **Puntos** | Cafeterías, restaurantes, tiendas | Cada S/ 1 de compra suma puntos (se configura cuántos). Se canjean por una lista de premios: «100 = Café gratis», uno por línea. |
+| **Cashback** | Restaurantes, tiendas, minimarkets | Cada compra devuelve un % como saldo (por ejemplo, 5 %). El cliente lo usa como descuento desde un saldo mínimo. |
+
+- En puntos y cashback, el **monto de la compra es obligatorio** al registrar la visita, porque de ahí salen los puntos o el saldo.
+- **Canjear:** en puntos, el panel muestra los premios que le alcanzan al cliente; en cashback, cuánto saldo usar en esa compra.
+- **Deshacer** devuelve lo que sumó la última visita (sello, puntos o saldo), si fue en los últimos 30 minutos y antes de un canje.
+- La tarjeta del cliente, la página de registro, el cartel y Google Wallet muestran sellos, puntos o saldo según el tipo.
+- En «Tus números», el costo del programa en cashback es el **saldo que usaron** los clientes; en sellos y puntos, el costo de cada premio entregado.
+- **Minutos mínimos entre visitas:** en cafeterías conviene bajarlo (por ejemplo, a 30), porque un cliente puede volver el mismo día.
+
+### Servicios y productos con precio
+
+En `/admin` (o en el panel, en «Configurar tus montos») se escriben los servicios con su precio, uno por línea: «Corte = 30», «Barba = 15», «Café americano = 8». Al registrar una visita aparecen como botones: se tocan los que se hizo el cliente y **el monto se suma solo**. «Tus números» muestra el **ticket promedio** y los **servicios más vendidos** de los últimos 90 días.
+
 ## Diseño de cada negocio
 
 En `/admin`, al crear o editar un negocio, la sección **Diseño de la página y la tarjeta** permite personalizarlo sin tocar código, con vista previa en vivo:

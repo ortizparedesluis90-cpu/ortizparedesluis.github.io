@@ -1,4 +1,4 @@
-/* Tarjeta del cliente: se actualiza sola cuando el negocio le suma un sello. */
+/* Tarjeta del cliente: se actualiza sola cuando el negocio registra una visita o un canje. */
 (function () {
   'use strict';
   var main = document.getElementById('principal');
@@ -33,8 +33,10 @@
     var r = await Sellos.api(apiUrl);
     if (!r.ok) return;
     var d = r.datos;
-    var clave = d.sellos + '/' + d.visitas + '/' + d.premios;
+    var clave = d.sellos + '/' + d.puntos + '/' + d.saldo + '/' + d.visitas + '/' + d.premios;
     if (actual !== null && clave !== actual) {
+      // Puntos y cashback: la página trae el carnet ya armado, así que se recarga.
+      if (main.getAttribute('data-tipo') !== 'sellos') { location.reload(); return; }
       pintar(d);
       if (navigator.vibrate) navigator.vibrate(60);
     }

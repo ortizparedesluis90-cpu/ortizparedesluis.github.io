@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS negocios (
   precio_visita INTEGER NOT NULL DEFAULT 0,       -- «Tus números»: ticket promedio, en céntimos
   costo_premio  INTEGER NOT NULL DEFAULT 0,       -- lo que le cuesta al negocio dar el premio (0 = el ticket)
   inversion_mes INTEGER NOT NULL DEFAULT 0,       -- lo que paga al mes por el sistema
+  tipo          TEXT NOT NULL DEFAULT 'sellos',   -- sellos | puntos | cashback (src/programa.js)
+  reglas        TEXT NOT NULL DEFAULT '{}',       -- JSON: puntos por S/ 1 y premios, o % de vuelta y saldo mínimo
+  servicios     TEXT NOT NULL DEFAULT '[]',       -- JSON: [{n: nombre, p: precio en céntimos}]
   clave_hash    TEXT NOT NULL DEFAULT '',         -- clave del panel (PBKDF2)
   clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar la clave: cierra sesiones viejas
   activo        INTEGER NOT NULL DEFAULT 1,
@@ -39,6 +42,8 @@ CREATE TABLE IF NOT EXISTS clientes (
   celular        TEXT NOT NULL,                   -- 51XXXXXXXXX
   recordatorios  INTEGER NOT NULL DEFAULT 0,      -- aceptó mensajes por WhatsApp
   sellos         INTEGER NOT NULL DEFAULT 0,
+  puntos         INTEGER NOT NULL DEFAULT 0,      -- programa de puntos
+  saldo          INTEGER NOT NULL DEFAULT 0,      -- cashback: saldo a favor, en céntimos
   visitas        INTEGER NOT NULL DEFAULT 0,
   premios        INTEGER NOT NULL DEFAULT 0,
   ultima_visita  TEXT,
@@ -55,7 +60,10 @@ CREATE TABLE IF NOT EXISTS movimientos (
   negocio_id  INTEGER NOT NULL,
   cliente_id  INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
   tipo        TEXT NOT NULL,                      -- sello | canje
-  monto       INTEGER,                            -- lo cobrado en esa visita, en céntimos (opcional)
+  monto       INTEGER,                            -- lo cobrado en esa visita, en céntimos (opcional). En un canje de cashback, el saldo usado
+  servicio    TEXT,                               -- servicios de la visita («Corte + Barba») o premio canjeado
+  puntos      INTEGER,                            -- puntos sumados (o restados en un canje). NULL en sellos
+  saldo       INTEGER,                            -- saldo sumado (o usado en un canje), en céntimos. NULL en sellos
   creado      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

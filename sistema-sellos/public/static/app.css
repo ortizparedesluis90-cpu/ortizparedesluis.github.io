@@ -60,7 +60,7 @@ p{margin:.4rem 0}
 .tarjeta-form h2{margin-bottom:4px}
 .campo{margin-top:14px}
 label{display:block;font-weight:600;margin-bottom:6px}
-input[type=text],input[type=tel],input[type=password],input[type=search],input[type=email],input[type=number],select{
+input:not([type]),input[type=url],input[type=date],textarea,input[type=text],input[type=tel],input[type=password],input[type=search],input[type=email],input[type=number],select{
   width:100%;font:inherit;color:var(--texto);background:var(--superficie-2);border:1.5px solid var(--borde-campo);border-radius:12px;padding:12px 14px;min-height:48px}
 input[type=color]{width:64px;height:44px;border:1.5px solid var(--borde-campo);border-radius:10px;background:var(--superficie-2);padding:4px}
 input:focus-visible,select:focus-visible{border-color:var(--acento)}
@@ -370,3 +370,22 @@ html[data-tema="oscuro"] .boton.wallet{border-color:rgba(255,255,255,.35)}
 .solo-tarjeta{margin:-4px 0 14px}
 .inicio-numeros h2{font-size:1.15rem;margin:0 0 6px}
 .atajo{margin:-6px 0 14px;text-align:center}
+/* Puntos y cashback */
+.saldo-grande{display:flex;align-items:baseline;justify-content:center;gap:10px;margin:8px 0 12px;flex-wrap:wrap}
+.saldo-grande strong{font-family:var(--f-titulo);font-size:clamp(2.8rem,13vw,4rem);line-height:1;color:var(--acento-texto)}
+.saldo-grande span{color:var(--suave);font-weight:700}
+.barra{height:10px;border-radius:999px;background:var(--superficie-2);overflow:hidden;margin:0 0 12px}
+.barra span{display:block;height:100%;border-radius:999px;background:var(--acento)}
+.premios-lista{list-style:none;padding:0;margin:10px 0;display:grid;gap:6px}
+.premios-lista li{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-radius:12px;background:var(--superficie-2)}
+.premios-lista li.alcanzado{outline:2px solid var(--acento)}
+.premios-lista li.alcanzado span::before{content:"✓ ";color:var(--ok);font-weight:800}
+.servicios-elegir{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+.chip-servicio{display:inline-flex;flex-direction:column;align-items:flex-start;min-height:44px;padding:8px 14px;border-radius:14px;border:1.5px solid var(--borde-campo);background:var(--superficie-2);color:var(--texto);font:inherit;font-weight:700;cursor:pointer}
+.chip-servicio small{color:var(--suave);font-weight:600}
+.chip-servicio[aria-pressed=true]{background:var(--acento);color:var(--sobre-acento);border-color:var(--acento)}
+.chip-servicio[aria-pressed=true] small{color:var(--sobre-acento)}
+.canje-opciones{display:grid;gap:8px;margin:12px 0 0;padding:12px;border-radius:14px;background:var(--superficie-2)}
+.canje-opciones .nota{margin:0}
+.campo.ancho-total{grid-column:1/-1}
+.campo textarea{width:100%;font:inherit;padding:10px 12px;border-radius:12px;border:1.5px solid var(--borde-campo);background:var(--superficie-2);color:var(--texto);resize:vertical}
