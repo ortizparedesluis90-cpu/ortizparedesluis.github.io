@@ -10,9 +10,9 @@
   var base = '/api/n/' + slug;
   var $ = function (id) { return document.getElementById(id); };
   var actual = null; // cliente mostrado
-  // El QR de la tarjeta es un enlace .../panel#c=CODIGO; también aceptamos el código solo.
+  // El QR de la tarjeta es un enlace .../SLUG/K/CODIGO (antes .../panel#c=CODIGO); también aceptamos el código solo.
   function codigoDe(texto) {
-    var m = /[#?&]c=([A-Za-z0-9-]{4,20})/.exec(texto || '');
+    var m = /[#?&]c=([A-Za-z0-9-]{4,20})/.exec(texto || '') || /\/K\/([A-Za-z0-9-]{4,20})\/?$/i.exec(texto || '');
     return m ? m[1] : texto;
   }
   // Si se abrió el panel escaneando una tarjeta con la cámara del celular, buscamos a ese cliente.
@@ -66,16 +66,29 @@
   });
 
   // ---------- cámara y QR ----------
-  var stream = null, lienzo = document.createElement('canvas'), ctx = lienzo.getContext('2d', { willReadFrequently: true }), buscando = false;
+  // Lector nativo del celular (BarcodeDetector) si existe; si no, jsQR sobre el centro de la imagen,
+  // en buena resolución, que es donde el cliente pone su QR.
+  var stream = null, pista = null, detector = null, lienzo = document.createElement('canvas'), ctx = lienzo.getContext('2d', { willReadFrequently: true }), buscando = false, ocupado = false, vuelta = 0;
   async function abrirCamara() {
     Sellos.mostrar($('buscar-msg'), '');
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return Sellos.mostrar($('buscar-msg'), 'Este navegador no permite usar la cámara. Escribe el código que aparece debajo del QR.');
     }
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
     } catch (e) {
       return Sellos.mostrar($('buscar-msg'), 'No se pudo abrir la cámara (revisa el permiso del navegador). También puedes escribir el código que aparece debajo del QR.');
+    }
+    pista = stream.getVideoTracks()[0];
+    var cap = pista.getCapabilities ? pista.getCapabilities() : {};
+    // Enfoque continuo: sin esto algunos celulares enfocan lejos y el QR de cerca sale borroso.
+    if (cap.focusMode && cap.focusMode.indexOf('continuous') >= 0) pista.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function () {});
+    $('linterna').hidden = !cap.torch; $('linterna').setAttribute('aria-pressed', 'false');
+    if (!detector && 'BarcodeDetector' in window) {
+      try {
+        var formatos = await window.BarcodeDetector.getSupportedFormats();
+        if (formatos.indexOf('qr_code') >= 0) detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      } catch (e) { detector = null; }
     }
     var video = $('video');
     video.srcObject = stream;
@@ -86,32 +99,48 @@
   }
   function detenerCamara() {
     buscando = false;
-    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; pista = null; }
     if ($('camara')) { $('camara').hidden = true; $('escanear').hidden = false; }
   }
+  function encontrado(texto) {
+    detenerCamara();
+    if (navigator.vibrate) navigator.vibrate(80);
+    var cod = codigoDe(texto);
+    $('q').value = cod;
+    buscar(cod);
+  }
   var ultimoCuadro = 0;
-  function leer(t) {
+  async function leer(t) {
     if (!buscando) return;
     var video = $('video');
-    if (t - ultimoCuadro > 120 && video.readyState >= 2 && video.videoWidth) {
-      ultimoCuadro = t;
-      var escala = Math.min(1, 640 / video.videoWidth);
-      lienzo.width = Math.round(video.videoWidth * escala);
-      lienzo.height = Math.round(video.videoHeight * escala);
-      ctx.drawImage(video, 0, 0, lienzo.width, lienzo.height);
-      var img = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
-      var qr = window.jsQR && window.jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
-      if (qr && qr.data) {
-        detenerCamara();
-        if (navigator.vibrate) navigator.vibrate(80);
-        var cod = codigoDe(qr.data);
-        $('q').value = cod;
-        buscar(cod);
-        return;
-      }
+    if (!ocupado && t - ultimoCuadro > 70 && video.readyState >= 2 && video.videoWidth) {
+      ultimoCuadro = t; ocupado = true;
+      try {
+        if (detector) {
+          var codigos = await detector.detect(video);
+          if (codigos.length && codigos[0].rawValue) { ocupado = false; return encontrado(codigos[0].rawValue); }
+        } else {
+          // 3 de cada 4 vueltas: el cuadrado central (donde está la guía) en buena resolución; la otra, la imagen completa.
+          var vw = video.videoWidth, vh = video.videoHeight, completa = (vuelta++ % 4) === 3;
+          var lado = completa ? Math.max(vw, vh) : Math.min(vw, vh) * 0.8;
+          var sx = completa ? 0 : (vw - lado) / 2, sy = completa ? 0 : (vh - lado) / 2, sw = completa ? vw : lado, sh = completa ? vh : lado;
+          var esc = Math.min(1, (completa ? 960 : 720) / Math.max(sw, sh));
+          lienzo.width = Math.round(sw * esc); lienzo.height = Math.round(sh * esc);
+          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, lienzo.width, lienzo.height);
+          var img = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
+          var qr = window.jsQR && window.jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+          if (qr && qr.data) { ocupado = false; return encontrado(qr.data); }
+        }
+      } catch (e) { /* cuadro no listo: se intenta en el siguiente */ }
+      ocupado = false;
     }
     requestAnimationFrame(leer);
   }
+  $('linterna').addEventListener('click', function () {
+    if (!pista) return;
+    var on = this.getAttribute('aria-pressed') !== 'true', b = this;
+    pista.applyConstraints({ advanced: [{ torch: on }] }).then(function () { b.setAttribute('aria-pressed', String(on)); }).catch(function () {});
+  });
   $('escanear').addEventListener('click', abrirCamara);
   $('cerrar-camara').addEventListener('click', function () { detenerCamara(); $('escanear').focus(); });
   document.addEventListener('visibilitychange', function () { if (document.hidden) detenerCamara(); });

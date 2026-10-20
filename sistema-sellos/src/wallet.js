@@ -47,7 +47,7 @@ function objeto(env, n, c, origen) {
     accountId: c.codigo,
     accountName: String(c.nombre || '').split(' ')[0].slice(0, 25),
     loyaltyPoints: { label: `Sellos (de ${n.meta})`, balance: { int: Math.min(c.sellos, n.meta) } },
-    barcode: { type: 'QR_CODE', value: `${origen}/${n.slug}/panel#c=${c.codigo}`, alternateText: c.codigo },
+    barcode: { type: 'QR_CODE', value: `${origen.toUpperCase()}/${n.slug.toUpperCase()}/K/${c.codigo}`, alternateText: c.codigo },
     textModulesData: [{ id: 'premio', header: 'Premio', body: c.sellos >= n.meta ? `¡Listo! Pide en caja: ${n.premio}` : `Al completar ${n.meta} sellos: ${n.premio}` }],
     linksModuleData: { uris: [{ id: 'tarjeta', uri: `${origen}/${n.slug}/t/${c.token}`, description: 'Ver mi tarjeta' }] },
   };

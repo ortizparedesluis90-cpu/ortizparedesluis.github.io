@@ -3,7 +3,7 @@ import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './diseno.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-21';
+const V = '2026-10-22';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -298,7 +298,8 @@ export function panel(n) {
       <div class="camara" id="camara" hidden>
         <video id="video" playsinline muted></video>
         <div class="mira" aria-hidden="true"></div>
-        <button class="boton chico" type="button" id="cerrar-camara">Cerrar cámara</button>
+        <p class="camara-ayuda" aria-hidden="true">Pon el QR dentro del cuadro, a un palmo del celular</p>
+        <div class="camara-botones"><button class="boton chico" type="button" id="linterna" aria-pressed="false" hidden>Linterna</button><button class="boton chico" type="button" id="cerrar-camara">Cerrar cámara</button></div>
       </div>
       <form id="buscar" class="buscar">
         <label for="q">O escribe el código, celular o nombre</label>

@@ -105,7 +105,7 @@ input:focus-visible,select:focus-visible{border-color:var(--acento)}
 .premio.listo{background:var(--acento);color:var(--sobre-acento)}
 .qr-caja{text-align:center;background:var(--superficie);border:1px solid var(--borde);border-radius:var(--radio);padding:20px 18px;margin-bottom:18px}
 .qr-caja p{color:var(--suave)}
-.qr{width:min(240px,70vw);margin:14px auto 8px;background:#fff;border-radius:14px;padding:6px}
+.qr{width:min(290px,80vw);margin:14px auto 8px;background:#fff;border-radius:14px;padding:6px}
 .qr svg{display:block;width:100%;height:auto}
 .codigo{font:700 1.5rem/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.14em;color:var(--texto)!important;margin-top:10px}
 .acciones{text-align:center;margin-bottom:18px}
@@ -133,9 +133,12 @@ input:focus-visible,select:focus-visible{border-color:var(--acento)}
 .fila-input{display:flex;gap:8px}
 .fila-input input{flex:1;min-width:0}
 .camara{position:relative;margin-top:12px;border-radius:16px;overflow:hidden;background:#000}
-.camara video{display:block;width:100%;max-height:60vh;object-fit:cover}
-.mira{position:absolute;inset:18% 22%;border:3px solid var(--acento);border-radius:18px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
-.camara .boton{position:absolute;right:10px;bottom:10px}
+.camara video{display:block;width:100%;height:min(70vh,520px);object-fit:cover}
+.mira{position:absolute;left:50%;top:50%;width:min(68%,42vh);aspect-ratio:1;transform:translate(-50%,-50%);border:3px solid var(--acento);border-radius:18px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+.camara-ayuda{position:absolute;left:0;right:0;top:10px;text-align:center;color:#fff;font-weight:700;font-size:.9rem;text-shadow:0 1px 3px #000;margin:0}
+.camara-botones{position:absolute;right:10px;bottom:10px;display:flex;gap:8px}
+#linterna[aria-pressed=true]{background:var(--acento);color:var(--sobre-acento)}
+
 .resultados,.lista{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:8px}
 .resultados button{width:100%;text-align:left;justify-content:space-between}
 .lista li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--superficie-2);border-radius:14px;padding:10px 12px}

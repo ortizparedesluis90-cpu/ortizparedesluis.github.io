@@ -90,7 +90,8 @@ const contarVista = (env, n, origen) => env.DB.prepare(
 // ---------- QR ----------
 function qrSvg(valor) {
   const qr = qrcode(0, 'M');
-  qr.addData(valor);
+  // Solo mayúsculas, números y :/.-: modo alfanumérico, con menos cuadritos y más fácil de leer.
+  qr.addData(valor, /^[0-9A-Z $%*+\-./:]+$/.test(valor) ? 'Alphanumeric' : 'Byte');
   qr.make();
   const n = qr.getModuleCount();
   const m = 4; // margen
@@ -98,6 +99,10 @@ function qrSvg(valor) {
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) d += `M${x + m} ${y + m}h1v1h-1z`;
   return `<svg viewBox="0 0 ${n + 2 * m} ${n + 2 * m}" shape-rendering="crispEdges" aria-hidden="true"><rect width="100%" height="100%" fill="#fff"/><path fill="#000" d="${d}"/></svg>`;
 }
+
+/** Lo que lleva el QR de la tarjeta del cliente: un enlace corto en mayúsculas (/SLUG/K/CODIGO)
+ *  que abre el panel del negocio con ese cliente. Las mayúsculas hacen el QR más simple. */
+const qrCliente = (origen, n, c) => `${origen.toUpperCase()}/${n.slug.toUpperCase()}/K/${c.codigo}`;
 
 // ---------- vencimiento del plan ----------
 // anual, esencial y total quedan solo para negocios antiguos; el formulario ya no los ofrece.
@@ -708,6 +713,10 @@ async function manejar(req, env, ctx) {
   let partes;
   try { partes = url.pathname.split('/').filter(Boolean).map((p) => decodeURIComponent(p)); }
   catch { return html(P.noEncontrado(), 404); }
+  // QR de la tarjeta (/SLUG/K/CODIGO, en mayúsculas): abre el panel del negocio con ese cliente.
+  if (partes.length === 3 && /^k$/i.test(partes[1]) && SLUG.test(partes[0].toLowerCase()) && req.method === 'GET') {
+    return redirigir(`/${partes[0].toLowerCase()}/panel#c=${normalizarCodigo(partes[2])}`);
+  }
   await asegurarEsquema(env);
 
   if (partes[0] === 'api') {
@@ -796,7 +805,7 @@ async function manejar(req, env, ctx) {
       n.wallet = walletActivo(env) && !/iPhone|iPad|iPod/.test(req.headers.get('User-Agent') || '');
       const enlace = `${url.origin}/${n.slug}/t/${c.token}`;
       // El código va después de # para que no viaje al servidor ni quede en registros.
-      return html(P.tarjeta(n, c, qrSvg(`${url.origin}/${n.slug}/panel#c=${c.codigo}`), enlace), 200, {
+      return html(P.tarjeta(n, c, qrSvg(qrCliente(url.origin, n, c)), enlace), 200, {
         'Set-Cookie': cookie(`t_${n.slug}`, c.token, { path: `/${n.slug}`, maxAge: 60 * 60 * 24 * 400, sameSite: 'Lax' }),
       });
     }
