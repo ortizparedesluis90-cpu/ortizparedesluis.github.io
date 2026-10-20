@@ -84,7 +84,7 @@ id = "EL_ID_DE_TU_KV"
 
 3. Vuelve a publicar.
 
-Mientras no esté activado, todo lo demás del diseño funciona y el panel muestra un aviso en la parte de fotos. Las fotos que ya no usa ningún negocio se borran solas al día siguiente.
+**Ya está activado** (KV `medios`). Mientras no lo esté, todo lo demás del diseño funciona y el panel muestra un aviso en la parte de fotos. Las fotos que ya no usa ningún negocio se borran solas al día siguiente.
 
 ## Planes, vencimientos y suspensión
 

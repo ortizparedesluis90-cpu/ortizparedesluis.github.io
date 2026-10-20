@@ -15,6 +15,11 @@ database_name = "sellos_barberias"
 database_id = "f6161fba-dadd-450a-99e3-5d7b83259290"
 migrations_dir = "migrations"
 
+# Almacenamiento de logos, fotos y videos de cada negocio (Cloudflare KV «medios»).
+[[kv_namespaces]]
+binding = "MEDIOS"
+id = "9b3e8a4297c84f50bae93e56c103d09a"
+
 # Tarea diaria (08:17 UTC = 03:17 en Lima): borra tarjetas con 24 meses sin visitas.
 [triggers]
 crons = ["17 8 * * *"]
