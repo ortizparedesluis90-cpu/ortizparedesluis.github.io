@@ -205,6 +205,7 @@
     f.elements.servicios_texto.value = serviciosDe(n).map(function (x) { return x.n + ' = ' + x.p / 100; }).join('\n');
     mostrarTipo();
     f.elements.precio.value = n.precio ? String(n.precio / 100) : '';
+    f.elements.pedir_servicio.checked = n.pedir_servicio === undefined || n.pedir_servicio === null ? true : !!n.pedir_servicio;
     f.elements.editar.value = n.slug;
     f.elements.clave.value = '';
     ponerDiseno(n.diseno || {});
@@ -407,7 +408,7 @@
   $('form-negocio').addEventListener('submit', async function (ev) {
     ev.preventDefault();
     var f = this, datos = {};
-    Array.prototype.forEach.call(f.elements, function (el) { if (el.name) datos[el.name] = el.value; });
+    Array.prototype.forEach.call(f.elements, function (el) { if (el.name) datos[el.name] = el.type === 'checkbox' ? (el.checked ? '1' : '') : el.value; });
     datos.diseno = diseno;
     var boton = $('guardar-negocio');
     boton.disabled = true;

@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-28';
+const V = '2026-10-29';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -316,7 +316,7 @@ export function panel(n) {
     clase: 'es-panel',
     scripts: ['jsqr.js', 'comun.js', 'panel.js'],
     cuerpo: `
-<main id="principal" class="contenedor ancho" data-slug="${e(n.slug)}" data-meta="${n.meta}" data-premio="${e(n.premio)}" data-negocio="${e(n.nombre)}" data-programa="${e(n.programa)}" data-tipo="${leerPrograma(n).tipo}" data-reglas="${e(JSON.stringify(leerPrograma(n)))}" data-servicios="${e(JSON.stringify(leerServicios(n)))}">
+<main id="principal" class="contenedor ancho" data-slug="${e(n.slug)}" data-meta="${n.meta}" data-premio="${e(n.premio)}" data-negocio="${e(n.nombre)}" data-programa="${e(n.programa)}" data-tipo="${leerPrograma(n).tipo}" data-reglas="${e(JSON.stringify(leerPrograma(n)))}" data-servicios="${e(JSON.stringify(leerServicios(n)))}" data-pedir="${n.pedir_servicio ? 1 : 0}">
   <header class="cabeza compacta fila">
     <div><p class="antetitulo">Panel del negocio</p><h1>${e(n.nombre)}</h1></div>
     <button class="boton chico" type="button" id="salir" hidden>${icono('salir')}Salir</button>
@@ -593,7 +593,18 @@ export function admin() {
           </div>
         </fieldset>
         <fieldset class="grupo">
-          <legend>3. Redes y contacto</legend>
+          <legend>3. Servicios y precios</legend>
+          <p class="nota">Pon cada servicio con su precio. En cada visita el cajero lo elige con un toque y así «Tus números» del negocio muestra lo que de verdad ganó.</p>
+          <div class="rejilla">
+            <div class="campo"><label for="f-precio">Precio promedio por servicio (S/)</label><input id="f-precio" name="precio" type="text" inputmode="decimal" maxlength="7" placeholder="35" aria-describedby="f-precio-ayuda"><p class="ayuda" id="f-precio-ayuda">Lo que cobra en promedio (un corte, por ejemplo). Con eso su panel calcula cuánto le dejan sus clientes y cuánto deja de ganar.</p></div>
+            <div class="campo"><label for="f-espera">Minutos mínimos entre visitas</label><input id="f-espera" name="espera_min" type="number" min="0" max="10080" value="180"></div>
+            <div class="campo ancho-total"><label for="f-servicios">Servicios o productos con su precio</label><textarea id="f-servicios" name="servicios_texto" rows="4" placeholder="Corte = 30&#10;Barba = 15&#10;Café americano = 8" aria-describedby="f-servicios-ayuda"></textarea><p class="ayuda" id="f-servicios-ayuda">Uno por línea: nombre = precio. En el panel se eligen con un toque al registrar la visita, y «Tus números» muestra los más vendidos.</p></div>
+            <div class="check ancho-total"><input id="f-pedir" name="pedir_servicio" type="checkbox" value="1" checked aria-describedby="f-pedir-ayuda"><label for="f-pedir">Pedir el servicio en cada visita (recomendado)</label></div>
+            <p class="ayuda ancho-total" id="f-pedir-ayuda">El cajero no puede sumar la visita sin elegir el servicio o escribir el monto cobrado. Desmárcalo solo si casi todo es un mismo servicio al mismo precio.</p>
+          </div>
+        </fieldset>
+        <fieldset class="grupo">
+          <legend>4. Redes y contacto</legend>
           <div class="rejilla">
             <div class="campo"><label for="f-red-whatsapp">WhatsApp del negocio</label><input id="f-red-whatsapp" name="red_whatsapp" type="tel" inputmode="numeric" maxlength="11" placeholder="9XX XXX XXX"></div>
             <div class="campo"><label for="f-red-instagram">Instagram (enlace)</label><input id="f-red-instagram" name="red_instagram" type="url" placeholder="https://instagram.com/..."></div>
@@ -601,14 +612,6 @@ export function admin() {
             <div class="campo"><label for="f-red-facebook">Facebook (enlace)</label><input id="f-red-facebook" name="red_facebook" type="url" placeholder="https://facebook.com/..."></div>
             <div class="campo"><label for="f-red-maps">Google Maps (enlace)</label><input id="f-red-maps" name="red_maps" type="url" placeholder="https://maps.app.goo.gl/..."></div>
             <div class="campo"><label for="f-red-web">Página Bio o web (enlace)</label><input id="f-red-web" name="red_web" type="url" placeholder="https://..."></div>
-          </div>
-        </fieldset>
-        <fieldset class="grupo">
-          <legend>4. Precios y servicios</legend>
-          <div class="rejilla">
-            <div class="campo"><label for="f-precio">Precio promedio por servicio (S/)</label><input id="f-precio" name="precio" type="text" inputmode="decimal" maxlength="7" placeholder="35" aria-describedby="f-precio-ayuda"><p class="ayuda" id="f-precio-ayuda">Lo que cobra en promedio (un corte, por ejemplo). Con eso su panel calcula cuánto le dejan sus clientes y cuánto deja de ganar.</p></div>
-            <div class="campo"><label for="f-espera">Minutos mínimos entre visitas</label><input id="f-espera" name="espera_min" type="number" min="0" max="10080" value="180"></div>
-            <div class="campo ancho-total"><label for="f-servicios">Servicios o productos con precio (opcional)</label><textarea id="f-servicios" name="servicios_texto" rows="4" placeholder="Corte = 30&#10;Barba = 15&#10;Café americano = 8" aria-describedby="f-servicios-ayuda"></textarea><p class="ayuda" id="f-servicios-ayuda">Uno por línea: nombre = precio. En el panel se eligen con un toque al registrar la visita, y «Tus números» muestra los más vendidos.</p></div>
           </div>
         </fieldset>
         <fieldset class="grupo">

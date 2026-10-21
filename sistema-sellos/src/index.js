@@ -35,6 +35,7 @@ const COLUMNAS_NUEVAS = [
   ['movimientos', 'puntos', 'INTEGER'],
   ['movimientos', 'saldo', 'INTEGER'],
   ['movimientos', 'sellos', 'INTEGER'],
+  ['negocios', 'pedir_servicio', 'INTEGER NOT NULL DEFAULT 1'],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
@@ -317,14 +318,19 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     };
 
     if (sub === 'sello' && metodo === 'POST') {
-      const monto = centimos(datos.monto);
+      let monto = centimos(datos.monto);
       if (Number.isNaN(monto)) return error('El monto cobrado no es válido.');
       const pr = leerPrograma(n);
       if (pr.tipo !== 'sellos' && !monto) return error(`Escribe el monto de la compra: con eso se calculan ${pr.tipo === 'puntos' ? 'sus puntos' : 'su saldo'}.`);
       const gana = ganar(pr, monto || 0);
       // Servicios elegidos (solo los del catálogo), para «Servicios más vendidos».
       const nombres = new Set(leerServicios(n).map((x) => x.n));
-      const servicio = (Array.isArray(datos.servicios) ? datos.servicios : []).map(String).filter((x) => nombres.has(x)).slice(0, 6).join(' + ') || null;
+      const lista = (Array.isArray(datos.servicios) ? datos.servicios : []).map(String).filter((x) => nombres.has(x)).slice(0, 6);
+      const servicio = lista.join(' + ') || null;
+      // Si eligió servicios y no escribió el monto, el monto es la suma de sus precios.
+      if (!monto && lista.length) monto = lista.reduce((t, x) => t + (leerServicios(n).find((sv) => sv.n === x)?.p || 0), 0) || null;
+      // «Pedir el servicio en cada visita» (por defecto): sin servicio ni monto no se registra.
+      if (n.pedir_servicio && !monto && !servicio) return error(leerServicios(n).length ? 'Elige el servicio que se hizo (o escribe el monto cobrado).' : 'Escribe el monto cobrado en esta visita.');
       const espera = `-${Math.max(0, n.espera_min | 0)} minutes`;
       const [upd] = await env.DB.batch([
         env.DB.prepare(
@@ -671,7 +677,7 @@ async function apiAdmin(req, env, partes, url) {
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
       `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
-         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios,
+         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
          (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
@@ -749,11 +755,13 @@ async function apiAdmin(req, env, partes, url) {
       for (const k of ['logo', 'portada', 'imagen', 'video']) if (diseno[k] && !propios.includes(diseno[k])) diseno[k] = '';
     }
     v.diseno = JSON.stringify(diseno);
+    // Casilla «Pedir el servicio en cada visita»: '1' marcada, '' desmarcada (si no llega, se deja como estaba).
+    const pedir = d.pedir_servicio === undefined ? null : (d.pedir_servicio === '1' ? 1 : 0);
     if (existe) {
       await env.DB.prepare(
-        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?
+        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?, pedir_servicio=COALESCE(?, pedir_servicio)
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, ...(hash ? [hash] : []), existe.id).run();
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, pedir, ...(hash ? [hash] : []), existe.id).run();
       return json({ ok: true, creado: false });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
@@ -761,9 +769,9 @@ async function apiAdmin(req, env, partes, url) {
     if (!v.vence) v.vence = sumarMeses(hoyLima(), 1);
     if (!v.plan) v.plan = 'prueba';
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, pedir_servicio)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, pedir === null ? 1 : pedir).run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);

@@ -431,5 +431,5 @@ html[data-tema="oscuro"] .boton.wallet{border-color:rgba(255,255,255,.35)}
 .chip-servicio[aria-pressed=true] small{color:var(--sobre-acento)}
 .canje-opciones{display:grid;gap:8px;margin:12px 0 0;padding:12px;border-radius:14px;background:var(--superficie-2)}
 .canje-opciones .nota{margin:0}
-.campo.ancho-total{grid-column:1/-1}
+.campo.ancho-total,.rejilla>.ancho-total{grid-column:1/-1}
 .campo textarea{width:100%;font:inherit;padding:10px 12px;border-radius:12px;border:1.5px solid var(--borde-campo);background:var(--superficie-2);color:var(--texto);resize:vertical}

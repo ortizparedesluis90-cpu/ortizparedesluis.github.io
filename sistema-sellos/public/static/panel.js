@@ -8,6 +8,7 @@
   var tipo = main.getAttribute('data-tipo') || 'sellos';
   var reglas = JSON.parse(main.getAttribute('data-reglas') || '{}');
   var servicios = JSON.parse(main.getAttribute('data-servicios') || '[]');
+  var exigirServicio = main.getAttribute('data-pedir') === '1';
   var negocio = main.getAttribute('data-negocio');
   var programa = main.getAttribute('data-programa');
   var base = '/api/n/' + slug;
@@ -217,6 +218,11 @@
   (function () {
     $('sumar').textContent = tipo === 'puntos' ? 'Sumar puntos' : tipo === 'cashback' ? 'Registrar compra' : '+1 sello';
     $('canjear').textContent = tipo === 'puntos' ? 'Canjear puntos' : tipo === 'cashback' ? 'Usar saldo' : 'Canjear premio';
+    // Con «pedir el servicio», el monto deja de ser opcional.
+    if (exigirServicio && tipo === 'sellos') {
+      $('c-monto-label').textContent = 'Cobrado en esta visita (S/)';
+      $('c-monto-ayuda').textContent = servicios.length ? 'Toca el servicio que se hizo y el monto se llena solo. Si cobraste otro monto, escríbelo.' : 'Escribe cuánto cobraste en esta visita.';
+    }
     if (tipo !== 'sellos') {
       $('c-monto-label').textContent = 'Monto de la compra (S/)';
       $('c-monto-ayuda').textContent = tipo === 'puntos' ? 'Con este monto se calculan sus puntos: ' + (reglas.porSol || 1) + ' por cada S/ 1.' : 'Con este monto se calcula su saldo: ' + reglas.pct + ' % de vuelta.';
@@ -282,6 +288,10 @@
     var monto = $('c-monto').value.trim();
     if (monto && !/^\d{1,6}([.,]\d{1,2})?$/.test(monto)) { estado('Escribe el monto solo con números, por ejemplo 35 o 35.50.', 'mal'); $('c-monto').focus(); return; }
     if (tipo !== 'sellos' && !Number((monto || '0').replace(',', '.'))) { estado('Escribe el monto de la compra o elige los servicios.', 'mal'); $('c-monto').focus(); return; }
+    if (exigirServicio && !Number((monto || '0').replace(',', '.')) && !elegidos().length) {
+      estado(servicios.length ? 'Elige el servicio que se hizo (o escribe el monto cobrado).' : 'Escribe el monto cobrado en esta visita.', 'mal');
+      var primero = $('c-servicios').querySelector('button'); (servicios.length && primero ? primero : $('c-monto')).focus(); return;
+    }
     var antes = actual ? { puntos: actual.puntos, saldo: actual.saldo } : { puntos: 0, saldo: 0 };
     accion('sello', { monto: monto, servicios: elegidos() }, this, function (c) {
       $('c-monto').value = ''; pintarServicios();
