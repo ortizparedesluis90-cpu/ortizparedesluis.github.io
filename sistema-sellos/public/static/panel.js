@@ -259,6 +259,9 @@
     $('canjear').disabled = !info.listo;
     $('c-canje').hidden = true;
     $('c-recordatorios').checked = c.recordatorios;
+    // Sellos de papel: solo en tarjetas de sellos y mientras no se hayan pasado.
+    $('c-papel').hidden = tipo !== 'sellos' || !!c.traspaso;
+    if (enfocar) { $('c-papel').open = false; $('c-papel-n').value = ''; }
     var texto = 'Hola ' + c.nombre.split(' ')[0] + ', esta es tu tarjeta ' + programa + ' de ' + negocio + ': ' + c.enlace;
     $('reenviar').href = 'https://wa.me/' + c.celularWa + '?text=' + encodeURIComponent(texto);
     if (enfocar) { estado(''); pintarServicios(); $('c-monto').value = ''; $('cliente').focus(); $('cliente').scrollIntoView({ block: 'start' }); }
@@ -324,7 +327,16 @@
     var primero = caja.querySelector('button:not([disabled]), input'); if (primero) primero.focus();
   });
   $('deshacer').addEventListener('click', function () {
-    accion('deshacer', {}, this, function (c) { return 'Se deshizo la última visita. Ahora tiene ' + resumenCli(c) + '.'; });
+    accion('deshacer', {}, this, function (c) { return 'Se deshizo el último registro. Ahora tiene ' + resumenCli(c) + '.'; });
+  });
+  $('c-papel-btn').addEventListener('click', function () {
+    if (!actual) return;
+    var n = Number($('c-papel-n').value);
+    if (!(n >= 1 && n <= meta && Math.round(n) === n)) { estado('Escribe cuántos sellos tenía en papel: de 1 a ' + meta + '.', 'mal'); $('c-papel-n').focus(); return; }
+    if (!confirm('¿Pasar ' + n + ' sello' + (n === 1 ? '' : 's') + ' de papel a ' + actual.nombre + '? Se hace una sola vez. Quédate con su tarjeta de papel.')) return;
+    accion('traspaso', { sellos: n }, this, function (c) {
+      return '✓ Se pasaron ' + n + ' sello' + (n === 1 ? '' : 's') + ' de papel: ahora tiene ' + c.sellos + ' de ' + meta + '.' + (c.sellos >= meta ? ' ¡Ya puede canjear su premio!' : '');
+    });
   });
   $('c-recordatorios').addEventListener('change', function () {
     var activo = this.checked;

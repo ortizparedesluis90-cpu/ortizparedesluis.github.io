@@ -22,6 +22,7 @@ Funciona en **Cloudflare Workers + D1**. El plan gratuito alcanza para empezar c
 - Nadie puede sumarse sellos solo, porque se necesita la clave del panel.
 - Hay un tiempo mínimo entre dos sellos del mismo cliente (por defecto 3 horas), para evitar escanear dos veces por error.
 - El negocio puede deshacer un sello sumado por error durante 30 minutos.
+- **Pasar sellos de su tarjeta de papel** (en la ficha del cliente, solo en tarjetas de sellos): para los clientes que ya tenían tarjeta de papel. Se usa una sola vez por cliente, de 1 a la meta de sellos, y no cuenta como visita ni como ingreso en «Tus números». Queda en el historial como «traspaso» y se puede deshacer en los 30 minutos siguientes. El cajero se queda con la tarjeta de papel para que no se use dos veces.
 
 ## Redes del negocio y lista de clientes
 

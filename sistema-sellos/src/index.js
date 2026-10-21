@@ -34,6 +34,7 @@ const COLUMNAS_NUEVAS = [
   ['movimientos', 'servicio', 'TEXT'],
   ['movimientos', 'puntos', 'INTEGER'],
   ['movimientos', 'saldo', 'INTEGER'],
+  ['movimientos', 'sellos', 'INTEGER'],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
@@ -65,7 +66,7 @@ function clientePanel(c, n, origen) {
   return {
     id: c.id, nombre: c.nombre, codigo: c.codigo, celular: celularVisible(c.celular), celularWa: c.celular,
     recordatorios: !!c.recordatorios, sellos: c.sellos, puntos: c.puntos | 0, saldo: c.saldo | 0, visitas: c.visitas, premios: c.premios,
-    ultimaVisita: c.ultima_visita, creado: c.creado, meta: n.meta,
+    ultimaVisita: c.ultima_visita, creado: c.creado, meta: n.meta, traspaso: !!c.traspaso,
     enlace: `${origen}/${n.slug}/t/${c.token}`,
   };
 }
@@ -300,7 +301,10 @@ async function apiPanel(req, env, n, partes, url, ctx) {
 
   if (accion === 'cliente' && id && /^\d+$/.test(id)) {
     const cid = Number(id);
-    const leer = () => env.DB.prepare(`SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE id = ? AND negocio_id = ?`).bind(cid, n.id).first();
+    const leer = () => env.DB.prepare(
+      `SELECT ${CAMPOS_CLIENTE}, EXISTS (SELECT 1 FROM movimientos m WHERE m.cliente_id = clientes.id AND m.tipo = 'traspaso') AS traspaso
+       FROM clientes WHERE id = ? AND negocio_id = ?`
+    ).bind(cid, n.id).first();
     const c = await leer();
     if (!c) return error('Cliente no encontrado.', 404);
 
@@ -369,13 +373,40 @@ async function apiPanel(req, env, n, partes, url, ctx) {
       return listo();
     }
 
+    // Sellos de la tarjeta de papel que el cliente tenía antes: una sola vez por cliente, solo en
+    // programas de sellos. No es una visita: no suma visitas ni cuenta en «Tus números».
+    if (sub === 'traspaso' && metodo === 'POST') {
+      if (leerPrograma(n).tipo !== 'sellos') return error('Solo las tarjetas de sellos pueden pasar sellos de papel.');
+      const cantidad = Number(datos.sellos);
+      if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > n.meta) return error(`Escribe cuántos sellos tenía en papel: de 1 a ${n.meta}.`);
+      const [upd] = await env.DB.batch([
+        env.DB.prepare(
+          `UPDATE clientes SET sellos = sellos + ? WHERE id = ? AND negocio_id = ?
+           AND NOT EXISTS (SELECT 1 FROM movimientos WHERE cliente_id = ? AND tipo = 'traspaso')`
+        ).bind(cantidad, cid, n.id, cid),
+        env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, servicio, sellos) SELECT ?, ?, 'traspaso', 'Tarjeta de papel', ? WHERE changes() > 0`)
+          .bind(n.id, cid, cantidad),
+      ]);
+      if (!upd.meta.changes) return error('A este cliente ya se le pasaron sus sellos de papel.', 409);
+      return listo();
+    }
+
     if (sub === 'deshacer' && metodo === 'POST') {
+      // Deshace la última visita o el último traspaso de papel de los últimos 30 minutos, si no hubo un canje después.
       const ultimo = await env.DB.prepare(
-        `SELECT id, puntos, saldo FROM movimientos WHERE cliente_id = ? AND negocio_id = ? AND tipo = 'sello' AND creado >= datetime('now', '-30 minutes')
+        `SELECT id, tipo, puntos, saldo, sellos FROM movimientos WHERE cliente_id = ? AND negocio_id = ? AND tipo IN ('sello', 'traspaso') AND creado >= datetime('now', '-30 minutes')
          AND NOT EXISTS (SELECT 1 FROM movimientos m2 WHERE m2.cliente_id = ? AND m2.tipo = 'canje' AND m2.id > movimientos.id)
          ORDER BY id DESC LIMIT 1`
       ).bind(cid, n.id, cid).first();
       if (!ultimo) return error('Solo se puede deshacer una visita de los últimos 30 minutos (y antes de un canje).', 409);
+      if (ultimo.tipo === 'traspaso') {
+        const [, upd] = await env.DB.batch([
+          env.DB.prepare('DELETE FROM movimientos WHERE id = ?').bind(ultimo.id),
+          env.DB.prepare('UPDATE clientes SET sellos = MAX(sellos - ?, 0) WHERE id = ? AND negocio_id = ? AND changes() > 0').bind(ultimo.sellos | 0, cid, n.id),
+        ]);
+        if (!upd.meta.changes) return error('Eso ya se deshizo.', 409);
+        return listo();
+      }
       const dSellos = ultimo.puntos === null && ultimo.saldo === null ? 1 : 0;
       const [, upd] = await env.DB.batch([
         env.DB.prepare('DELETE FROM movimientos WHERE id = ?').bind(ultimo.id),

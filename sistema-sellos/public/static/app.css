@@ -72,6 +72,9 @@ input:focus-visible,select:focus-visible{border-color:var(--acento)}
 .check label{font-weight:400;margin:0;font-size:.95rem}
 .aviso-error{color:var(--error);font-weight:600;margin-top:14px}
 .aviso-error.ok{color:var(--ok)}
+.papel{margin-top:12px;border-top:1px solid var(--borde);padding-top:10px}
+.papel summary{cursor:pointer;font-weight:700}
+.papel .fila-input{margin-top:8px}
 .estado{min-height:1.5em;font-weight:600;margin-top:10px}
 .estado.ok{color:var(--ok)}
 .estado.mal{color:var(--error)}

@@ -59,11 +59,12 @@ CREATE TABLE IF NOT EXISTS movimientos (
   id          INTEGER PRIMARY KEY,
   negocio_id  INTEGER NOT NULL,
   cliente_id  INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
-  tipo        TEXT NOT NULL,                      -- sello | canje
+  tipo        TEXT NOT NULL,                      -- sello (visita) | canje | traspaso (sellos de la tarjeta de papel, una vez)
   monto       INTEGER,                            -- lo cobrado en esa visita, en céntimos (opcional). En un canje de cashback, el saldo usado
   servicio    TEXT,                               -- servicios de la visita («Corte + Barba») o premio canjeado
   puntos      INTEGER,                            -- puntos sumados (o restados en un canje). NULL en sellos
   saldo       INTEGER,                            -- saldo sumado (o usado en un canje), en céntimos. NULL en sellos
+  sellos      INTEGER,                            -- en un traspaso, cuántos sellos de papel se pasaron
   creado      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-27';
+const V = '2026-10-28';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -376,6 +376,11 @@ export function panel(n) {
         <a class="boton chico" id="reenviar" target="_blank" rel="noopener">${icono('wa')}Enviarle su tarjeta</a>
         <label class="interruptor"><input type="checkbox" id="c-recordatorios"> Acepta recordatorios</label>
       </div>
+      <details class="papel" id="c-papel"${leerPrograma(n).tipo === 'sellos' ? '' : ' hidden'}>
+        <summary>Pasar sellos de su tarjeta de papel</summary>
+        <p class="nota">Úsalo una sola vez, cuando el cliente te entrega su tarjeta de papel. Si tiene varias, suma todos los sellos. No cuenta como visita y quédate con su tarjeta de papel.</p>
+        <div class="fila-input"><label class="oculto-accesible" for="c-papel-n">Sellos que tenía en papel</label><input id="c-papel-n" type="number" inputmode="numeric" min="1" max="${n.meta}" placeholder="Ej.: 3"><button class="boton" type="button" id="c-papel-btn">Pasar sellos</button></div>
+      </details>
       <details class="borrar">
         <summary>Eliminar cliente</summary>
         <p>Úsalo si el cliente pide borrar sus datos. No se puede deshacer.</p>
