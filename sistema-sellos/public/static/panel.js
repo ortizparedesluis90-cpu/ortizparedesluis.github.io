@@ -293,12 +293,15 @@
       var primero = $('c-servicios').querySelector('button'); (servicios.length && primero ? primero : $('c-monto')).focus(); return;
     }
     var antes = actual ? { puntos: actual.puntos, saldo: actual.saldo } : { puntos: 0, saldo: 0 };
+    // Lo que quedó registrado (servicio y monto), para que el cajero lo confirme de un vistazo.
+    var hecho = elegidos().join(' + '), cobro = Number((monto || '0').replace(',', '.'));
+    var registro = (hecho || cobro) ? ' Registrado: ' + [hecho, cobro ? solesTxt(Math.round(cobro * 100)) : ''].filter(Boolean).join(', ') + '.' : '';
     accion('sello', { monto: monto, servicios: elegidos() }, this, function (c) {
       $('c-monto').value = ''; pintarServicios();
       if (navigator.vibrate) navigator.vibrate(60);
       if (tipo === 'puntos') return '✓ +' + (c.puntos - antes.puntos) + ' puntos. Ahora tiene ' + c.puntos + '.' + (infoCli(c).listo ? ' Ya puede canjear un premio.' : '');
       if (tipo === 'cashback') return '✓ Ganó ' + solesTxt(c.saldo - antes.saldo) + ' de saldo. Ahora tiene ' + solesTxt(c.saldo) + '.';
-      return c.sellos >= meta ? '✓ Sello sumado. ¡Completó su tarjeta! Ya puede canjear su premio.' : '✓ Sello sumado: ' + c.sellos + ' de ' + meta + '.';
+      return (c.sellos >= meta ? '✓ Sello sumado. ¡Completó su tarjeta! Ya puede canjear su premio.' : '✓ Sello sumado: ' + c.sellos + ' de ' + meta + '.') + registro;
     });
   });
   $('canjear').addEventListener('click', function () {

@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-29';
+const V = '2026-10-30';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
