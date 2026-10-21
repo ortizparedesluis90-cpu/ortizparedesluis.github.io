@@ -343,6 +343,7 @@
   }
   async function subir(tipo, archivo, input) {
     var slug = guardado(); var msg = $('form-msg');
+    msg.classList.remove('ok');
     if (!slug) return Sellos.mostrar(msg, 'Guarda el negocio primero para poder subir archivos.');
     Sellos.mostrar(msg, 'Subiendo ' + (tipo === 'video' ? 'video' : 'imagen') + '…');
     var datos = archivo;
@@ -363,6 +364,7 @@
     if (tipo === 'video') diseno.fondo = 'video';
     if (tipo === 'logo' && diseno.icono === 'check') diseno.icono = 'logo';
     ponerDiseno(diseno);
+    msg.classList.add('ok');
     Sellos.mostrar(msg, 'Archivo subido. Toca «Guardar negocio» para publicarlo.');
   }
 
@@ -411,6 +413,7 @@
     boton.disabled = true;
     var r = await Sellos.api('/api/admin/negocios', { body: datos });
     boton.disabled = false;
+    $('form-msg').classList.toggle('ok', r.ok);
     if (r.ok) {
       Sellos.mostrar($('form-msg'), r.datos.creado ? 'Negocio creado. Ya puedes subir su logo y fotos, y compartir su enlace de registro.' : 'Cambios guardados.');
       f.elements.editar.value = datos.slug;

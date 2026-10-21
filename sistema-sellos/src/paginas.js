@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-26';
+const V = '2026-10-27';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -240,8 +240,7 @@ export function cartel(n, qr, url) {
   <article class="lamina" id="lamina" data-f="a5" aria-label="Cartel de ${e(n.programa)}">
     <div class="l-marco">
       <header class="l-cabeza">
-        ${n.d.logo ? `<img class="l-logo" src="/m/${e(n.d.logo)}" alt="">` : ''}
-        <p class="l-negocio">${e(n.nombre)}</p>
+        ${n.d.logo ? `<img class="l-logo" src="/m/${e(n.d.logo)}" alt="${e(n.nombre)}">` : `<p class="l-negocio">${e(n.nombre)}</p>`}
         <h2 class="l-programa">${e(n.programa)}</h2>
         <p class="l-lema">${lemaHtml(n)}</p>
         ${fila}
