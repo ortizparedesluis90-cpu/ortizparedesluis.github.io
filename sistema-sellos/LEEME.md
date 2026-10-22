@@ -23,6 +23,7 @@ Funciona en **Cloudflare Workers + D1**. El plan gratuito alcanza para empezar c
 - Hay un tiempo mínimo entre dos sellos del mismo cliente (por defecto 3 horas), para evitar escanear dos veces por error.
 - El negocio puede deshacer un sello sumado por error durante 30 minutos.
 - **Pedir el servicio en cada visita** (casilla en `/admin`, marcada por defecto): el cajero no puede sumar la visita sin tocar un servicio del catálogo o escribir el monto cobrado. Así «Tus números» muestra lo que el negocio ganó de verdad y sus servicios más vendidos. Si elige servicios sin escribir el monto, el monto es la suma de sus precios. Se desmarca solo en negocios donde casi todo es un mismo servicio al mismo precio.
+- **Historial del cliente** (en su ficha, al escanear su QR o buscarlo): «Suele pedir» con sus 3 servicios más frecuentes y «Sus últimas visitas» con las 10 últimas (fecha, servicio y monto, canjes y traspaso de papel).
 - **Pasar sellos de su tarjeta de papel** (en la ficha del cliente, solo en tarjetas de sellos): para los clientes que ya tenían tarjeta de papel. Se usa una sola vez por cliente, de 1 a la meta de sellos, y no cuenta como visita ni como ingreso en «Tus números». Queda en el historial como «traspaso» y se puede deshacer en los 30 minutos siguientes. El cajero se queda con la tarjeta de papel para que no se use dos veces.
 
 ## Redes del negocio y lista de clientes

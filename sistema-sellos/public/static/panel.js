@@ -270,7 +270,33 @@
     if (enfocar) { $('c-papel').open = false; $('c-papel-n').value = ''; }
     var texto = 'Hola ' + c.nombre.split(' ')[0] + ', esta es tu tarjeta ' + programa + ' de ' + negocio + ': ' + c.enlace;
     $('reenviar').href = 'https://wa.me/' + c.celularWa + '?text=' + encodeURIComponent(texto);
+    cargarHistorial(c.id);
     if (enfocar) { estado(''); pintarServicios(); $('c-monto').value = ''; $('cliente').focus(); $('cliente').scrollIntoView({ block: 'start' }); }
+  }
+  // Lo que el cliente se ha hecho: sus servicios de siempre y sus últimas visitas.
+  var fechaCorta = new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', day: 'numeric', month: 'short', year: 'numeric' });
+  var pidiendoHist = 0;
+  async function cargarHistorial(id) {
+    var turno = ++pidiendoHist;
+    var r = await pedir(base + '/cliente/' + id + '/historial');
+    if (turno !== pidiendoHist || !actual || actual.id !== id) return;
+    var ul = $('c-hist-lista'), suele = $('c-suele');
+    ul.textContent = '';
+    var favs = r.ok ? r.datos.favoritos : [];
+    suele.hidden = !favs.length;
+    suele.textContent = favs.length ? 'Suele pedir: ' + favs.map(function (f) { return f.n + ' (' + f.veces + (f.veces === 1 ? ' vez' : ' veces') + ')'; }).join(', ') : '';
+    var movs = r.ok ? r.datos.movimientos : [];
+    if (!movs.length) { ul.appendChild(Sellos.el('li', { clase: 'vacio', texto: r.ok ? 'Aún no tiene visitas registradas.' : 'No se pudo cargar su historial.' })); return; }
+    movs.forEach(function (m) {
+      var que;
+      if (m.tipo === 'canje') que = tipo === 'cashback' ? 'Usó ' + solesTxt(m.monto || 0) + ' de saldo' : 'Canjeó: ' + (m.servicio || premio);
+      else if (m.tipo === 'traspaso') que = 'Pasó ' + (m.sellos || 0) + ' sello' + (m.sellos === 1 ? '' : 's') + ' de su tarjeta de papel';
+      else que = [m.servicio || 'Visita', m.monto ? solesTxt(m.monto) : ''].filter(Boolean).join(' · ');
+      ul.appendChild(Sellos.el('li', { clase: 'h-' + m.tipo }, [
+        Sellos.el('span', { clase: 'h-fecha', texto: fechaCorta.format(new Date(String(m.creado).replace(' ', 'T') + 'Z')) }),
+        Sellos.el('span', { texto: que }),
+      ]));
+    });
   }
   function ocultarCliente() { actual = null; $('cliente').hidden = true; }
   function estado(texto, tipo) { var n = $('c-msg'); n.textContent = texto; n.className = 'estado' + (tipo ? ' ' + tipo : ''); }

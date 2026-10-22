@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-30';
+const V = '2026-10-31';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -363,6 +363,7 @@ export function panel(n) {
       <p class="sub" id="c-celular"></p>
       <ol class="sellos chicos" id="c-sellos" aria-hidden="true"></ol>
       <p class="progreso" id="c-progreso" aria-live="polite"></p>
+      <p class="suele" id="c-suele" hidden></p>
       <div class="servicios-elegir" id="c-servicios" role="group" aria-label="Servicios de esta visita" hidden></div>
       <div class="campo monto"><label for="c-monto" id="c-monto-label">Cobrado en esta visita (S/) <span>opcional</span></label><input id="c-monto" type="text" inputmode="decimal" autocomplete="off" maxlength="9" aria-describedby="c-monto-ayuda"><p class="ayuda" id="c-monto-ayuda">Si lo dejas vacío, se cuenta tu precio promedio en «Tus números».</p></div>
       <div class="botones">
@@ -371,6 +372,10 @@ export function panel(n) {
       </div>
       <div class="canje-opciones" id="c-canje" hidden></div>
       <p class="estado" id="c-msg" role="status"></p>
+      <details class="historial" id="c-historial" open>
+        <summary>Sus últimas visitas</summary>
+        <ul class="lista-historial" id="c-hist-lista"></ul>
+      </details>
       <div class="botones chicos">
         <button class="boton chico" type="button" id="deshacer">Deshacer última visita</button>
         <a class="boton chico" id="reenviar" target="_blank" rel="noopener">${icono('wa')}Enviarle su tarjeta</a>

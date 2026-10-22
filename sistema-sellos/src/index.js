@@ -310,6 +310,17 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     if (!c) return error('Cliente no encontrado.', 404);
 
     if (!sub && metodo === 'GET') return json({ cliente: clientePanel(c, n, url.origin) });
+    // Historial del cliente: sus últimas visitas y canjes, y los servicios que más se hace.
+    if (sub === 'historial' && metodo === 'GET') {
+      const [ultimos, todos] = await env.DB.batch([
+        env.DB.prepare('SELECT tipo, monto, servicio, puntos, saldo, sellos, creado FROM movimientos WHERE cliente_id = ? AND negocio_id = ? ORDER BY id DESC LIMIT 10').bind(cid, n.id),
+        env.DB.prepare(`SELECT servicio FROM movimientos WHERE cliente_id = ? AND negocio_id = ? AND tipo = 'sello' AND servicio IS NOT NULL ORDER BY id DESC LIMIT 300`).bind(cid, n.id),
+      ]);
+      const cuenta = new Map();
+      for (const f of todos.results) for (const x of String(f.servicio).split(' + ')) if (x) cuenta.set(x, (cuenta.get(x) || 0) + 1);
+      const favoritos = [...cuenta].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([nombre, veces]) => ({ n: nombre, veces }));
+      return json({ movimientos: ultimos.results, favoritos });
+    }
     // Tras cambiar los sellos, el pase de Google Wallet (si lo guardó) se actualiza en segundo plano.
     const listo = async () => {
       const nuevo = await leer();

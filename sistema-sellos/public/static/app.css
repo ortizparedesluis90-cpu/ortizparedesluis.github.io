@@ -72,6 +72,14 @@ input:focus-visible,select:focus-visible{border-color:var(--acento)}
 .check label{font-weight:400;margin:0;font-size:.95rem}
 .aviso-error{color:var(--error);font-weight:600;margin-top:14px}
 .aviso-error.ok{color:var(--ok)}
+.suele{margin:6px 0 0;font-weight:600}
+.historial{margin-top:12px;border-top:1px solid var(--borde);padding-top:10px}
+.historial summary{cursor:pointer;font-weight:700}
+.lista-historial{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:6px}
+.lista-historial li{display:grid;grid-template-columns:7.5em 1fr;gap:10px;align-items:baseline}
+.lista-historial .h-fecha{color:var(--suave);font-size:.9rem}
+.lista-historial li.h-canje{font-weight:600}
+.lista-historial li.vacio{display:block;color:var(--suave)}
 .papel{margin-top:12px;border-top:1px solid var(--borde);padding-top:10px}
 .papel summary{cursor:pointer;font-weight:700}
 .papel .fila-input{margin-top:8px}
