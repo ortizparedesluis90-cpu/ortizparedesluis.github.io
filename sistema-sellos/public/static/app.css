@@ -184,12 +184,13 @@ input:focus-visible,select:focus-visible{border-color:var(--acento)}
 .formatos .boton[aria-pressed=true]{border-color:var(--acento);box-shadow:0 0 0 2px var(--acento) inset}
 .lamina{container-type:inline-size;width:min(520px,100%);aspect-ratio:148/210;background:var(--fondo);color:var(--texto);border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .lamina[data-f=mesa]{aspect-ratio:100/150}
+.lamina[data-f=acrilico]{aspect-ratio:150/210}
 .l-marco{height:100%;margin:0;padding:7cqw 6cqw 5cqw;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;gap:2.4cqw;border:.5cqw solid var(--acento);border-radius:3cqw;box-sizing:border-box}
 .lamina{padding:3.2cqw}
 .l-cabeza{display:flex;flex-direction:column;align-items:center;gap:1.4cqw}
 .l-logo{max-width:44cqw;max-height:15cqw;object-fit:contain}
 .l-negocio{margin:0;font-size:3.1cqw;font-weight:700;letter-spacing:.28em;text-transform:uppercase;color:var(--acento-texto)}
-.l-programa{margin:0;font-family:var(--f-titulo);font-weight:var(--w-titulo,700);font-size:10.5cqw;line-height:1.02;letter-spacing:var(--ls-titulo,-.01em);text-wrap:balance}
+.l-programa{margin:0;padding-bottom:.08em;font-family:var(--f-titulo);font-weight:var(--w-titulo,700);font-size:10.5cqw;line-height:1.18;letter-spacing:var(--ls-titulo,-.01em);text-wrap:balance}
 .l-lema{margin:0;font-size:4.2cqw;line-height:1.3;color:var(--suave);max-width:80cqw}
 .l-lema strong{color:var(--texto)}
 .l-sellos{display:flex;flex-wrap:wrap;justify-content:center;gap:1.6cqw;margin-top:1.2cqw}
@@ -599,3 +600,4 @@ body.es-panel .dato-nota.alerta{color:#F2C14E}
 .lamina:is([data-f=a5h],[data-f=a4h]) .l-pasos li{font-size:1.75cqw;gap:.8cqw}
 .lamina:is([data-f=a5h],[data-f=a4h]) .l-pasos .ico{width:5.4cqw;height:5.4cqw;padding:1.2cqw}
 .lamina:is([data-f=a5h],[data-f=a4h]) .l-pie{grid-area:pie;font-size:1.8cqw}
+.lamina[data-f=acrilico] .l-marco{padding-top:6cqw;gap:2cqw}

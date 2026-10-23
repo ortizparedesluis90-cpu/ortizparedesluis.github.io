@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-11-03';
+const V = '2026-11-04';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -247,7 +247,7 @@ export function cartel(n, qr, url) {
   // En sellos, una fila con los sellos de la meta (los primeros llenos) para que se entienda de un vistazo.
   const fila = pr.tipo === 'sellos'
     ? `<div class="l-sellos" aria-hidden="true">${Array.from({ length: Math.min(n.meta, 12) }, (_, i) => `<i${i < 3 ? ' class="lleno"' : ''}></i>`).join('')}</div>` : '';
-  const formatos = [['a5h', 'A5 horizontal · acrílico', '21 × 15 cm'], ['a4h', 'A4 horizontal', '29.7 × 21 cm'], ['a5', 'A5 vertical · mostrador', '14.8 × 21 cm'], ['a4', 'A4 vertical · pared', '21 × 29.7 cm'], ['mesa', 'Mesa', '10 × 15 cm']];
+  const formatos = [['acrilico', 'Tótem acrílico', '15 × 21 cm'], ['a4', 'A4 vertical · pared', '21 × 29.7 cm'], ['a5', 'A5 vertical · mostrador', '14.8 × 21 cm'], ['mesa', 'Mesa', '10 × 15 cm'], ['a5h', 'A5 horizontal', '21 × 15 cm'], ['a4h', 'A4 horizontal', '29.7 × 21 cm']];
   return base({
     titulo: `Cartel · ${n.programa}`,
     negocio: n,
@@ -261,7 +261,7 @@ export function cartel(n, qr, url) {
     <button class="boton primario" type="button" id="imprimir">Imprimir</button>
     ${n.suspendido ? '<p class="aviso-error">Este negocio está suspendido: el QR mostrará «Programa en pausa».</p>' : ''}
   </div>
-  <article class="lamina" id="lamina" data-f="a5h" aria-label="Cartel de ${e(n.programa)}">
+  <article class="lamina" id="lamina" data-f="acrilico" aria-label="Cartel de ${e(n.programa)}">
     <div class="l-marco">
       <header class="l-cabeza">
         ${n.d.logo ? `<img class="l-logo" src="/m/${e(n.d.logo)}" alt="${e(n.nombre)}">` : `<p class="l-negocio">${e(n.nombre)}</p>`}
