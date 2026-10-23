@@ -5,7 +5,7 @@ import ESQUEMA from '../migrations/0001_inicial.sql';
 import * as P from './paginas.js';
 import { leerDiseno, temaCss, catalogo, mediosDe, colores } from './diseno.js';
 import { walletActivo, enlaceGuardar, actualizar as actualizarWallet } from './wallet.js';
-import { TIPOS, leerPrograma, leerServicios, textoAServicios, textoAPremios, ganar, estado } from './programa.js';
+import { TIPOS, leerPrograma, leerServicios, textoAServicios, textoAPremios, ganar, estado, conTarjeta } from './programa.js';
 import {
   AVISO_VERSION, EN_MARCO, html, json, error, texto, redirigir, cookies, cookie, cuerpo, nuevoToken, nuevoCodigo, aleatorio,
   normalizarCodigo, celularPeru, celularVisible, limpiarTexto, SLUG, RESERVADOS, primerNombre,
@@ -38,6 +38,8 @@ const COLUMNAS_NUEVAS = [
   ['negocios', 'pedir_servicio', 'INTEGER NOT NULL DEFAULT 1'],
   ['negocios', 'mostrar_numeros', 'INTEGER NOT NULL DEFAULT 0'],
   ['negocios', 'sello_regalo', 'INTEGER NOT NULL DEFAULT 0'],
+  ['clientes', 'meta_t', 'INTEGER'],
+  ['clientes', 'premio_t', 'TEXT'],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
@@ -59,17 +61,18 @@ async function negocioPorSlug(env, slug) {
   return n;
 }
 
-const CAMPOS_CLIENTE = 'id, token, codigo, nombre, celular, recordatorios, sellos, puntos, saldo, visitas, premios, ultima_visita, creado, wallet';
+const CAMPOS_CLIENTE = 'id, token, codigo, nombre, celular, recordatorios, sellos, puntos, saldo, visitas, premios, ultima_visita, creado, wallet, meta_t, premio_t';
 
 function clientePublico(c, n) {
-  return { nombre: primerNombre(c.nombre), sellos: c.sellos, puntos: c.puntos, saldo: c.saldo, meta: n.meta, premio: n.premio, visitas: c.visitas, premios: c.premios, ...estado(n, c) };
+  const t = conTarjeta(n, c);
+  return { nombre: primerNombre(c.nombre), sellos: c.sellos, puntos: c.puntos, saldo: c.saldo, meta: t.meta, premioNombre: t.premio, promoAnterior: !!(c.meta_t || c.premio_t), visitas: c.visitas, premios: c.premios, ...estado(n, c) };
 }
 
 function clientePanel(c, n, origen) {
   return {
     id: c.id, nombre: c.nombre, codigo: c.codigo, celular: celularVisible(c.celular), celularWa: c.celular,
     recordatorios: !!c.recordatorios, sellos: c.sellos, puntos: c.puntos | 0, saldo: c.saldo | 0, visitas: c.visitas, premios: c.premios,
-    ultimaVisita: c.ultima_visita, creado: c.creado, meta: n.meta, traspaso: !!c.traspaso,
+    ultimaVisita: c.ultima_visita, creado: c.creado, meta: conTarjeta(n, c).meta, premio: conTarjeta(n, c).premio, promoAnterior: !!(c.meta_t || c.premio_t), traspaso: !!c.traspaso,
     enlace: `${origen}/${n.slug}/t/${c.token}`,
   };
 }
@@ -278,9 +281,11 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     // Sellos: les faltan 2 o menos. Puntos: tienen el 80 % del premio más barato. Cashback: tienen saldo para usar.
     const pr = leerPrograma(n);
     const [col, umbral] = pr.tipo === 'puntos' ? ['puntos', Math.max(1, Math.floor((pr.premios[0]?.p || 1) * 0.8))]
-      : pr.tipo === 'cashback' ? ['saldo', Math.max(1, pr.minimo)] : ['sellos', Math.max(1, n.meta - 2)];
+      : pr.tipo === 'cashback' ? ['saldo', Math.max(1, pr.minimo)] : ['sellos', n.meta];
+    // En sellos, cada tarjeta se compara con su propia meta (puede conservar una promoción anterior).
+    const condicion = col === 'sellos' ? 'sellos >= MAX(COALESCE(meta_t, ?) - 2, 1)' : `${col} >= ?`;
     const filas = await env.DB.prepare(
-      `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND recordatorios = 1 AND ${col} >= ?
+      `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND recordatorios = 1 AND ${condicion}
        ORDER BY ${col} DESC, ultima_visita ASC LIMIT 100`
     ).bind(n.id, umbral).all();
     // Y los que venían seguido y dejaron de venir: un mensaje a tiempo los recupera.
@@ -375,11 +380,13 @@ async function apiPanel(req, env, n, partes, url, ctx) {
         if (!upd.meta.changes) return error('No tiene ese saldo.', 409);
         return listo();
       }
+      // Se canjea con la promoción de su tarjeta; la tarjeta siguiente ya usa la promoción actual del negocio.
+      const t = conTarjeta(n, c);
       const [upd] = await env.DB.batch([
-        env.DB.prepare('UPDATE clientes SET sellos = sellos - ?, premios = premios + 1 WHERE id = ? AND negocio_id = ? AND sellos >= ?').bind(n.meta, cid, n.id, n.meta),
-        env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo) SELECT ?, ?, 'canje' WHERE changes() > 0`).bind(n.id, cid),
+        env.DB.prepare('UPDATE clientes SET sellos = sellos - ?, premios = premios + 1, meta_t = NULL, premio_t = NULL WHERE id = ? AND negocio_id = ? AND sellos >= ?').bind(t.meta, cid, n.id, t.meta),
+        env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, servicio) SELECT ?, ?, 'canje', ? WHERE changes() > 0`).bind(n.id, cid, t.premio),
       ]);
-      if (!upd.meta.changes) return error(`Aún no completa los ${n.meta} sellos.`, 409);
+      if (!upd.meta.changes) return error(`Aún no completa los ${t.meta} sellos.`, 409);
       return listo();
     }
 
@@ -388,7 +395,8 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     if (sub === 'traspaso' && metodo === 'POST') {
       if (leerPrograma(n).tipo !== 'sellos') return error('Solo las tarjetas de sellos pueden pasar sellos de papel.');
       const cantidad = Number(datos.sellos);
-      if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > n.meta) return error(`Escribe cuántos sellos tenía en papel: de 1 a ${n.meta}.`);
+      const meta = conTarjeta(n, c).meta;
+      if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > meta) return error(`Escribe cuántos sellos tenía en papel: de 1 a ${meta}.`);
       const [upd] = await env.DB.batch([
         env.DB.prepare(
           `UPDATE clientes SET sellos = sellos + ? WHERE id = ? AND negocio_id = ?
@@ -718,7 +726,7 @@ async function apiAdmin(req, env, partes, url) {
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id AND c.recordatorios = 1 AND CASE n.tipo
             WHEN 'puntos' THEN c.puntos >= MAX(CAST(COALESCE(json_extract(n.reglas, '$.premios[0].p'), 1) * 0.8 AS INTEGER), 1)
             WHEN 'cashback' THEN c.saldo >= MAX(COALESCE(json_extract(n.reglas, '$.minimo'), 1), 1)
-            ELSE c.sellos >= MAX(n.meta - 2, 1) END) AS cerca
+            ELSE c.sellos >= MAX(COALESCE(c.meta_t, n.meta) - 2, 1) END) AS cerca
        FROM negocios n WHERE n.activo = 1 ORDER BY n.nombre`
     ).all();
     return json({ negocios: filas.results.map((n) => ({ ...n, diseno: leerDiseno(n, n.diseno), ...estadoPlan(n) })), hoy: hoyLima(), planes: PLANES });
@@ -808,13 +816,25 @@ async function apiAdmin(req, env, partes, url) {
     // «Mostrar números completos al dueño»: apagado por defecto (el reporte se lo mandas tú).
     const mostrar = d.mostrar_numeros === undefined ? null : (d.mostrar_numeros === '1' ? 1 : 0);
     const regalo = d.sello_regalo === undefined ? null : (d.sello_regalo === '1' ? 1 : 0);
+    let conservan = 0;
     if (existe) {
+      // Cada tarjeta respeta su promoción: si cambian los sellos o el premio, las tarjetas que ya tienen sellos
+      // se quedan con la promoción con la que empezaron hasta canjearla. Las que vuelven a coincidir, se liberan.
+      const antes = await env.DB.prepare('SELECT tipo, meta, premio FROM negocios WHERE id = ?').bind(existe.id).first();
+      if (antes.tipo === 'sellos' && v.tipo === 'sellos' && (antes.meta !== v.meta || antes.premio !== v.premio)) {
+        const [, , cuenta] = await env.DB.batch([
+          env.DB.prepare('UPDATE clientes SET meta_t = ?, premio_t = ? WHERE negocio_id = ? AND sellos > 0 AND meta_t IS NULL AND premio_t IS NULL').bind(antes.meta, antes.premio, existe.id),
+          env.DB.prepare('UPDATE clientes SET meta_t = NULL, premio_t = NULL WHERE negocio_id = ? AND meta_t = ? AND premio_t = ?').bind(existe.id, v.meta, v.premio),
+          env.DB.prepare('SELECT COUNT(*) AS n FROM clientes WHERE negocio_id = ? AND (meta_t IS NOT NULL OR premio_t IS NOT NULL)').bind(existe.id),
+        ]);
+        conservan = cuenta.results[0].n;
+      }
       await env.DB.prepare(
         `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?, pedir_servicio=COALESCE(?, pedir_servicio),
          costo_premio=COALESCE(?, costo_premio), mostrar_numeros=COALESCE(?, mostrar_numeros), sello_regalo=COALESCE(?, sello_regalo)
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
       ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, pedir, d.costo_premio === undefined ? null : costoPremio || 0, mostrar, regalo, ...(hash ? [hash] : []), existe.id).run();
-      return json({ ok: true, creado: false });
+      return json({ ok: true, creado: false, conservan });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
     // Negocio nuevo sin fecha: un mes desde hoy (el primer mes gratis).

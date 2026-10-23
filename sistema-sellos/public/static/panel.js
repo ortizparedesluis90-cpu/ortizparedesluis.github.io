@@ -178,10 +178,13 @@
 
   // ---------- tipo de programa ----------
   function solesTxt(c) { return 'S/ ' + (c / 100).toFixed(2).replace(/\.00$/, ''); }
+  // Cada tarjeta puede conservar una promoción anterior: su meta y su premio vienen con el cliente.
+  function metaDe(c) { return (c && c.meta) || meta; }
+  function premioDe(c) { return (c && c.premio) || premio; }
   function resumenCli(c) {
     if (tipo === 'puntos') return c.puntos + ' punto' + (c.puntos === 1 ? '' : 's');
     if (tipo === 'cashback') return solesTxt(c.saldo) + ' de saldo';
-    return c.sellos + '/' + meta + ' sellos';
+    return c.sellos + '/' + metaDe(c) + ' sellos';
   }
   // Estado del cliente: si puede canjear, el texto de avance y el mensaje para escribirle.
   function infoCli(c) {
@@ -206,7 +209,7 @@
         msg: 'Hola ' + nombre + ', te escribimos de ' + negocio + '. ¡Tienes ' + solesTxt(c.saldo) + ' de saldo a favor en tu tarjeta ' + programa + ' para tu próxima compra! ¿Te esperamos esta semana?' + baja,
       };
     }
-    var f = faltan(c);
+    var f = faltan(c), meta = metaDe(c), premio = premioDe(c);
     return {
       listo: c.sellos >= meta,
       progreso: c.sellos >= meta ? '¡Premio listo! Tiene ' + c.sellos + ' sellos: puede canjear «' + premio + '».'
@@ -255,14 +258,16 @@
   }
 
   // ---------- cliente ----------
-  function faltan(c) { return Math.max(0, meta - c.sellos); }
+  function faltan(c) { return Math.max(0, metaDe(c) - c.sellos); }
   function mostrarCliente(c, enfocar) {
     actual = c;
     $('cliente').hidden = false;
     $('c-nombre').textContent = c.nombre;
     $('c-codigo').textContent = c.codigo.replace(/(.{4})(.{4})/, '$1 $2');
     $('c-celular').textContent = c.celular + ' · ' + c.visitas + ' visita' + (c.visitas === 1 ? '' : 's') + ' · ' + c.premios + ' premio' + (c.premios === 1 ? '' : 's') + ' canjeado' + (c.premios === 1 ? '' : 's');
-    if (tipo === 'sellos') Sellos.casillas($('c-sellos'), c.sellos, meta);
+    if (tipo === 'sellos') Sellos.casillas($('c-sellos'), c.sellos, metaDe(c));
+    // Si su tarjeta conserva una promoción anterior, el cajero lo ve para cobrarle bien el premio.
+    Sellos.mostrar($('c-promo'), tipo === 'sellos' && c.promoAnterior ? 'Promoción anterior: ' + metaDe(c) + ' sellos = ' + premioDe(c) + '. La conserva hasta canjearla.' : '');
     var info = infoCli(c);
     $('c-progreso').textContent = info.progreso;
     $('canjear').disabled = !info.listo;
@@ -331,14 +336,14 @@
       if (navigator.vibrate) navigator.vibrate(60);
       if (tipo === 'puntos') return '✓ +' + (c.puntos - antes.puntos) + ' puntos. Ahora tiene ' + c.puntos + '.' + (infoCli(c).listo ? ' Ya puede canjear un premio.' : '');
       if (tipo === 'cashback') return '✓ Ganó ' + solesTxt(c.saldo - antes.saldo) + ' de saldo. Ahora tiene ' + solesTxt(c.saldo) + '.';
-      return (c.sellos >= meta ? '✓ Sello sumado. ¡Completó su tarjeta! Ya puede canjear su premio.' : '✓ Sello sumado: ' + c.sellos + ' de ' + meta + '.') + registro;
+      return (c.sellos >= metaDe(c) ? '✓ Sello sumado. ¡Completó su tarjeta! Ya puede canjear su premio.' : '✓ Sello sumado: ' + c.sellos + ' de ' + metaDe(c) + '.') + registro;
     });
   });
   $('canjear').addEventListener('click', function () {
     if (!actual) return;
     var boton = this;
     if (tipo === 'sellos') {
-      if (!confirm('¿Entregar «' + premio + '» a ' + actual.nombre + '? Se descontarán ' + meta + ' sellos.')) return;
+      if (!confirm('¿Entregar «' + premioDe(actual) + '» a ' + actual.nombre + '? Se descontarán ' + metaDe(actual) + ' sellos.')) return;
       return accion('canje', {}, boton, function () { return '✓ Premio canjeado. Su tarjeta empieza de nuevo.'; });
     }
     // Puntos: elige un premio que le alcance. Cashback: cuánto saldo usar en esta compra.
@@ -375,10 +380,11 @@
   $('c-papel-btn').addEventListener('click', function () {
     if (!actual) return;
     var n = Number($('c-papel-n').value);
-    if (!(n >= 1 && n <= meta && Math.round(n) === n)) { estado('Escribe cuántos sellos tenía en papel: de 1 a ' + meta + '.', 'mal'); $('c-papel-n').focus(); return; }
+    var m = metaDe(actual);
+    if (!(n >= 1 && n <= m && Math.round(n) === n)) { estado('Escribe cuántos sellos tenía en papel: de 1 a ' + m + '.', 'mal'); $('c-papel-n').focus(); return; }
     if (!confirm('¿Pasar ' + n + ' sello' + (n === 1 ? '' : 's') + ' de papel a ' + actual.nombre + '? Se hace una sola vez. Quédate con su tarjeta de papel.')) return;
     accion('traspaso', { sellos: n }, this, function (c) {
-      return '✓ Se pasaron ' + n + ' sello' + (n === 1 ? '' : 's') + ' de papel: ahora tiene ' + c.sellos + ' de ' + meta + '.' + (c.sellos >= meta ? ' ¡Ya puede canjear su premio!' : '');
+      return '✓ Se pasaron ' + n + ' sello' + (n === 1 ? '' : 's') + ' de papel: ahora tiene ' + c.sellos + ' de ' + metaDe(c) + '.' + (c.sellos >= metaDe(c) ? ' ¡Ya puede canjear su premio!' : '');
     });
   });
   $('c-recordatorios').addEventListener('change', function () {

@@ -8,10 +8,11 @@
   var actual = null;
 
   // Misma frase que fraseFalta() en src/paginas.js.
-  // (d.premio de la API es la frase del estado; el nombre del premio va en la página).
+  // El nombre del premio viene como premioNombre (puede cambiar al canjear, si su tarjeta tenía una promoción anterior).
   var nombrePremio = main.getAttribute('data-premio');
   function frase(nodo, d) {
     var f = Math.max(0, d.meta - d.sellos), b = function (t) { return Sellos.el('strong', { texto: t }); };
+    if (d.premioNombre) nombrePremio = d.premioNombre;
     nodo.textContent = '';
     if (!f) nodo.append('¡Completaste tu tarjeta!', document.createElement('br'), 'Pide en caja tu ', b(nombrePremio));
     else if (f === 1) nodo.append('¡Te falta solo ', b('1 sello'), '!', document.createElement('br'), 'para tu ', b(nombrePremio));
@@ -27,6 +28,7 @@
     frase($('progreso'), d);
     Sellos.mostrar($('extra'), extra ? '+' + extra + ' sello' + (extra === 1 ? '' : 's') + ' para tu próxima tarjeta' : '');
     $('premio').hidden = !listo;
+    var aviso = document.querySelector('.promo-anterior'); if (aviso) aviso.hidden = !d.promoAnterior;
   }
 
   async function revisar() {

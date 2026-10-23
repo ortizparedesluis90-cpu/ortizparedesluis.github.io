@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS clientes (
   consentimiento TEXT NOT NULL,                   -- fecha y versión del aviso aceptado
   origen         TEXT NOT NULL DEFAULT 'enlace',  -- qr (cartel del mostrador) | enlace (bio, WhatsApp...)
   wallet         INTEGER NOT NULL DEFAULT 0,      -- 1 = guardó su tarjeta en Google Wallet
+  meta_t         INTEGER,                         -- promoción que conserva su tarjeta (sellos) si el negocio la cambió; NULL = la actual
+  premio_t       TEXT,                            -- premio de esa promoción; se borran al canjear
   creado         TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (negocio_id, celular),
   UNIQUE (negocio_id, codigo)

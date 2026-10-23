@@ -463,7 +463,8 @@
     boton.disabled = false;
     $('form-msg').classList.toggle('ok', r.ok);
     if (r.ok) {
-      Sellos.mostrar($('form-msg'), r.datos.creado ? 'Negocio creado. Ya puedes subir su logo y fotos, y compartir su enlace de registro.' : 'Cambios guardados.');
+      Sellos.mostrar($('form-msg'), r.datos.creado ? 'Negocio creado. Ya puedes subir su logo y fotos, y compartir su enlace de registro.'
+        : 'Cambios guardados.' + (r.datos.conservan ? ' ' + r.datos.conservan + (r.datos.conservan === 1 ? ' cliente conserva' : ' clientes conservan') + ' su promoción anterior hasta canjearla; las tarjetas nuevas ya usan la nueva.' : ''));
       f.elements.editar.value = datos.slug;
       f.elements.clave.value = '';
       pintarMedios();

@@ -73,8 +73,13 @@ export function ganar(pr, monto) {
   return { sellos: 1, puntos: 0, saldo: 0 };
 }
 
+/** Si la tarjeta del cliente conserva una promoción anterior (meta_t y premio_t, ver «Cada tarjeta respeta su
+ *  promoción» en LEEME.md), el negocio se ve con esa meta y ese premio para ese cliente. */
+export const conTarjeta = (n, c) => (c && (c.meta_t || c.premio_t) ? { ...n, meta: c.meta_t || n.meta, premio: c.premio_t || n.premio } : n);
+
 /** Estado de la tarjeta de un cliente, en textos listos para mostrar. */
 export function estado(n, c) {
+  n = conTarjeta(n, c);
   const pr = leerPrograma(n);
   if (pr.tipo === 'puntos') {
     const puntos = c.puntos | 0, alcanzables = pr.premios.filter((p) => p.p <= puntos), siguiente = pr.premios.find((p) => p.p > puntos) || null;

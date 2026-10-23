@@ -1,10 +1,10 @@
 // Plantillas HTML. Todo el JavaScript va en /static (la política CSP no permite scripts en línea).
 import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './diseno.js';
-import { leerPrograma, leerServicios, estado, lema, soles, TIPOS } from './programa.js';
+import { leerPrograma, leerServicios, estado, lema, soles, TIPOS, conTarjeta } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-11-04';
+const V = '2026-11-05';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -182,6 +182,8 @@ function carnetSaldo(n, c) {
 }
 
 export function tarjeta(n, c, qrSvg, url) {
+  // Con la promoción de su tarjeta (puede ser una anterior, que conserva hasta canjearla).
+  n = conTarjeta(n, c);
   const tipo = leerPrograma(n).tipo;
   const sellos = Math.min(c.sellos, n.meta);
   const extra = Math.max(0, c.sellos - n.meta);
@@ -212,6 +214,7 @@ export function tarjeta(n, c, qrSvg, url) {
     ${tipo === 'sellos' ? `<p class="frase-avance" id="progreso" aria-live="polite">${fraseFalta(n, c)}</p>
     <div class="barra" role="progressbar" aria-label="Avance de tu tarjeta" aria-valuemin="0" aria-valuemax="${n.meta}" aria-valuenow="${sellos}" id="barra"><span></span></div>
     <ol class="sellos" id="sellos" aria-label="Sellos: ${sellos} de ${n.meta}">${casillas}</ol>
+    ${c.meta_t || c.premio_t ? '<p class="promo-anterior">Tu tarjeta conserva la promoción con la que empezaste.</p>' : ''}
     <p class="extra" id="extra"${extra ? '' : ' hidden'}>+${extra} sello${extra === 1 ? '' : 's'} para tu próxima tarjeta</p>
     <p class="premio listo" id="premio"${listo ? '' : ' hidden'}>${icono('regalo')}<span><strong>¡Premio listo!</strong> Muestra tu código en caja</span></p>` : carnetSaldo(n, c)}
   </section>
@@ -424,6 +427,7 @@ export function panel(n) {
       <p class="sub" id="c-celular"></p>
       <ol class="sellos chicos" id="c-sellos" aria-hidden="true"></ol>
       <p class="progreso" id="c-progreso" aria-live="polite"></p>
+      <p class="promo-aviso" id="c-promo" hidden></p>
       <p class="suele" id="c-suele" hidden></p>
       <div class="servicios-elegir" id="c-servicios" role="group" aria-label="Servicios de esta visita" hidden></div>
       <div class="campo monto"><label for="c-monto" id="c-monto-label">Cobrado en esta visita (S/) <span>opcional</span></label><input id="c-monto" type="text" inputmode="decimal" autocomplete="off" maxlength="9" aria-describedby="c-monto-ayuda"><p class="ayuda" id="c-monto-ayuda">Si lo dejas vacío, se cuenta tu precio promedio en «Tus números».</p></div>

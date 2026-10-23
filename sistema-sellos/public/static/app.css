@@ -601,3 +601,5 @@ body.es-panel .dato-nota.alerta{color:#F2C14E}
 .lamina:is([data-f=a5h],[data-f=a4h]) .l-pasos .ico{width:5.4cqw;height:5.4cqw;padding:1.2cqw}
 .lamina:is([data-f=a5h],[data-f=a4h]) .l-pie{grid-area:pie;font-size:1.8cqw}
 .lamina[data-f=acrilico] .l-marco{padding-top:6cqw;gap:2cqw}
+.promo-anterior{margin:10px 0 0;font-size:.85rem;color:var(--suave);text-align:center}
+.promo-aviso{margin:8px 0 0;padding:8px 12px;border-radius:12px;font-size:.88rem;font-weight:600;background:color-mix(in srgb,#F2C14E 16%,var(--superficie-2));border:1px solid color-mix(in srgb,#F2C14E 45%,transparent)}
