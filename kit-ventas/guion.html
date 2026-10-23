@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Guion de venta</title>
+<style>
+@font-face{font-family:Playfair;src:url(fonts/playfair-var.woff2) format('woff2');font-weight:400 900}
+@font-face{font-family:Manrope;src:url(fonts/manrope-var.woff2) format('woff2');font-weight:200 800}
+@page{size:A4;margin:0}
+:root{--oro:#a8823c;--oro2:#c9a55c;--tinta:#16130f;--suave:#5b544a;--crema:#fbf8f2;--linea:#e6dccb}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Manrope,sans-serif;color:var(--tinta);background:#888}
+.hoja{width:210mm;height:297mm;position:relative;overflow:hidden;background:var(--crema);padding:15mm 16mm 14mm;page-break-after:always;margin:0 auto 10mm}
+.k{font:700 8pt Manrope;letter-spacing:.3em;text-transform:uppercase;color:var(--oro)}
+h1,h2,h3{font-family:Playfair,serif;font-weight:600;line-height:1.08}
+h1{font-size:28pt;margin:2mm 0 3mm}
+h1 em,h2 em{font-style:italic;color:var(--oro);font-weight:500}
+h2{font-size:16pt;margin:5mm 0 2.5mm}
+h3{font:800 8.6pt Manrope;letter-spacing:.14em;text-transform:uppercase;color:var(--oro);margin:3.5mm 0 1.4mm}
+p,li{font-size:9.6pt;line-height:1.48}
+.sub{color:var(--suave);font-size:10.2pt}
+.msj{background:#fff;border:.35mm solid var(--linea);border-left:1.2mm solid var(--oro2);border-radius:2.5mm;padding:2.6mm 4mm;margin:1.2mm 0 1.8mm;white-space:pre-line;font-size:9.4pt;line-height:1.46}
+.tip{font-size:8.7pt;color:var(--suave);margin-bottom:1mm}
+.tip b{color:var(--tinta)}
+ul.reglas{list-style:none;display:grid;gap:1.3mm;margin-top:1.5mm}
+ul.reglas li{padding-left:5mm;position:relative}
+ul.reglas li::before{content:"";position:absolute;left:0;top:1.9mm;width:2mm;height:2mm;border-radius:50%;background:var(--oro2)}
+ul.check{list-style:none;display:grid;gap:1.3mm;margin-top:1.5mm}
+ul.check li{padding-left:5.5mm;position:relative}
+ul.check li::before{content:"✓";position:absolute;left:0;color:var(--oro);font-weight:800}
+table{width:100%;border-collapse:collapse;margin-top:1.5mm;font-size:9pt}
+th,td{text-align:left;vertical-align:top;padding:2.1mm 3mm;border-bottom:.3mm solid var(--linea);line-height:1.42}
+th{font:800 7.8pt Manrope;letter-spacing:.12em;text-transform:uppercase;color:var(--oro)}
+td:first-child{font-weight:700;width:36%}
+.pasos{display:grid;gap:2.2mm;margin-top:3mm}
+.pasos .p{display:grid;grid-template-columns:11mm 1fr;gap:3.5mm;align-items:start;background:#fff;border:.35mm solid var(--linea);border-radius:3mm;padding:3mm 4mm}
+.pasos .n{width:9mm;height:9mm;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#e6c682,#b08b45);color:#15110a;font:800 10pt Manrope}
+.pasos h4{font:800 10.4pt Manrope;margin-bottom:.6mm}
+.pasos p{font-size:9.1pt;color:#2c2721}
+.paso{display:grid;grid-template-columns:25mm 1fr;gap:4mm;margin:1.6mm 0;align-items:start}
+.paso .t{font:800 7.8pt Manrope;letter-spacing:.1em;text-transform:uppercase;color:var(--oro);padding-top:2.8mm}
+.pie{position:absolute;left:16mm;right:16mm;bottom:9mm;display:flex;justify-content:space-between;font:700 7pt Manrope;letter-spacing:.26em;text-transform:uppercase;color:#a99f8e}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:4.5mm}
+.caja{background:#fff;border:.35mm solid var(--linea);border-radius:3mm;padding:3.2mm 4mm}
+.caja h3{margin-top:0}
+.oscura{background:#16130f;color:#f3eadb;border:0}
+.oscura h3{color:#eed9a4}
+.oscura p,.oscura li{color:#e9e1d2}
+.fig{display:grid;grid-template-columns:56mm 1fr;gap:6mm;align-items:start;margin:3.5mm 0}
+.fig img{width:100%;border-radius:4mm;box-shadow:0 2mm 6mm rgba(22,19,15,.25);display:block}
+.fig h3{margin-top:1mm}
+.dice{font-size:9.3pt}
+.dice b{color:var(--oro)}
+.cuenta{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:3mm;align-items:center;text-align:center;margin:2mm 0 1mm}
+.cuenta b{display:block;font:600 19pt/1 Playfair;color:#eed9a4}
+.cuenta span{font-size:8pt;color:#cfc4b0}
+.cuenta i{font:400 15pt Playfair;color:var(--oro2);font-style:normal}
+.planes{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm;margin-top:2mm}
+.plan{background:#fff;border:.35mm solid var(--linea);border-radius:3mm;padding:3mm}
+.plan.top{border:.6mm solid var(--oro2)}
+.plan .nom{font:800 7.6pt Manrope;letter-spacing:.12em;text-transform:uppercase;color:var(--oro)}
+.plan .pre{font:600 15pt Playfair;margin-top:1mm}
+.plan .mes{font:700 8.6pt Manrope;color:var(--oro)}
+.plan ul{list-style:none;margin-top:1.5mm;display:grid;gap:.8mm}
+.plan li{font-size:8.4pt;padding-left:3.6mm;position:relative;line-height:1.35}
+.plan li::before{content:"✓";position:absolute;left:0;color:var(--oro);font-weight:800}
+.unico{background:#fff;border:.6mm solid var(--oro2);border-radius:3mm;padding:3mm 3.5mm}
+.unico .nom{font:800 7.6pt Manrope;letter-spacing:.12em;text-transform:uppercase;color:var(--oro)}
+.unico .desde{font-size:8.6pt;color:var(--suave)}
+.unico .pre{font:600 20pt Playfair}
+.unico .mes{font:700 9pt Manrope;color:var(--oro)}
+.unico .cond{font:800 8.4pt Manrope;margin-top:.5mm}
+.unico ul{list-style:none;margin-top:1.5mm;display:grid;gap:.7mm}
+.unico li{font-size:8.3pt;padding-left:3.6mm;position:relative;line-height:1.3}
+.unico li::before{content:"✓";position:absolute;left:0;color:var(--oro);font-weight:800}
+table.precios{margin-top:1mm}
+table.precios td{padding:1.6mm 1.5mm;font-size:8.6pt}
+table.precios td:first-child{width:15mm;font:600 11pt Playfair;color:var(--oro)}
+.oferta{margin-top:2.5mm;border:.4mm dashed var(--oro2);border-radius:3mm;padding:2.4mm 4mm;font-weight:700;font-size:9.4pt;text-align:center}
+@media screen{.hoja{box-shadow:0 4mm 12mm rgba(0,0,0,.4)}}
+</style></head><body>
+
+<!-- 1 · La oferta paso a paso -->
+<section class="hoja">
+  <p class="k">Guion de venta · Resumen</p>
+  <h1>La oferta, <em>paso a paso</em></h1>
+  <p class="sub">El orden para ir directo con el dueño del negocio, en persona o por videollamada. Cada paso tiene su guion en las páginas siguientes. Cambia lo que está entre [corchetes].</p>
+
+  <div class="pasos">
+    <div class="p"><span class="n">1</span><div><h4>Conoce el negocio (1 minuto)</h4><p>Pregunta cuántos clientes atiende, cuánto cobra en promedio y si hace algo para que vuelvan. Sus respuestas son tus números para el paso 4.</p></div></div>
+    <div class="p"><span class="n">2</span><div><h4>Muéstrale el problema</h4><p>Hoy no sabe quién es su cliente fiel, a quién perdió ni cuánto le deja cada uno. Las tarjetas de papel se pierden y nadie avisa al cliente que está por ganar.</p></div></div>
+    <div class="p"><span class="n">3</span><div><h4>La solución en 3 pasos</h4><p>Su cliente escanea el QR del mostrador y crea su tarjeta en 20 segundos. En cada visita, él le suma un sello desde su celular. Su panel le dice a quién escribir por WhatsApp para que vuelva.</p></div></div>
+    <div class="p"><span class="n">4</span><div><h4>Enséñale su reporte del mes</h4><p>Lo que más vende: tú le mandas cada mes, por WhatsApp, un reporte en PDF con cuánto le dejaron sus clientes con tarjeta, cuántos clientes nuevos y cuántos volvieron, las comparaciones con el mes anterior, el gráfico de 6 meses, el ranking de sus mejores clientes, sus días y horas fuertes y quiénes dejaron de venir.</p></div></div>
+    <div class="p"><span class="n">5</span><div><h4>Lo que recibe</h4><p>Su tarjeta con su marca, la página de registro con sus redes, el cartel QR, su panel simple con escáner, mensajes por WhatsApp y su reporte del mes, que le mandas tú.</p></div></div>
+    <div class="p"><span class="n">6</span><div><h4>Precio y oferta</h4><p>Un solo precio mensual, de <b>S/ 59 a S/ 79</b> según la zona y el tamaño del local (lo decides antes de ir). <b>Sin pago inicial y con el primer mes gratis.</b></p></div></div>
+    <div class="p"><span class="n">7</span><div><h4>Cierre: pide lo que necesitas</h4><p>Su logo, el premio («10 cortes = 1 gratis»), sus redes, su WhatsApp, su precio promedio y la fecha para empezar.</p></div></div>
+    <div class="p"><span class="n">8</span><div><h4>Entrega y seguimiento</h4><p>En 48 horas le entregas su panel, su cartel QR y su enlace para la bio. La primera semana lo acompañas. Cada mes le mandas su informe por WhatsApp desde tu administración: es lo que hace que renueve.</p></div></div>
+  </div>
+
+  <div class="caja oscura" style="margin-top:3.5mm"><h3>La frase que lo resume</h3><p style="font:600 12.5pt/1.4 Playfair">«Te ayudo a que tus clientes vuelvan más seguido, y cada mes ves en tu celular cuánto te dejaron y a quién tienes que escribirle.»</p></div>
+  <div class="pie"><span>Guion de venta · Tarjeta de sellos digital</span><span>1</span></div>
+</section>
+
+<!-- 2 · Lo que recibe y beneficios -->
+<section class="hoja">
+  <p class="k">Paso 5 · Lo que recibe</p>
+  <h1>Todo lo que incluye <em>el servicio</em></h1>
+  <div class="dos" style="margin-top:3mm">
+    <div class="caja"><h3>Para sus clientes</h3><ul class="check">
+      <li><b>Tarjeta de sellos en el celular</b>, sin descargar apps.</li>
+      <li><b>Página de registro</b> con su logo, sus redes y su WhatsApp.</li>
+      <li><b>Su QR personal</b> para que le sumen sellos en caja.</li>
+      <li><b>Aviso del premio</b> cuando completa su tarjeta.</li>
+      <li><b>Google Wallet</b> para guardar la tarjeta (próximamente).</li>
+    </ul></div>
+    <div class="caja"><h3>Para el negocio</h3><ul class="check">
+      <li><b>Diseño a su medida:</b> estilo, colores, tipografía, fotos o video y efecto 3D.</li>
+      <li><b>Cartel QR</b> listo para imprimir y poner en el mostrador.</li>
+      <li><b>Panel en su celular</b> con escáner, búsqueda y lista de clientes.</li>
+      <li><b>Reporte del mes (se lo mandas tú en PDF):</b> cuánto le dejan sus clientes, comparaciones, gráficos, ranking, días y horas fuertes y clientes que dejaron de venir.</li>
+      <li><b>Mensajes por WhatsApp</b> con un toque, a quien está cerca del premio o dejó de venir.</li>
+      <li><b>Informe mensual</b> por WhatsApp y su lista de clientes en Excel.</li>
+    </ul></div>
+  </div>
+
+  <h2>Los beneficios, <em>en sus palabras</em></h2>
+  <div class="dos">
+    <div class="caja"><h3>Gana más</h3><ul class="reglas">
+      <li>Sus clientes vuelven más seguido para completar su premio.</li>
+      <li>Recupera a los que dejaron de venir con un mensaje a tiempo.</li>
+      <li>Invita a quien está a 1 o 2 sellos del premio.</li>
+      <li>Llena sus días flojos con promociones, porque sabe cuáles son.</li>
+    </ul></div>
+    <div class="caja"><h3>Ahorra</h3><ul class="reglas">
+      <li>Nada que imprimir ni tarjetas de papel que se pierden.</li>
+      <li>El cliente se registra solo, sin quitarle tiempo a la caja.</li>
+      <li>No hay sellos falsos: todo va con clave y queda registrado.</li>
+      <li>Sabe exactamente cuánto le cuestan los premios.</li>
+    </ul></div>
+    <div class="caja"><h3>Automatiza</h3><ul class="reglas">
+      <li>Cada registro, visita y premio se anota solo.</li>
+      <li>Las cuentas del mes se hacen solas: lo que le dejaron, visitas y premios.</li>
+      <li>El panel le dice a quién escribir y le deja el mensaje listo.</li>
+    </ul></div>
+    <div class="caja"><h3>Decide con datos</h3><ul class="reglas">
+      <li>Ve si su negocio sube o baja frente al mes anterior.</li>
+      <li>Conoce a sus 10 mejores clientes por nombre.</li>
+      <li>Organiza turnos según sus días y horas con más visitas.</li>
+      <li>Ve mes a mes cuánto le dejan sus clientes con tarjeta.</li>
+    </ul></div>
+  </div>
+  <div class="pie"><span>Guion de venta · Tarjeta de sellos digital</span><span>2</span></div>
+</section>
+
+<!-- 3 · Tus números (1) -->
+<section class="hoja">
+  <p class="k">Paso 4 · Lo que más vende</p>
+  <h1>Su reporte del mes: <em>qué le muestras</em></h1>
+  <p class="sub">Él no tiene que revisar nada: cada mes tú le mandas su reporte en PDF por WhatsApp. Muéstrale un ejemplo en tu celular. Señala cada parte y di la frase de la derecha. Las capturas son de un negocio de ejemplo.</p>
+
+  <div class="fig"><img src="img/numeros-heroe.png" alt="Este mes tus clientes con tarjeta te dejaron S/ 1,085"><div>
+    <h3>Lo que le dejaron sus clientes</h3>
+    <p class="dice"><b>Le dices:</b> «Este es el número que más te va a importar: cuánto te dejaron este mes tus clientes con tarjeta, cuántas veces vinieron y cuántos volvieron. Y la flecha verde te dice si vas mejor que el mes pasado.»</p>
+    <p class="tip" style="margin-top:2mm"><b>Si pregunta por qué es menos que su caja:</b> «Solo cuenta a los clientes que tienen la tarjeta. Mientras más registres, más completo será.» Cada visita se cuenta al precio que él cobra o, si lo anota, al monto exacto.</p>
+  </div></div>
+
+  <div class="fig"><img src="img/numeros-datos.png" alt="Datos del mes con comparaciones"><div>
+    <h3>Los datos del mes y las comparaciones</h3>
+    <p class="dice"><b>Le dices:</b> «Aquí ves cuántos clientes nuevos sacaron su tarjeta, cuántos volvieron, cuántas visitas tuviste y cuántos premios diste. Cada dato te dice si vas mejor o peor que el mes pasado.»</p>
+    <p class="dice" style="margin-top:2mm"><b>Remata con:</b> «Y este te avisa cuántos clientes dejaron de venir y cuánto dejas de ganar por eso. Están en «Escríbeles hoy» de tu panel: les escribes por WhatsApp con un toque y los recuperas.»</p>
+  </div></div>
+
+  <div class="fig"><img src="img/numeros-grafico-tip.png" alt="Gráfico de 6 meses: lo que dejaron los clientes con tarjeta cada mes"><div>
+    <h3>El gráfico de 6 meses</h3>
+    <p class="dice"><b>Le dices:</b> «Cada barra es lo que te dejaron tus clientes con tarjeta ese mes. Tocas una y te sale el detalle: visitas y clientes nuevos. Así ves de un vistazo si tu negocio va subiendo.»</p>
+  </div></div>
+  <div class="pie"><span>Guion de venta · Tarjeta de sellos digital</span><span>3</span></div>
+</section>
+
+<!-- 4 · Tus números (2) -->
+<section class="hoja">
+  <p class="k">Paso 4 · Lo que más vende</p>
+  <h1>Sus clientes, <em>con nombre y apellido</em></h1>
+
+  <div class="fig"><img src="img/numeros-ranking.png" alt="Ranking de los clientes más fieles"><div>
+    <h3>El ranking de clientes</h3>
+    <p class="dice"><b>Le dices:</b> «Estos son tus 10 mejores clientes de los últimos 3 meses: cuántas veces vinieron y cuánto te dejaron. A ellos los cuidas: un saludo, un detalle en su cumpleaños, que se sientan VIP.»</p>
+    <h3 style="margin-top:6mm">Días y horas con más visitas</h3>
+    <p class="dice"><b>Le dices:</b> «Aquí ves tu día más fuerte y tus horas pico. Te sirve para organizar los turnos de tus barberos y para lanzar promociones justo en los días flojos.»</p>
+    <img src="img/numeros-dias.png" alt="Visitas por día de la semana" style="margin-top:3mm;width:78%">
+  </div></div>
+
+  <div class="fig"><img src="img/numeros-riesgo.png" alt="Clientes que dejaron de venir"><div>
+    <h3>Los clientes que dejaron de venir</h3>
+    <p class="dice"><b>Le dices:</b> «Esta es la lista que te ahorra plata: clientes que venían seguido y hace más de 45 días que no aparecen. Con un toque les escribes por WhatsApp con el mensaje ya listo. Recuperar a un cliente cuesta mucho menos que conseguir uno nuevo.»</p>
+    <p class="tip" style="margin-top:2mm"><b>Importante:</b> el botón de WhatsApp solo aparece si el cliente aceptó recibir mensajes. Así el negocio cumple la ley de datos personales.</p>
+    <div class="caja oscura" style="margin-top:4mm"><h3>Cierra el paso 4 con</h3><p>«Hoy todo eso lo tienes en la cabeza o no lo sabes. Con esto te lo mando yo cada mes, listo, sin que tengas que hacer ninguna cuenta.»</p></div>
+  </div></div>
+  <div class="pie"><span>Guion de venta · Tarjeta de sellos digital</span><span>4</span></div>
+</section>
+
+<!-- 5 · Guion en persona -->
+<section class="hoja">
+  <p class="k">En persona o por videollamada</p>
+  <h1>Guion de la <em>presentación</em> (10 minutos)</h1>
+  <p class="sub">Ve en horas tranquilas, con la demo abierta en tu celular. Habla poco y pregunta mucho.</p>
+
+  <div class="paso"><span class="t">1 · Saludo</span><div class="msj">Hola, [nombre]. Soy [Tu nombre], el que te escribió por la tarjeta de sellos. Gracias por el tiempo; en 10 minutos te muestro todo.</div></div>
+  <div class="paso"><span class="t">2 · Preguntas</span><div class="msj">Antes, cuéntame: ¿cuántos clientes atiendes a la semana, más o menos?
+¿Cuánto cobras en promedio por un servicio?
+¿Haces algo hoy para que tus clientes vuelvan? ¿Sabes cuántos vuelven cada mes?</div></div>
+  <div class="paso"><span class="t">3 · Problema</span><div class="msj">Lo que me cuentan casi todos es lo mismo: el cliente viene, le gusta, pero se olvida o se va a otro lado, y uno ni se entera. Y las tarjetas de papel se pierden.</div></div>
+  <div class="paso"><span class="t">4 · Solución</span><div class="msj">Mira [abre la demo]. Tu cliente escanea este QR en tu mostrador y en 20 segundos tiene su tarjeta con tu marca en el celular. En cada visita le sumas un sello así [escanea]. Cuando completa, se lleva su premio.</div></div>
+  <div class="paso"><span class="t">5 · Tu reporte</span><div class="msj">Y esto es lo que más le gusta a los dueños [muestra el reporte de ejemplo]: cada mes yo te mando tu reporte por WhatsApp con cuánto te dejaron tus clientes con tarjeta, si vas mejor que el mes pasado, tus mejores clientes, tus días fuertes y quiénes dejaron de venir, con el WhatsApp listo para escribirles.</div></div>
+  <div class="paso"><span class="t">6 · Su cuenta</span><div class="msj">Hagamos tu cuenta: si solo [20] clientes vienen una vez más al mes a [S/ 35], son [S/ 700] más al mes. Para tu local son [S/ 69] al mes. Y lo vas a ver con tus números reales en tu reporte de cada mes.</div></div>
+  <div class="paso"><span class="t">7 · Precio</span><div class="msj">Para tu local son [S/ 69] al mes, sin pago inicial. Y el primer mes es gratis: si no te sirve, no pagas nada. ¿Lo armamos con tu logo y tus colores?</div></div>
+  <div class="paso"><span class="t">8 · Cierre</span><div class="msj">Perfecto. Pásame tu logo, el premio que quieres dar, tus redes y tu WhatsApp. En 48 horas te entrego todo listo y te enseño a usarlo en 5 minutos.</div></div>
+  <p class="tip"><b>Si duda:</b> no insistas. Ofrece armarle una muestra con su nombre: «Te la mando mañana y decides con eso». Una muestra con su marca vende más que cualquier argumento.</p>
+  <div class="pie"><span>Guion de venta · Tarjeta de sellos digital</span><span>5</span></div>
+</section>
+
+<!-- 6 · Cuenta, precios, dudas y mensajes -->
+<section class="hoja">
+  <p class="k">Pasos 6 a 8</p>
+  <h1>Precio, dudas <em>y seguimiento</em></h1>
+
+  <div class="caja oscura"><h3>El argumento en números (ejemplo)</h3>
+    <div class="cuenta"><div><b>20</b><span>clientes vuelven 1 vez más al mes</span></div><i>×</i><div><b>S/ 35</b><span>precio promedio</span></div><i>=</i><div><b>S/ 700</b><span>más al mes</span></div></div>
+    <p style="font-size:8.6pt">Su cuota es de S/ 59 a S/ 79: <b style="color:#eed9a4">con que vuelvan 2 o 3 clientes más al mes, ya la pagó</b>. Todo lo demás es plata extra para él. Es un ejemplo: usa los números que te dé el dueño en el paso 1.</p>
+  </div>
+
+  <div class="dos" style="margin-top:3mm">
+    <div><h3 style="margin-top:0">El precio que ve el cliente</h3><div id="planes"></div></div>
+    <div class="caja"><h3>Cómo eliges su precio (solo para ti)</h3>
+      <table class="precios"><tr><td>S/ 59</td><td>Barrio popular o local chico: 1 o 2 sillas, poca gente al día.</td></tr>
+      <tr><td>S/ 69</td><td>Zona media o local con movimiento: 3 o 4 sillas.</td></tr>
+      <tr><td>S/ 79</td><td>Zona comercial o local grande: 5 sillas o más, mucha gente.</td></tr></table>
+      <p class="tip" style="margin-top:2mm"><b>Decide antes de ir</b> y di un solo número: «para tu local son S/ 69». No le muestres la tabla.</p>
+    </div>
+  </div>
+  <p class="oferta" id="oferta"></p>
+
+  <h3>Dudas frecuentes sobre los números</h3>
+  <table>
+    <tr><th>Te dicen</th><th>Respondes</th></tr>
+    <tr><td>«¿Y si igual iban a volver?»</td><td>Algunos sí; por eso el panel lo llama estimación. Lo que sí verás es si tus visitas suben frente a antes, y a quién recuperas con un mensaje.</td></tr>
+    <tr><td>«No tengo tiempo para anotar montos»</td><td>No hace falta: si no anotas nada, se usa tu precio promedio. Anotarlo es opcional.</td></tr>
+    <tr><td>«Está caro»</td><td>Con 2 o 3 clientes que vuelvan una vez más al mes ya se paga. No hay pago inicial y el primer mes es gratis: lo pruebas sin arriesgar nada.</td></tr>
+    <tr><td>«¿Por qué sale menos que mi caja?»</td><td>Porque solo cuenta a los clientes con tarjeta. Quien no se registra igual paga, pero no aparece. Mientras más clientes registres, más completos son tus números.</td></tr>
+  </table>
+
+  <h3>Mensaje de WhatsApp para mostrar el reporte</h3>
+  <div class="msj">Y mira lo mejor 👇 [reporte de ejemplo en PDF] Cada mes te mando tu reporte con cuánto te dejaron los clientes que volvieron, si vas mejor que el mes pasado, tus 10 mejores clientes, tus días fuertes y quiénes dejaron de venir, con el WhatsApp listo para escribirles. ¿Te muestro tu cuenta con tus números?</div>
+  <h3>Cada mes: el informe que hace renovar</h3>
+  <p class="tip">En tu administración, toca <b>Ver números</b> en el negocio, elige el mes y abre <b>Reporte del mes (PDF)</b>: es una hoja con su logo, cuánto le dejaron sus clientes, sus mejores clientes, sus días fuertes y qué hacer el próximo mes. Guárdala en PDF y mándasela con <b>Enviar resumen</b>, que ya trae el mensaje escrito. Hazlo cada mes, sobre todo antes de cada renovación: el dueño siente que recibe un servicio sin hacer nada.</p>
+  <div class="pie"><span>Guion de venta · Tarjeta de sellos digital</span><span>6</span></div>
+</section>
+
+<script>
+fetch('datos.json').then(function (r) { return r.json(); }).then(function (d) {
+  var p = d.plan, u = document.getElementById('planes');
+  u.innerHTML = '<div class="unico"><span class="nom"></span><p><span class="desde">desde</span> <span class="pre"></span> <span class="mes"></span></p><p class="cond"></p><ul></ul></div>';
+  u.querySelector('.nom').textContent = p.nombre;
+  u.querySelector('.pre').textContent = p.desde;
+  u.querySelector('.mes').textContent = p.mes;
+  u.querySelector('.cond').textContent = p.condiciones.join(' · ');
+  p.items.forEach(function (i) { var li = document.createElement('li'); li.textContent = i; u.querySelector('ul').appendChild(li); });
+  document.getElementById('oferta').textContent = '🎁 ' + d.oferta;
+  return document.fonts.ready;
+}).then(function () { document.body.dataset.listo = '1'; });
+</script>
+</body></html>

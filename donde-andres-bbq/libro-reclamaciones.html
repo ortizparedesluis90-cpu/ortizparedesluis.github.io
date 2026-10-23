@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es-PE">
+<head>
+<meta charset="utf-8">
+<script>document.documentElement.classList.add('js')</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Du+OJKJSbdUgz5nrHeWWINvez6XKDDU/tyj/5c2uvwo=' https://www.googletagmanager.com; img-src 'self' data: https://www.google-analytics.com https://www.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Libro de Reclamaciones · Donde Andrés BBQ</title>
+<meta name="description" content="Libro de Reclamaciones virtual de Donde Andrés BBQ, conforme a la Ley N.° 29571.">
+<meta name="theme-color" content="#120E0B">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="icon" href="assets/img/logo.png" type="image/png">
+<script src="assets/js/config.js" defer></script>
+<script src="assets/js/common.js" defer></script>
+<script src="assets/js/reclamos.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+<div class="doc">
+<header class="doc-top">
+  <a href="./"><img src="assets/img/logo.png" alt="Donde Andrés BBQ, volver al inicio" width="475" height="178"></a>
+  <a class="btn" href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Volver</a>
+</header>
+<main id="main">
+<h1>Libro de Reclamaciones</h1>
+<p class="updated">Última actualización: <span data-updated></span></p>
+
+<p>Conforme al Código de Protección y Defensa del Consumidor (Ley N.° 29571), ponemos a tu disposición este Libro de Reclamaciones virtual. También tenemos un Libro de Reclamaciones físico en nuestro local.</p>
+<div class="box">
+<p><strong>Proveedor:</strong> <span data-cfg="business.legalName" data-label="razón social"></span> · RUC <span data-cfg="business.ruc" data-label="RUC"></span><br>
+<strong>Domicilio:</strong> <span data-cfg="business.address"></span></p>
+</div>
+<ul>
+<li><strong>Reclamo:</strong> disconformidad relacionada con los productos o servicios.</li>
+<li><strong>Queja:</strong> disconformidad no relacionada con los productos o servicios, o malestar o descontento respecto a la atención al público.</li>
+</ul>
+
+<noscript><p class="note nojs-note">Para llenar el formulario abre esta página en Chrome o Safari. También puedes registrar tu reclamo en el Libro de Reclamaciones físico de nuestro local.</p></noscript>
+<form id="lr-form" novalidate class="mt14 needs-js">
+<div class="alert" id="lr-err" role="alert" tabindex="-1"></div>
+<p class="hint">Todos los campos son obligatorios salvo los marcados como opcionales.</p>
+
+<fieldset>
+<legend>1. Identificación del consumidor</legend>
+<div class="field"><label for="r-name">Nombre y apellidos</label><input type="text" id="r-name" autocomplete="name" maxlength="100" aria-describedby="re-name"><span class="err" id="re-name"></span></div>
+<div class="two">
+<div class="field"><label for="r-doctype">Tipo de documento</label><select id="r-doctype"><option value="DNI">DNI</option><option value="CE">Carné de extranjería</option><option value="Pasaporte">Pasaporte</option></select></div>
+<div class="field"><label for="r-doc">Número</label><input type="text" id="r-doc" maxlength="15" autocomplete="off" aria-describedby="re-doc"><span class="err" id="re-doc"></span></div>
+</div>
+<div class="field"><label for="r-address">Domicilio</label><input type="text" id="r-address" autocomplete="street-address" maxlength="160" aria-describedby="re-address"><span class="err" id="re-address"></span></div>
+<div class="two">
+<div class="field"><label for="r-phone">Teléfono</label><input type="tel" id="r-phone" autocomplete="tel" maxlength="15" aria-describedby="re-phone"><span class="err" id="re-phone"></span></div>
+<div class="field"><label for="r-email">Correo</label><input type="email" id="r-email" autocomplete="email" maxlength="120" aria-describedby="re-email"><span class="err" id="re-email"></span></div>
+</div>
+<label class="check"><input type="checkbox" id="r-minor"> <span>Soy menor de edad</span></label>
+<div id="r-parent-box" hidden class="mt14">
+<div class="field"><label for="r-parent">Nombre del padre, madre o representante</label><input type="text" id="r-parent" maxlength="100" aria-describedby="re-parent"><span class="err" id="re-parent"></span></div>
+</div>
+</fieldset>
+
+<fieldset>
+<legend>2. Identificación del bien contratado</legend>
+<div class="seg" role="radiogroup" aria-label="Tipo de bien">
+<label class="choice"><input type="radio" name="r-good" value="Producto" checked><span class="c-t">Producto</span></label>
+<label class="choice"><input type="radio" name="r-good" value="Servicio"><span class="c-t">Servicio</span></label>
+</div>
+<div class="field mt14"><label for="r-amount">Monto reclamado (S/) <span class="opt">(opcional)</span></label><input type="text" id="r-amount" inputmode="decimal" maxlength="10" aria-describedby="re-amount"><span class="err" id="re-amount"></span></div>
+<div class="field"><label for="r-order">Código de pedido o fecha de consumo <span class="opt">(opcional)</span></label><input type="text" id="r-order" maxlength="40"></div>
+<div class="field"><label for="r-desc">Descripción del producto o servicio</label><input type="text" id="r-desc" maxlength="200" aria-describedby="re-desc"><span class="err" id="re-desc"></span></div>
+</fieldset>
+
+<fieldset>
+<legend>3. Detalle de la reclamación</legend>
+<div class="seg" role="radiogroup" aria-label="Tipo">
+<label class="choice"><input type="radio" name="r-type" value="Reclamo" checked><span class="c-t">Reclamo</span></label>
+<label class="choice"><input type="radio" name="r-type" value="Queja"><span class="c-t">Queja</span></label>
+</div>
+<div class="field mt14"><label for="r-detail">Detalle</label><textarea id="r-detail" maxlength="1500" aria-describedby="re-detail"></textarea><span class="err" id="re-detail"></span></div>
+<div class="field"><label for="r-request">Pedido del consumidor</label><textarea id="r-request" maxlength="800" aria-describedby="re-request"></textarea><span class="err" id="re-request"></span></div>
+</fieldset>
+
+<fieldset>
+<legend>Declaración</legend>
+<label class="check"><input type="checkbox" id="r-ok" aria-describedby="re-ok"><span>Declaro que los datos consignados son verdaderos. Entiendo que se usarán para atender este reclamo o queja, conforme a la <a href="privacidad.html" target="_blank">Política de privacidad</a>.</span></label>
+<span class="err" id="re-ok"></span>
+</fieldset>
+
+<button type="submit" class="btn btn-primary btn-block">Generar hoja de reclamación</button>
+</form>
+
+<section id="lr-done" hidden aria-labelledby="lr-done-title">
+<h2 id="lr-done-title" tabindex="-1">Hoja de reclamación generada</h2>
+<p>Código: <strong id="lr-code"></strong></p>
+<div id="lr-actions" class="stack"></div>
+<pre class="preview" id="lr-preview"></pre>
+<button type="button" class="btn mt14 no-print" id="lr-print">Imprimir o guardar en PDF</button>
+</section>
+
+<div class="box">
+<p>La formulación del reclamo no impide acudir a otras vías de solución de controversias ni es requisito previo para interponer una denuncia ante el INDECOPI.</p>
+<p>El proveedor deberá dar respuesta al reclamo o queja en un plazo no mayor a quince (15) días hábiles.</p>
+</div>
+
+</main>
+<footer class="doc-foot site-foot">
+  <nav aria-label="Información legal">
+    <ul>
+      <li><a href="terminos.html">Términos y condiciones</a></li>
+      <li><a href="privacidad.html">Privacidad</a></li>
+      <li><a href="reembolsos.html">Reembolsos</a></li>
+      <li><a href="cookies.html">Cookies</a></li>
+      <li><a href="libro-reclamaciones.html">Libro de Reclamaciones</a></li>
+      <li><button type="button" class="linkish" data-open-cookies>Preferencias de cookies</button></li>
+    </ul>
+  </nav>
+  <p class="copy">© <span data-year></span> <span data-cfg="business.legalName" data-label="razón social"></span> · RUC <span data-cfg="business.ruc" data-label="RUC"></span></p>
+</footer>
+</div>
+</body>
+</html>
