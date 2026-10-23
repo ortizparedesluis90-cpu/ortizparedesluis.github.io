@@ -10,7 +10,7 @@ Funciona en **Cloudflare Workers + D1**. El plan gratuito alcanza para empezar c
 |---|---|---|
 | **Cliente** | Crea su tarjeta con su nombre y celular. Ve sus sellos y su código QR. | `https://TU-WORKER/filo` |
 | **Negocio** | Escanea el QR del cliente con la cámara del celular y suma un sello o entrega el premio. Ve quién está cerca del premio y le escribe por WhatsApp con un toque. | `https://TU-WORKER/filo/panel` |
-| **Negocio** | Imprime el cartel con el QR para el mostrador, en A5 (mostrador), A4 (pared) o 10 × 15 cm (mesa), con sus colores. | `https://TU-WORKER/filo/cartel` |
+| **Negocio** | Imprime el cartel con el QR, con sus colores: A5 horizontal de 21 × 15 cm (para el acrílico), A4 horizontal, A5 vertical (mostrador), A4 vertical (pared) o 10 × 15 cm (mesa). | `https://TU-WORKER/filo/cartel` |
 | **Tú** | Creas los negocios, sus claves y su premio, y ves la actividad de todos. | `https://TU-WORKER/admin` |
 
 1. El cliente escanea el cartel del mostrador o abre el enlace desde la bio de Instagram o desde la página de enlaces, y crea su tarjeta.

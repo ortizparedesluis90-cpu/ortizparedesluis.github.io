@@ -565,3 +565,37 @@ body.es-reporte::before{display:none}
 .vista-tarjeta .sellos.chicos[data-n="8"]{grid-template-columns:repeat(8,1fr)}
 .vista-tarjeta .sellos.chicos[data-n="9"]{grid-template-columns:repeat(9,1fr)}
 .vista-tarjeta .sellos.chicos .sello{max-width:56px;justify-self:center;width:100%}
+
+/* ===== Paneles en negro y blanco (administración y panel del negocio), como en Figma ===== */
+@font-face{font-family:"Bodoni Moda";src:url(/static/fuentes/bodoni-moda-600.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Montserrat";src:url(/static/fuentes/montserrat-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Montserrat";src:url(/static/fuentes/montserrat-700.woff2) format("woff2");font-weight:700 800;font-display:swap}
+body.es-panel{--acento:#F5F5F5;--sobre-acento:#121214;--acento-texto:#F5F5F5;--fondo:#0E0E10;--superficie:#1A1A1D;--superficie-2:#26262A;
+  --borde:rgba(255,255,255,.12);--borde-campo:rgba(255,255,255,.42);--texto:#F3F1EC;--suave:#A9A6A0;--error:#FF8A80;--ok:#7FD99A;--radio:20px;
+  --f-titulo:"Bodoni Moda",ui-serif,Georgia,serif;--f-texto:"Montserrat",ui-sans-serif,system-ui,sans-serif;--w-titulo:600;--escala-titulo:1;--ls-titulo:-.01em;
+  --sombra:none;color-scheme:dark;background:var(--fondo);color:var(--texto);font-family:var(--f-texto)}
+body.es-panel::before{display:none}
+body.es-panel .bloque,body.es-panel .tarjeta-form{box-shadow:none}
+body.es-panel .antetitulo{color:var(--suave)}
+body.es-panel .dato-nota.alerta{color:#F2C14E}
+
+/* Cartel horizontal (A5 21 × 15 cm para acrílico, y A4 horizontal): texto a la izquierda, QR a la derecha.
+   Las medidas van en cqw del ancho, por eso son más chicas que en vertical. */
+.lamina[data-f=a5h]{aspect-ratio:210/150}
+.lamina[data-f=a4h]{aspect-ratio:297/210}
+.lamina:is([data-f=a5h],[data-f=a4h]){padding:2.2cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-marco{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-rows:1fr auto auto;
+  grid-template-areas:"cab qr" "pasos qr" "pie qr";column-gap:4cqw;row-gap:2.2cqw;align-items:center;padding:4.2cqw 4.4cqw 3.4cqw;border-width:.35cqw;border-radius:2.2cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-cabeza{grid-area:cab;gap:1cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-logo{max-width:32cqw;max-height:10.5cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-negocio{font-size:2.2cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-programa{font-size:7cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-lema{font-size:2.8cqw;max-width:48cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-sellos{gap:1.1cqw;margin-top:.8cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-sellos i{width:3.1cqw;height:3.1cqw;border-width:.35cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-qr{grid-area:qr;width:100%;justify-self:center;border-radius:2.6cqw;padding:1.8cqw 1.8cqw 1.1cqw;box-shadow:0 1cqw 3.5cqw rgba(0,0,0,.25)}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-qr-k{font-size:2.6cqw;margin-bottom:.3cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-pasos{grid-area:pasos;gap:2cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-pasos li{font-size:1.75cqw;gap:.8cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-pasos .ico{width:5.4cqw;height:5.4cqw;padding:1.2cqw}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-pie{grid-area:pie;font-size:1.8cqw}
