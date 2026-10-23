@@ -36,6 +36,7 @@ const COLUMNAS_NUEVAS = [
   ['movimientos', 'saldo', 'INTEGER'],
   ['movimientos', 'sellos', 'INTEGER'],
   ['negocios', 'pedir_servicio', 'INTEGER NOT NULL DEFAULT 1'],
+  ['negocios', 'mostrar_numeros', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
@@ -255,8 +256,9 @@ async function apiPanel(req, env, n, partes, url, ctx) {
 
   if (accion === 'clientes' && metodo === 'GET') {
     const desde = Math.max(0, Number(url.searchParams.get('desde')) | 0);
+    const limite = Math.min(25, Math.max(1, Number(url.searchParams.get('limite')) | 0 || 25));
     const [lista, total] = await env.DB.batch([
-      env.DB.prepare(`SELECT ${CAMPOS_CLIENTE}, origen FROM clientes WHERE negocio_id = ? ORDER BY creado DESC, id DESC LIMIT 25 OFFSET ?`).bind(n.id, desde),
+      env.DB.prepare(`SELECT ${CAMPOS_CLIENTE}, origen FROM clientes WHERE negocio_id = ? ORDER BY creado DESC, id DESC LIMIT ? OFFSET ?`).bind(n.id, limite, desde),
       env.DB.prepare('SELECT COUNT(*) AS n FROM clientes WHERE negocio_id = ?').bind(n.id),
     ]);
     return json({
@@ -274,31 +276,15 @@ async function apiPanel(req, env, n, partes, url, ctx) {
       `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND recordatorios = 1 AND ${col} >= ?
        ORDER BY ${col} DESC, ultima_visita ASC LIMIT 100`
     ).bind(n.id, umbral).all();
-    return json({ clientes: filas.results.map((c) => clientePanel(c, n, url.origin)) });
+    // Y los que venían seguido y dejaron de venir: un mensaje a tiempo los recupera.
+    const idos = await env.DB.prepare(
+      `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND recordatorios = 1 AND visitas >= 2 AND ultima_visita < datetime('now', ?)
+       ORDER BY visitas DESC, ultima_visita DESC LIMIT 30`
+    ).bind(n.id, `-${DIAS_RIESGO} days`).all();
+    return json({ clientes: filas.results.map((c) => clientePanel(c, n, url.origin)), extranamos: idos.results.map((c) => clientePanel(c, n, url.origin)), diasRiesgo: DIAS_RIESGO });
   }
 
-  if (accion === 'resumen' && metodo === 'GET') {
-    const [tot, hoy, mes, vis, nuevas, activos] = await env.DB.batch([
-      env.DB.prepare('SELECT COUNT(*) AS clientes, COALESCE(SUM(premios),0) AS premios, COALESCE(SUM(recordatorios),0) AS con_recordatorios FROM clientes WHERE negocio_id = ?').bind(n.id),
-      env.DB.prepare(`SELECT COUNT(*) AS v FROM movimientos WHERE negocio_id = ? AND tipo = 'sello' AND creado >= datetime('now', '-5 hours', 'start of day', '+5 hours')`).bind(n.id),
-      env.DB.prepare(`SELECT COUNT(*) AS v FROM movimientos WHERE negocio_id = ? AND tipo = 'sello' AND creado >= datetime('now', '-30 days')`).bind(n.id),
-      env.DB.prepare(
-        `SELECT COALESCE(SUM(CASE WHEN origen = 'qr' THEN n END), 0) AS qr30,
-                COALESCE(SUM(CASE WHEN origen = 'qr' AND dia = date('now', '-5 hours') THEN n END), 0) AS qr_hoy,
-                COALESCE(SUM(n), 0) AS total30
-         FROM vistas WHERE negocio_id = ? AND dia >= date('now', '-5 hours', '-29 days')`
-      ).bind(n.id),
-      env.DB.prepare(`SELECT COUNT(*) AS nuevas, COALESCE(SUM(origen = 'qr'), 0) AS nuevas_qr FROM clientes WHERE negocio_id = ? AND creado >= datetime('now', '-30 days')`).bind(n.id),
-      env.DB.prepare(`SELECT COUNT(*) AS v FROM clientes WHERE negocio_id = ? AND ultima_visita >= datetime('now', '-30 days')`).bind(n.id),
-    ]);
-    const t = tot.results[0], v = vis.results[0], nu = nuevas.results[0];
-    return json({
-      clientes: t.clientes, premios: t.premios, conRecordatorios: t.con_recordatorios,
-      visitasHoy: hoy.results[0].v, visitas30: mes.results[0].v, activos30: activos.results[0].v,
-      escaneosQrHoy: v.qr_hoy, escaneosQr30: v.qr30, aperturas30: v.total30,
-      tarjetasNuevas30: nu.nuevas, tarjetasDesdeQr30: nu.nuevas_qr,
-    });
-  }
+  if (accion === 'resumen' && metodo === 'GET') return json(await resumen(env, n, url.origin));
 
   if (accion === 'cliente' && id && /^\d+$/.test(id)) {
     const cid = Number(id);
@@ -451,21 +437,10 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     }
   }
 
-  if (accion === 'numeros' && metodo === 'GET') return json(await numeros(env, n, url.origin));
-
-  if (accion === 'ajustes' && metodo === 'POST') {
-    // La cuota del sistema (inversion_mes) la define el administrador, no el negocio.
-    const v = { precio_visita: centimos(datos.precio), costo_premio: centimos(datos.costoPremio) };
-    if (Object.values(v).some(Number.isNaN)) return error('Revisa los montos: solo números, por ejemplo 35 o 35.50.');
-    // Servicios: solo si vienen en la solicitud (el formulario corto del inicio no los manda).
-    if (datos.servicios !== undefined) {
-      const sv = textoAServicios(datos.servicios);
-      if (sv.error) return error(sv.error);
-      v.servicios = JSON.stringify(sv.lista);
-    }
-    await env.DB.prepare('UPDATE negocios SET precio_visita = ?, costo_premio = ?, servicios = COALESCE(?, servicios) WHERE id = ?')
-      .bind(v.precio_visita || 0, v.costo_premio || 0, v.servicios ?? null, n.id).run();
-    return json(await numeros(env, { ...n, ...v, servicios: v.servicios ?? n.servicios }, url.origin));
+  if (accion === 'numeros' && metodo === 'GET') {
+    // «Tus números» completos solo si el administrador los activó para este negocio.
+    if (!n.mostrar_numeros) return error('No disponible.', 404);
+    return json(await numeros(env, n, url.origin));
   }
 
   if (accion === 'clientes.csv' && metodo === 'GET') {
@@ -506,7 +481,48 @@ function masVendidos(filas, catalogo) {
 // Las fechas se guardan en UTC; Lima es UTC-5 todo el año.
 const DIA_LIMA = "strftime('%Y-%m-%d', creado, '-5 hours')";
 const MES_LIMA = "strftime('%Y-%m', creado, '-5 hours')";
+const INICIO_MES_LIMA = "datetime('now', '-5 hours', 'start of month', '+5 hours')"; // día 1, 00:00 en Lima
 const DIAS_RIESGO = 45;
+
+/** Lo del día a día para el panel del negocio: el mes en curso, sus mejores clientes y el alcance
+ *  del cartel. Los números completos (montos, gráficos, días y horas) están en /admin. */
+async function resumen(env, n, origen) {
+  const [tot, hoy, mes, vis, nuevas, activos, esteMes, top] = await env.DB.batch([
+    env.DB.prepare('SELECT COUNT(*) AS clientes, COALESCE(SUM(premios),0) AS premios, COALESCE(SUM(recordatorios),0) AS con_recordatorios FROM clientes WHERE negocio_id = ?').bind(n.id),
+    env.DB.prepare(`SELECT COUNT(*) AS v FROM movimientos WHERE negocio_id = ? AND tipo = 'sello' AND creado >= datetime('now', '-5 hours', 'start of day', '+5 hours')`).bind(n.id),
+    env.DB.prepare(`SELECT COUNT(*) AS v FROM movimientos WHERE negocio_id = ? AND tipo = 'sello' AND creado >= datetime('now', '-30 days')`).bind(n.id),
+    env.DB.prepare(
+      `SELECT COALESCE(SUM(CASE WHEN origen = 'qr' THEN n END), 0) AS qr30,
+              COALESCE(SUM(CASE WHEN origen = 'qr' AND dia = date('now', '-5 hours') THEN n END), 0) AS qr_hoy,
+              COALESCE(SUM(n), 0) AS total30
+       FROM vistas WHERE negocio_id = ? AND dia >= date('now', '-5 hours', '-29 days')`
+    ).bind(n.id),
+    env.DB.prepare(`SELECT COUNT(*) AS nuevas, COALESCE(SUM(origen = 'qr'), 0) AS nuevas_qr FROM clientes WHERE negocio_id = ? AND creado >= datetime('now', '-30 days')`).bind(n.id),
+    env.DB.prepare(`SELECT COUNT(*) AS v FROM clientes WHERE negocio_id = ? AND ultima_visita >= datetime('now', '-30 days')`).bind(n.id),
+    // El mes en curso (hora de Lima): visitas, premios y clientes nuevos.
+    env.DB.prepare(
+      `SELECT COALESCE(SUM(tipo = 'sello'), 0) AS visitas, COALESCE(SUM(tipo = 'canje'), 0) AS premios,
+              (SELECT COUNT(*) FROM clientes WHERE negocio_id = ?1 AND creado >= ${INICIO_MES_LIMA}) AS nuevos
+       FROM movimientos WHERE negocio_id = ?1 AND creado >= ${INICIO_MES_LIMA}`
+    ).bind(n.id),
+    // Los que más vinieron en los últimos 90 días.
+    env.DB.prepare(
+      `SELECT ${CAMPOS_CLIENTE.split(', ').map((x) => 'c.' + x).join(', ')}, COUNT(*) AS v90
+       FROM movimientos m JOIN clientes c ON c.id = m.cliente_id
+       WHERE m.negocio_id = ? AND m.tipo = 'sello' AND m.creado >= datetime('now', '-90 days')
+       GROUP BY c.id ORDER BY v90 DESC, c.ultima_visita DESC LIMIT 5`
+    ).bind(n.id),
+  ]);
+  const t = tot.results[0], v = vis.results[0], nu = nuevas.results[0], em = esteMes.results[0];
+  return {
+    clientes: t.clientes, premios: t.premios, conRecordatorios: t.con_recordatorios,
+    visitasHoy: hoy.results[0].v, visitas30: mes.results[0].v, activos30: activos.results[0].v,
+    escaneosQrHoy: v.qr_hoy, escaneosQr30: v.qr30, aperturas30: v.total30,
+    tarjetasNuevas30: nu.nuevas, tarjetasDesdeQr30: nu.nuevas_qr,
+    mes: { visitas: em.visitas, premios: em.premios, nuevos: em.nuevos },
+    top: top.results.map((x) => ({ ...clientePanel(x, n, origen), visitas90: x.v90 })),
+  };
+}
 
 async function numeros(env, n, origen) {
   const hoy = hoyLima();
@@ -688,7 +704,7 @@ async function apiAdmin(req, env, partes, url) {
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
       `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
-         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio,
+         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio, n.costo_premio, n.mostrar_numeros,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
          (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
@@ -703,6 +719,18 @@ async function apiAdmin(req, env, partes, url) {
 
   if (accion === 'catalogo' && req.method === 'GET') return json({ ...catalogo(), medios: !!env.MEDIOS });
   if (accion === 'rendimiento' && req.method === 'GET') return json(await rendimiento(env));
+  // Todos los números de un negocio (lo que antes veía en su panel), para su reporte del mes.
+  if (accion === 'numeros' && req.method === 'GET') {
+    const n = await negocioPorSlug(env, String(url.searchParams.get('n') || ''));
+    if (!n) return error('Negocio no encontrado.', 404);
+    const [num, res] = await Promise.all([numeros(env, n, url.origin), resumen(env, n, url.origin)]);
+    let wa = '';
+    try { wa = JSON.parse(n.redes || '{}').whatsapp || ''; } catch { wa = ''; }
+    return json({
+      negocio: { slug: n.slug, nombre: n.nombre, programa: n.programa, premio: n.premio, meta: n.meta, logo: n.d.logo || '', acento: n.d.acento, fondo: n.d.fondoColor, whatsapp: wa },
+      ...num, alcance: res,
+    });
+  }
 
   if (accion === 'medios' && req.method === 'POST') return subirMedio(req, env, url);
 
@@ -741,6 +769,8 @@ async function apiAdmin(req, env, partes, url) {
     if (Number.isNaN(cuota)) return error('Revisa la cuota mensual: solo números, por ejemplo 69.');
     const precio = centimos(d.precio);
     if (Number.isNaN(precio)) return error('Revisa el precio por servicio: solo números, por ejemplo 35.');
+    const costoPremio = centimos(d.costo_premio);
+    if (Number.isNaN(costoPremio)) return error('Revisa lo que cuesta dar el premio: solo números, por ejemplo 30.');
     const diseno = leerDiseno(null, d.diseno);
     // color y tema se mantienen por compatibilidad con versiones anteriores
     v.color = diseno.acento; v.tema = colores(diseno).claro ? 'claro' : 'oscuro';
@@ -768,11 +798,14 @@ async function apiAdmin(req, env, partes, url) {
     v.diseno = JSON.stringify(diseno);
     // Casilla «Pedir el servicio en cada visita»: '1' marcada, '' desmarcada (si no llega, se deja como estaba).
     const pedir = d.pedir_servicio === undefined ? null : (d.pedir_servicio === '1' ? 1 : 0);
+    // «Mostrar números completos al dueño»: apagado por defecto (el reporte se lo mandas tú).
+    const mostrar = d.mostrar_numeros === undefined ? null : (d.mostrar_numeros === '1' ? 1 : 0);
     if (existe) {
       await env.DB.prepare(
-        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?, pedir_servicio=COALESCE(?, pedir_servicio)
+        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?, pedir_servicio=COALESCE(?, pedir_servicio),
+         costo_premio=COALESCE(?, costo_premio), mostrar_numeros=COALESCE(?, mostrar_numeros)
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, pedir, ...(hash ? [hash] : []), existe.id).run();
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, pedir, d.costo_premio === undefined ? null : costoPremio || 0, mostrar, ...(hash ? [hash] : []), existe.id).run();
       return json({ ok: true, creado: false });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
@@ -780,9 +813,9 @@ async function apiAdmin(req, env, partes, url) {
     if (!v.vence) v.vence = sumarMeses(hoyLima(), 1);
     if (!v.plan) v.plan = 'prueba';
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, pedir_servicio)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, pedir === null ? 1 : pedir).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, pedir_servicio, costo_premio, mostrar_numeros)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, pedir === null ? 1 : pedir, costoPremio || 0, mostrar || 0).run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);
@@ -915,6 +948,7 @@ async function manejar(req, env, ctx) {
 
   if (partes.length === 0) return html(P.inicio());
   if (partes[0] === 'admin' && partes.length === 1) return html(P.admin());
+  if (partes[0] === 'admin' && partes[1] === 'reporte' && partes.length === 2) return html(P.reporte());
   if (partes[0] === 'admin' && partes[1] === 'vista' && partes.length === 3) return vistaPrevia(req, env, partes[2], url);
   if (partes[0] === 'm' && partes.length === 2) return servirMedio(req, env, partes[1]);
   if (partes[0] === 'robots.txt') return texto('User-agent: *\nDisallow: /\n', 'text/plain; charset=utf-8');

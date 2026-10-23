@@ -5,7 +5,7 @@ Piezas para ofrecer la tarjeta de sellos digital:
 - `tarjetas.html`: 7 piezas de 1080×1350 para WhatsApp y el carrusel de Instagram.
 - `folleto.html`: folleto A4 para imprimir, con frente y reverso.
 - `guia.html`: guía de ventas con mensajes de WhatsApp e Instagram, guion de llamada y respuestas a objeciones.
-- `guion.html`: guion de venta completo: la oferta paso a paso, todo lo que incluye, los beneficios, cómo mostrar «Tus números», la presentación de 10 minutos, precios y el informe mensual.
+- `guion.html`: guion de venta completo: la oferta paso a paso, todo lo que incluye, los beneficios, cómo mostrar el reporte del mes, la presentación de 10 minutos, precios y el informe mensual.
 
 ## Cambiar tus datos
 

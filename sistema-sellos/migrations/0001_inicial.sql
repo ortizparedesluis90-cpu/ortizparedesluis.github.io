@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS negocios (
   reglas        TEXT NOT NULL DEFAULT '{}',       -- JSON: puntos por S/ 1 y premios, o % de vuelta y saldo mínimo
   servicios     TEXT NOT NULL DEFAULT '[]',       -- JSON: [{n: nombre, p: precio en céntimos}]
   pedir_servicio INTEGER NOT NULL DEFAULT 1,      -- 1 = el cajero debe elegir el servicio (o escribir el monto) en cada visita
+  mostrar_numeros INTEGER NOT NULL DEFAULT 0,     -- 1 = el dueño ve «Tus números» completos en su panel (si no, solo en /admin)
   clave_hash    TEXT NOT NULL DEFAULT '',         -- clave del panel (PBKDF2)
   clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar la clave: cierra sesiones viejas
   activo        INTEGER NOT NULL DEFAULT 1,

@@ -50,7 +50,7 @@ En `/admin`, **Tipo de tarjeta** define cómo gana el cliente:
 
 ### Servicios y productos con precio
 
-En `/admin` (o en el panel, en «Configurar tus montos») se escriben los servicios con su precio, uno por línea: «Corte = 30», «Barba = 15», «Café americano = 8». Al registrar una visita aparecen como botones: se tocan los que se hizo el cliente y **el monto se suma solo**. «Tus números» muestra el **ticket promedio** y los **servicios más vendidos** de los últimos 90 días.
+En `/admin` se escriben los servicios con su precio, uno por línea: «Corte = 30», «Barba = 15», «Café americano = 8». Al registrar una visita aparecen como botones: se tocan los que se hizo el cliente y **el monto se suma solo**. Los números del negocio en `/admin` muestran los **servicios más vendidos** de los últimos 90 días.
 
 ## Diseño de cada negocio
 
@@ -92,7 +92,7 @@ id = "EL_ID_DE_TU_KV"
 ## Planes, vencimientos y suspensión
 
 - **Al crear un negocio** queda con el plan «Mes gratis» y vence en **1 mes**. Puedes cambiar el plan y la fecha en el formulario.
-- **Cuota mensual:** lo que paga cada negocio (de S/ 59 a S/ 79 según la zona y el tamaño del local). Se anota en el formulario. El negocio no la ve en «Tus números» ni la puede cambiar: solo se usa para tu cálculo de ganancia en «Rendimiento de tus negocios». En «Rendimiento de tus negocios», **Cobras al mes** suma las cuotas de los negocios que ya pagan (no cuenta los suspendidos, los que están en su mes gratis ni las cortesías).
+- **Cuota mensual:** lo que paga cada negocio (de S/ 59 a S/ 79 según la zona y el tamaño del local). Se anota en el formulario. El negocio no la ve ni la puede cambiar: solo se usa para tu cálculo de ganancia en «Rendimiento de tus negocios». En «Rendimiento de tus negocios», **Cobras al mes** suma las cuotas de los negocios que ya pagan (no cuenta los suspendidos, los que están en su mes gratis ni las cortesías).
 - **En la tabla de `/admin`:**
   - cada negocio muestra si está **al día**, si **vence en pocos días** o si **ya venció**;
   - arriba aparece un aviso con los vencidos y los que vencen en los próximos 7 días;
@@ -126,43 +126,54 @@ Para activarlo:
 
 Mientras Google no apruebe tu cuenta para producción, los pases funcionan solo con las cuentas de Google que agregues como **usuarios de prueba** en la consola de Wallet. Para publicarlo para todos, pide el acceso de producción en esa misma consola.
 
-## Estadísticas del panel
+## Estadísticas del cartel y del enlace
 
-El resumen del panel muestra dos grupos de datos:
+En `/admin`, dentro de **Ver números** de cada negocio, «Su cartel y su enlace (últimos 30 días)» muestra:
 
-- **Tu cartel y tu enlace (últimos 30 días):**
-  - cuántas personas **escanearon el QR del cartel** (hoy y en total);
-  - cuántas abrieron el enlace de registro desde cualquier lugar (QR, bio o WhatsApp);
-  - cuántas **tarjetas nuevas** se crearon y cuántas de ellas vinieron del QR;
-  - qué porcentaje de quienes abren el enlace termina creando su tarjeta.
-- **Tus clientes:**
-  - cuántos tienen tarjeta y cuántos vinieron en los últimos 30 días;
-  - las visitas de hoy y de los últimos 30 días;
-  - los premios canjeados y cuántos aceptan recordatorios.
+- cuántas personas **escanearon el QR del cartel** (hoy y en total);
+- cuántas abrieron el enlace de registro desde cualquier lugar (QR, bio o WhatsApp);
+- cuántas **tarjetas nuevas** se crearon y cuántas vinieron del QR;
+- qué porcentaje de quienes abren el enlace termina creando su tarjeta;
+- cuántos clientes tienen tarjeta y cuántos aceptan recordatorios.
 
 El conteo es anónimo y no guarda la IP ni ningún dato de la persona. Cada celular cuenta una vez cada 12 horas gracias a una cookie técnica, y el QR del cartel (`/SLUG/Q`, en mayúsculas para que tenga menos cuadritos) redirige a `/slug?o=qr` para distinguirlo de los demás enlaces. Los carteles viejos con `?o=qr` siguen funcionando. En `/admin` también ves los escaneos del QR de cada negocio.
 
-### Tus números: ingresos y retorno del programa
+### El panel del negocio: simple, para el día a día
 
-La sección **Tus números** del panel muestra cuánto le rinde la tarjeta al negocio, mes por mes:
+El panel del dueño tiene solo lo que usa todos los días:
+
+1. **Registrar visita:** escanear el QR o buscar al cliente, elegir el servicio y sumar el sello. La ficha del cliente muestra «Suele pedir» y sus últimas visitas.
+2. **Este mes:** visitas de hoy, visitas del mes, clientes nuevos y premios entregados (solo cantidades, sin montos).
+3. **Escríbeles hoy:** los clientes cerca de su premio y los que venían seguido y dejaron de venir (más de 45 días), con el WhatsApp ya escrito. Solo aparecen los que aceptaron recordatorios.
+4. **Tus mejores clientes:** los 5 que más vinieron en 3 meses.
+5. **Clientes registrados** (los 5 últimos, con «Ver más clientes»), y **Tu cartel y tu enlace** con la descarga de clientes en Excel (CSV).
+
+Los montos y precios ya no se configuran en el panel: van en `/admin`, en «3. Servicios y precios» (precio promedio, lo que cuesta dar el premio y servicios con precio).
+
+### Números del negocio y reporte del mes (en /admin)
+
+Los números completos ya **no los ve el dueño**: los ves tú y se los mandas cada mes. En `/admin`, el botón **Ver números** de cada negocio (en la tabla de negocios o en «Rendimiento») abre:
+
+- **Resumen del mes**, con selector de mes: «Este mes sus clientes con tarjeta le dejaron S/ …», clientes nuevos, clientes que volvieron, visitas, premios entregados (o saldo usado en cashback) y clientes que dejaron de venir, cada uno comparado con el mes anterior (el mes en curso, con el anterior a la misma fecha).
+- **Gráfico de 6 meses** (con vista en tabla), **10 clientes más fieles**, **servicios más vendidos**, **días y horas con más visitas** (90 días) y **clientes que dejaron de venir**.
+- **Su cartel y su enlace** (30 días): escaneos del QR, aperturas, tarjetas nuevas y cuántos crean su tarjeta.
+- **Reporte del mes (PDF):** abre `/admin/reporte?n=SLUG&mes=AAAA-MM`, una hoja clara con el logo del negocio, lo principal en grande, los datos del mes, el gráfico, sus mejores clientes, lo que más se pide, sus días fuertes y **3 acciones para el próximo mes**. «Guardar en PDF» la imprime en A4; en el celular se guarda y se comparte por WhatsApp.
+- **Enviar resumen:** abre WhatsApp al número del negocio con el resumen del mes ya escrito, para mandarlo junto al PDF.
+
+Reglas de los cálculos:
 
 - **Solo cuenta a los clientes con tarjeta.** Las visitas de quien no se registró no aparecen, así que los números son menores que la caja total del negocio.
-- **Precio por servicio:** lo puedes poner tú al crear el negocio en `/admin`. Si falta, el panel lo pregunta arriba de todo («Para empezar: ¿cuánto cobras en promedio por un servicio?»). Sin visitas todavía, el botón **Ver un ejemplo** muestra la sección llena con datos inventados, marcada como ejemplo.
-- **Dejas de ganar:** estima cuánto dejan de dejar al mes los clientes que dejaron de venir, si volvieran a su ritmo de siempre.
-- **Montos del negocio** (en «Configurar tus montos»): el precio promedio por visita, lo que le cuesta dar el premio y sus servicios con precio.
-- **Cobrado en esta visita** (opcional): al sumar un sello se puede anotar lo que pagó el cliente. Si se deja vacío, se cuenta el precio promedio.
-- **Número principal:** «Este mes tus clientes con tarjeta te dejaron S/ …», con las visitas, los clientes que volvieron y la comparación con el mes anterior. A propósito no muestra costos ni la cuota del sistema, para que se entienda de un vistazo.
-- **Datos del mes:** clientes nuevos, clientes que volvieron, visitas, premios entregados (o saldo usado en cashback) y clientes que dejaron de venir. Cada dato muestra la diferencia con el mes anterior; el mes en curso se compara con el anterior a la misma fecha.
-- **Gráfico de 6 meses** con lo que dejaron los clientes con tarjeta cada mes, con vista en tabla.
-- **Ranking de los 10 clientes más fieles**, **días y horas con más visitas** (90 días) y **clientes que dejaron de venir** (2 visitas o más y nada en 45 días), con botón de WhatsApp si aceptaron recordatorios.
+- Se usa lo cobrado en cada visita; si no se anotó, el precio promedio del negocio. Si no hay precio, se usa el promedio de lo cobrado.
+- **Se dejan de ganar:** estima cuánto dejan de dejar al mes los que dejaron de venir, si volvieran a su ritmo de siempre.
+- Sin visitas todavía, **Ver un ejemplo** muestra la sección llena con datos inventados, marcada como ejemplo (sirve para enseñárselo a un prospecto).
 
-La ganancia del programa (lo que dejan los clientes que regresan menos premios y cuota) y el «por cada S/ 1» solo se ven en tu `/admin`, en «Rendimiento de tus negocios». El informe por WhatsApp que le mandas al negocio usa los datos simples.
+**Mostrar números completos al dueño** (casilla en «3. Servicios y precios», apagada por defecto): si un dueño pide ver todo, actívala y su panel vuelve a tener «Tus números». Apagada, la API del panel tampoco entrega esos números.
 
-En `/admin`, **Rendimiento de tus negocios** muestra lo mismo para todos los negocios del mes en curso (comparado con el mes anterior a la misma fecha) y un botón **Enviar por WhatsApp** que le manda a cada negocio su informe del mes, listo para usar antes de cada renovación.
+La ganancia del programa (lo que dejan los clientes que regresan menos premios y cuota) y el «por cada S/ 1» solo se ven en «Rendimiento de tus negocios». Ahí también está **Enviar por WhatsApp**, un aviso corto del mes en curso.
 
 ## Recordatorios por WhatsApp
 
-La sección **Cerca del premio** del panel lista a los clientes que **aceptaron recordatorios** y a quienes les faltan 2 sellos o menos, o que ya tienen su premio. Cada uno tiene un botón **Escribir por WhatsApp** con el mensaje ya escrito. El negocio lo envía desde su propio WhatsApp.
+La sección **Escríbeles hoy** del panel lista, en «Cerca de su premio», a los clientes que **aceptaron recordatorios** y a quienes les faltan 2 sellos o menos, o que ya tienen su premio. Cada uno tiene un botón **Escribir por WhatsApp** con el mensaje ya escrito. El negocio lo envía desde su propio WhatsApp.
 
 - Solo aparecen quienes marcaron la casilla opcional al registrarse. Así lo exige la Ley 29733: el uso para mensajes es una finalidad aparte y opcional.
 - Cada mensaje incluye «responde BAJA». Si el cliente lo pide, el negocio desmarca **Acepta recordatorios** en su ficha.

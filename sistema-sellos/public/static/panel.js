@@ -46,7 +46,7 @@
   }
   // Mientras el panel está abierto, se actualiza solo cada minuto.
   setInterval(function () {
-    if (!document.hidden && !$('app').hidden) { cargarResumen(); cargarCerca(); if (cargados <= 25) cargarClientes(); cargarNumeros(); }
+    if (!document.hidden && !$('app').hidden) { cargarResumen(); cargarCerca(); if (cargados <= 5) cargarClientes(); cargarNumeros(); }
   }, 60000);
   async function pedir(url, opciones) {
     var r = await Sellos.api(url, opciones);
@@ -393,7 +393,8 @@
   var cargados = 0;
   async function cargarClientes(mas) {
     var desde = mas ? cargados : 0;
-    var r = await pedir(base + '/clientes?desde=' + desde);
+    // Al inicio solo los 5 últimos (el panel queda corto); «Ver más» trae de a 25.
+    var r = await pedir(base + '/clientes?desde=' + desde + '&limite=' + (mas ? 25 : 5));
     if (!r.ok) return;
     var ul = $('clientes');
     if (!mas) { ul.textContent = ''; cargados = 0; }
@@ -416,337 +417,78 @@
   }
   $('mas-clientes').addEventListener('click', function () { cargarClientes(true); });
 
-  // ---------- cerca del premio ----------
+  // ---------- escríbeles hoy: cerca del premio y los que dejaron de venir ----------
+  function mensajeExtranamos(c) {
+    return 'Hola ' + c.nombre.split(' ')[0] + ', te extrañamos en ' + negocio + '. Tienes ' + resumenCli(c) + ' en tu tarjeta ' + programa + '. ¿Te reservamos una cita esta semana? (Si no deseas recibir estos mensajes, responde BAJA.)';
+  }
+  function filaWa(c, detalle, msg) {
+    var ver = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
+    ver.addEventListener('click', function () { mostrarCliente(c, true); });
+    return Sellos.el('li', {}, [
+      Sellos.el('div', { clase: 'quien' }, [Sellos.el('strong', { texto: c.nombre }), Sellos.el('span', { texto: detalle })]),
+      Sellos.el('div', { clase: 'botones chicos' }, [
+        ver,
+        Sellos.el('a', { clase: 'boton chico primario', href: 'https://wa.me/' + c.celularWa + '?text=' + encodeURIComponent(msg), target: '_blank', rel: 'noopener', texto: 'Escribir por WhatsApp' }),
+      ]),
+    ]);
+  }
   async function cargarCerca() {
     var r = await pedir(base + '/cerca');
     if (!r.ok) return;
-    var ul = $('cerca');
-    ul.textContent = '';
-    if (!r.datos.clientes.length) { ul.appendChild(Sellos.el('li', { texto: 'Nadie por ahora.' })); return; }
-    r.datos.clientes.forEach(function (c) {
-      var info = infoCli(c), detalle = info.detalle, msg = info.msg;
-      var ver = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
-      ver.addEventListener('click', function () { mostrarCliente(c, true); });
-      ul.appendChild(Sellos.el('li', {}, [
-        Sellos.el('div', { clase: 'quien' }, [Sellos.el('strong', { texto: c.nombre }), Sellos.el('span', { texto: detalle + ' · ' + c.celular })]),
-        Sellos.el('div', { clase: 'botones chicos' }, [
-          ver,
-          Sellos.el('a', { clase: 'boton chico primario', href: 'https://wa.me/' + c.celularWa + '?text=' + encodeURIComponent(msg), target: '_blank', rel: 'noopener', texto: 'Escribir por WhatsApp' }),
-        ]),
-      ]));
+    var ul = $('cerca'), ex = $('extranamos'), d = r.datos;
+    ul.textContent = ''; ex.textContent = '';
+    d.clientes.forEach(function (c) { var info = infoCli(c); ul.appendChild(filaWa(c, info.detalle, info.msg)); });
+    (d.extranamos || []).forEach(function (c) {
+      var hace = Math.round((Date.now() - Date.parse(c.ultimaVisita.replace(' ', 'T') + 'Z')) / 86400000);
+      ex.appendChild(filaWa(c, 'No viene hace ' + hace + ' días · venía seguido', mensajeExtranamos(c)));
     });
+    $('cerca-caja').hidden = !d.clientes.length;
+    $('extranamos-caja').hidden = !(d.extranamos || []).length;
+    $('escribir-vacio').hidden = !!(d.clientes.length || (d.extranamos || []).length);
+    var total = d.clientes.length + (d.extranamos || []).length;
+    $('escribir-total').textContent = total ? String(total) : '';
+    $('escribir-total').hidden = !total;
   }
   $('recargar').addEventListener('click', function () { cargarCerca(); cargarResumen(); cargarClientes(); cargarNumeros(); });
 
-  function llenar(dl, pares) {
-    dl.textContent = '';
-    pares.forEach(function (p) {
-      var dd = Sellos.el('dd', {}, [document.createTextNode(String(p[1])), p[2] ? Sellos.el('span', { clase: 'dato-nota', texto: p[2] }) : null]);
-      dl.appendChild(Sellos.el('div', {}, [Sellos.el('dt', { texto: p[0] }), dd]));
-    });
-  }
+  // ---------- este mes y tus mejores clientes ----------
+  var mesNombre = new Intl.DateTimeFormat('es-PE', { month: 'long', timeZone: 'America/Lima' });
   async function cargarResumen() {
     var r = await pedir(base + '/resumen');
     if (!r.ok) return;
-    var d = r.datos;
-    var conversion = d.aperturas30 ? Math.min(100, Math.round(d.tarjetasNuevas30 / d.aperturas30 * 100)) + ' %' : '—';
-    llenar($('res-alcance'), [
-      ['Escaneos del QR', d.escaneosQr30, 'Hoy: ' + d.escaneosQrHoy],
-      ['Personas que abrieron tu enlace', d.aperturas30, 'Contando QR, bio y WhatsApp'],
-      ['Tarjetas nuevas', d.tarjetasNuevas30, d.tarjetasDesdeQr30 + ' desde el QR'],
-      ['Crean su tarjeta', conversion, 'De quienes abren el enlace'],
-    ]);
-    llenar($('res-clientes'), [
-      ['Clientes con tarjeta', d.clientes],
-      ['Vinieron en 30 días', d.activos30, 'Clientes distintos'],
-      ['Visitas hoy', d.visitasHoy],
-      ['Visitas (30 días)', d.visitas30],
-      ['Premios canjeados', d.premios],
-      ['Aceptan recordatorios', d.conRecordatorios],
-    ]);
-  }
-
-  // ---------- tus números ----------
-  var soles = new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 0 });
-  var nombreMes = new Intl.DateTimeFormat('es-PE', { month: 'long', timeZone: 'UTC' });
-  var mesCorto = new Intl.DateTimeFormat('es-PE', { month: 'short', timeZone: 'UTC' });
-  function plata(c) { return soles.format(Math.round(c / 100)); }
-  function mesDe(m, corto) { return (corto ? mesCorto : nombreMes).format(new Date(m + '-15T12:00:00Z')).replace('.', '').toLowerCase(); }
-  function mayus(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
-  function compacto(c) { var s = c / 100; return 'S/ ' + (Math.abs(s) >= 1000 ? (Math.round(s / 100) / 10) + ' mil' : Math.round(s)); }
-  function plural(x, uno, varios) { return x + ' ' + (x === 1 ? uno : varios); }
-  var num = null, real = null, viendoEjemplo = false, anchoAntes = 0;
-
-  // Diferencia contra el mes anterior: flecha y signo, no solo color.
-  function cambio(ahora, antes, mesAntes) {
-    if (!antes) return ahora ? { texto: 'Nuevo vs. ' + mesAntes, clase: 'sube' } : null;
-    var p = Math.round((ahora - antes) / antes * 100);
-    if (!p) return { texto: '= igual que ' + mesAntes, clase: '' };
-    return { texto: (p > 0 ? '▲ +' : '▼ ') + p + ' % vs. ' + mesAntes, clase: p > 0 ? 'sube' : 'baja' };
-  }
-  function tiles(dl, pares) {
+    var d = r.datos, dl = $('res-mes');
+    $('mes-nombre').textContent = mesNombre.format(new Date()).replace(/^./, function (x) { return x.toUpperCase(); });
     dl.textContent = '';
-    pares.forEach(function (p) {
-      var dd = Sellos.el('dd', {}, [document.createTextNode(String(p[1]))]);
-      if (p[2]) dd.appendChild(Sellos.el('span', { clase: 'dato-nota', texto: p[2] }));
-      if (p[3]) dd.appendChild(Sellos.el('span', { clase: 'dato-nota cambio ' + p[3].clase, texto: p[3].texto }));
-      dl.appendChild(Sellos.el('div', {}, [Sellos.el('dt', { texto: p[0] }), dd]));
-    });
-  }
-
-  // Gráfico de columnas en SVG, con tooltip al pasar el dedo, el mouse o el teclado.
-  var NS = 'http://www.w3.org/2000/svg';
-  function svg(tag, a) { var n = document.createElementNS(NS, tag); Object.keys(a || {}).forEach(function (k) { n.setAttribute(k, a[k]); }); return n; }
-  function columnas(caja, grupos, series, formato, destacar) {
-    caja.textContent = '';
-    var W = Math.max(300, Math.round(caja.clientWidth || 600)), H = W < 480 ? 190 : 220, izq = 52, abajo = 26, arriba = 18, ancho = W - izq - 8, alto = H - abajo - arriba;
-    var max = 0;
-    grupos.forEach(function (g) { g.valores.forEach(function (v) { if (v > max) max = v; }); });
-    var paso = escalon(max || 1), tope = Math.ceil((max || 1) / paso) * paso;
-    var s = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': caja.getAttribute('data-titulo') || '' });
-    for (var t = 0; t <= tope + 1e-9; t += paso) {
-      var y = arriba + alto - t / tope * alto;
-      s.appendChild(svg('line', { x1: izq, x2: W - 8, y1: y, y2: y, class: 'rejilla-g' }));
-      var et = svg('text', { x: izq - 8, y: y + 4, 'text-anchor': 'end', class: 'eje' }); et.textContent = formato.eje(t); s.appendChild(et);
-    }
-    var banda = ancho / grupos.length, barra = Math.min(24, (banda - 16) / series.length - 2);
-    var tip = Sellos.el('div', { clase: 'tip', role: 'status' }); tip.hidden = true;
-    grupos.forEach(function (g, i) {
-      var x0 = izq + i * banda + (banda - (barra * series.length + 2 * (series.length - 1))) / 2;
-      var gr = svg('g', { tabindex: '0', class: 'grupo', 'aria-label': g.etiqueta + ': ' + series.map(function (se, k) { return se.nombre + ' ' + formato.tip(g.valores[k]); }).join(', ') });
-      gr.appendChild(svg('rect', { x: izq + i * banda, y: arriba, width: banda, height: alto, class: 'golpe' }));
-      g.valores.forEach(function (v, k) {
-        var h = v > 0 ? Math.max(2, v / tope * alto) : 0, x = x0 + k * (barra + 2), y = arriba + alto - h;
-        if (h) gr.appendChild(svg('path', { d: columna(x, y, barra, h), class: series[k].clase }));
-      });
-      if (destacar && destacar(g, i)) {
-        var v = Math.max.apply(null, g.valores), lab = svg('text', { x: izq + i * banda + banda / 2, y: arriba + alto - v / tope * alto - 6, 'text-anchor': 'middle', class: 'valor' });
-        lab.textContent = formato.eje(v); gr.appendChild(lab);
-      }
-      var et = svg('text', { x: izq + i * banda + banda / 2, y: H - 8, 'text-anchor': 'middle', class: 'eje' + (g.actual ? ' actual' : '') }); et.textContent = g.corta; gr.appendChild(et);
-      function ver() {
-        tip.textContent = '';
-        tip.appendChild(Sellos.el('strong', { texto: g.etiqueta }));
-        series.forEach(function (se, k) { tip.appendChild(Sellos.el('span', {}, [Sellos.el('i', { clase: 'm-' + se.clase }), document.createTextNode(se.nombre + ': ' + formato.tip(g.valores[k]))])); });
-        if (g.extra) tip.appendChild(Sellos.el('span', { clase: 'tip-extra', texto: g.extra }));
-        tip.hidden = false;
-        var r = caja.getBoundingClientRect(), centro = (izq + i * banda + banda / 2) / W * r.width;
-        tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, centro - tip.offsetWidth / 2)) + 'px';
-      }
-      function ocultar() { tip.hidden = true; }
-      gr.addEventListener('pointerenter', ver); gr.addEventListener('focus', ver);
-      gr.addEventListener('pointerleave', ocultar); gr.addEventListener('blur', ocultar);
-      s.appendChild(gr);
-    });
-    caja.appendChild(s); caja.appendChild(tip);
-  }
-  function escalon(max) { var e = Math.pow(10, Math.floor(Math.log10(max / 3))), b = max / 3 / e; return (b > 5 ? 10 : b > 2 ? 5 : b > 1 ? 2 : 1) * e; }
-  // Columna con la punta redondeada (4 px) y la base recta.
-  function columna(x, y, w, h) { var r = Math.min(4, w / 2, h); return 'M' + x + ',' + (y + h) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) + 'V' + (y + h) + 'Z'; }
-
-  async function cargarNumeros() {
-    var r = await pedir(base + '/numeros');
-    if (!r.ok) return;
-    real = r.datos; servicios = r.datos.servicios || servicios;
-    if (!viendoEjemplo) { num = real; pintarNumeros(); }
-  }
-  function pintarNumeros() {
-    var d = num, sel = $('n-mes'), elegido = sel.value || d.meses[d.meses.length - 1].mes;
-    sel.textContent = '';
-    d.meses.slice().reverse().forEach(function (m, i) {
-      var o = Sellos.el('option', { value: m.mes, texto: mayus(mesDe(m.mes)) + ' ' + m.mes.slice(0, 4) + (i === 0 ? ' (en curso)' : '') });
-      if (m.mes === elegido) o.selected = true;
-      sel.appendChild(o);
-    });
-    var i = d.meses.findIndex(function (m) { return m.mes === elegido; }); if (i < 0) i = d.meses.length - 1;
-    var m = d.meses[i], a = d.meses[i - 1] || null, antes = a ? mesDe(a.mes) : '';
-    // El mes en curso se compara con el anterior a la misma fecha (del 1 al día de hoy).
-    if (a && i === d.meses.length - 1) { a = d.anteriorAlDia; antes = '1–' + a.hasta + ' ' + mesDe(a.mes, true); }
-    var a0 = a || {};
-    var ej = viendoEjemplo, sinPrecio = !d.ajustes.precio;
-    // Sin precio, lo primero es preguntarlo; sin visitas, se ofrece un ejemplo.
-    $('n-inicio').hidden = ej || !!real.ajustes.precio;
-    $('n-vacio').hidden = ej || real.meses.some(function (x) { return x.visitas; });
-    $('n-ejemplo').hidden = !ej;
-
-    // El número principal: lo que dejaron los clientes con tarjeta en el mes.
-    var heroe = $('n-heroe'), enCurso = i === d.meses.length - 1;
-    heroe.textContent = '';
-    heroe.appendChild(Sellos.el('p', { clase: 'heroe-titulo', texto: (enCurso ? 'Este mes' : 'En ' + mesDe(m.mes)) + ' tus clientes con tarjeta te dejaron' }));
-    var vacio = sinPrecio || !m.visitas;
-    heroe.appendChild(Sellos.el('p', { clase: 'heroe-valor', texto: vacio ? '—' : plata(m.ingresos) }));
-    heroe.appendChild(Sellos.el('p', { clase: 'heroe-nota', texto: sinPrecio ? 'Escribe arriba cuánto cobras por servicio para ver cuánto te dejan tus clientes.'
-      : !m.visitas ? 'Aún no hay visitas en ' + mesDe(m.mes) + '. Apenas registres visitas, aquí verás cuánto te dejan.'
-      : plural(m.visitas, 'visita', 'visitas') + ' · ' + plural(m.volvieron, 'cliente volvió', 'clientes volvieron') }));
-    var cm = !vacio && a && cambio(m.ingresos, a0.ingresos, antes);
-    if (cm) heroe.appendChild(Sellos.el('p', { clase: 'dato-nota cambio ' + cm.clase, texto: cm.texto }));
-
-    // Lo que se pierde: los que dejaron de venir, si volvieran a su ritmo de siempre.
-    var f = d.fidelidad;
-    var perdidos = d.riesgo.total == null ? d.riesgo.clientes.length : d.riesgo.total;
-    var perdida = Math.round(perdidos * d.ajustes.precio * 30 / (f.cadaDias || 30));
-    tiles($('n-datos'), [
-      ['Clientes nuevos', m.nuevos, 'Crearon su tarjeta', a && cambio(m.nuevos, a0.nuevos, antes)],
-      ['Clientes que volvieron', m.volvieron, 'de ' + plural(m.clientes, 'cliente', 'clientes') + ' que vinieron', a && cambio(m.volvieron, a0.volvieron, antes)],
-      ['Visitas', m.visitas, 'Veces que vinieron en total', a && cambio(m.visitas, a0.visitas, antes)],
-      d.tipo === 'cashback' ? ['Saldo usado', plata(m.premios), plural(m.canjes, 'vez', 'veces') + ' que usaron su saldo'] : ['Premios entregados', m.canjes, 'Premios que canjearon'],
-      ['Dejaron de venir', perdidos, perdidos && !sinPrecio ? 'Dejas de ganar ' + plata(perdida) + ' al mes. Escríbeles abajo.' : 'Nadie se te ha ido'],
-    ]);
-
-    // 6 meses: lo que dejaron los clientes con tarjeta.
-    var g = $('n-grafico');
-    anchoAntes = g.clientWidth;
-    g.setAttribute('data-titulo', 'Lo que te dejaron tus clientes con tarjeta, por mes');
-    columnas(g, d.meses.map(function (x, k) {
-      return { etiqueta: mayus(mesDe(x.mes)) + ' ' + x.mes.slice(0, 4), corta: mayus(mesDe(x.mes, true)), actual: k === i, valores: [x.ingresos],
-        extra: plural(x.visitas, 'visita', 'visitas') + ' · ' + plural(x.nuevos, 'cliente nuevo', 'clientes nuevos') };
-    }), [{ nombre: 'Te dejaron', clase: 'acento' }], { eje: compacto, tip: plata });
-    var tabla = $('n-tabla');
-    tabla.textContent = '';
-    var cab = Sellos.el('tr', {}, ['Mes', 'Te dejaron', 'Visitas', 'Nuevos', 'Volvieron', 'Premios'].map(function (t) { return Sellos.el('th', { scope: 'col', texto: t }); }));
-    tabla.appendChild(Sellos.el('thead', {}, [cab]));
-    tabla.appendChild(Sellos.el('tbody', {}, d.meses.slice().reverse().map(function (x) {
-      return Sellos.el('tr', {}, [mayus(mesDe(x.mes)) + ' ' + x.mes.slice(0, 4), plata(x.ingresos), x.visitas, x.nuevos, x.volvieron, d.tipo === 'cashback' ? plata(x.premios) : x.canjes]
-        .map(function (v, k) { return Sellos.el(k ? 'td' : 'th', k ? { texto: String(v) } : { scope: 'row', texto: String(v) }); }));
-    })));
-
-    // Ranking de clientes.
-    var top = $('n-top');
-    top.textContent = '';
-    if (!d.top.length) top.appendChild(Sellos.el('li', { texto: 'Aún no hay visitas en los últimos 90 días.' }));
+    [
+      ['Visitas hoy', d.visitasHoy],
+      ['Visitas del mes', d.mes.visitas],
+      ['Clientes nuevos', d.mes.nuevos],
+      [tipo === 'cashback' ? 'Veces que usaron saldo' : 'Premios entregados', d.mes.premios],
+    ].forEach(function (p) { dl.appendChild(Sellos.el('div', {}, [Sellos.el('dt', { texto: p[0] }), Sellos.el('dd', { texto: String(p[1]) })])); });
+    var ol = $('top');
+    ol.textContent = '';
+    if (!d.top.length) ol.appendChild(Sellos.el('li', { clase: 'vacio', texto: 'Aquí aparecerán los clientes que más vienen, apenas registres visitas.' }));
     d.top.forEach(function (c, k) {
-      var ver = ej ? null : Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
-      if (ver) ver.addEventListener('click', function () { mostrarCliente(c, true); });
-      top.appendChild(Sellos.el('li', {}, [
+      var ver = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
+      ver.addEventListener('click', function () { mostrarCliente(c, true); });
+      ol.appendChild(Sellos.el('li', {}, [
         Sellos.el('span', { clase: 'puesto', texto: String(k + 1), 'aria-hidden': 'true' }),
-        Sellos.el('div', { clase: 'quien' }, [
-          Sellos.el('strong', { texto: c.nombre }),
-          Sellos.el('span', { texto: plural(c.visitas90, 'visita', 'visitas') + (sinPrecio ? '' : ' · ' + plata(c.gasto90)) + ' · ' + plural(c.premios, 'premio', 'premios') }),
-        ]),
+        Sellos.el('div', { clase: 'quien' }, [Sellos.el('strong', { texto: c.nombre }), Sellos.el('span', { texto: c.visitas90 + (c.visitas90 === 1 ? ' visita' : ' visitas') + ' en 3 meses · ' + resumenCli(c) })]),
         ver,
       ]));
     });
-
-    // Servicios más vendidos.
-    var vend = d.vendidos || [];
-    $('n-vendidos-caja').hidden = !vend.length;
-    var ol = $('n-vendidos'); ol.textContent = '';
-    vend.forEach(function (x, k) {
-      ol.appendChild(Sellos.el('li', {}, [
-        Sellos.el('span', { clase: 'puesto', texto: String(k + 1), 'aria-hidden': 'true' }),
-        Sellos.el('div', { clase: 'quien' }, [Sellos.el('strong', { texto: x.n }), Sellos.el('span', { texto: plural(x.veces, 'vez', 'veces') + ' · ' + plata(x.ingresos) })]),
-      ]));
-    });
-
-    // Días de la semana (lunes primero) y horas pico.
-    var dias = [0, 0, 0, 0, 0, 0, 0], horas = {};
-    d.horas.forEach(function (h) { dias[(h.dia + 6) % 7] += h.v; horas[h.hora] = (horas[h.hora] || 0) + h.v; });
-    var nombres = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'], maxDia = Math.max.apply(null, dias);
-    var cd = $('n-dias');
-    cd.setAttribute('data-titulo', 'Visitas por día de la semana, últimos 90 días');
-    columnas(cd, dias.map(function (v, k) { return { etiqueta: mayus(nombres[k]), corta: mayus(nombres[k].slice(0, 3)), valores: [v] }; }), [{ nombre: 'Visitas', clase: 'acento' }],
-      { eje: function (v) { return String(Math.round(v)); }, tip: function (v) { return String(v); } },
-      function (gr) { return maxDia > 0 && gr.valores[0] === maxDia; });
-    var pico = Object.keys(horas).sort(function (x, y) { return horas[y] - horas[x] || x - y; }).slice(0, 3).map(Number).sort(function (x, y) { return x - y; });
-    var hora = function (h) { var x = h % 12 || 12; return x + (h % 24 < 12 ? ' a. m.' : ' p. m.'); };
-    // Horas seguidas se juntan: 5, 6 y 7 p. m. → «de 5 p. m. a 8 p. m.».
-    var tramos = [];
-    pico.forEach(function (h) { var t = tramos[tramos.length - 1]; if (t && t[1] === h) t[1] = h + 1; else tramos.push([h, h + 1]); });
-    $('n-horas').textContent = pico.length
-      ? 'Tu día más fuerte es el ' + nombres[dias.indexOf(maxDia)] + '. Horas con más visitas: ' + tramos.map(function (t) { return 'de ' + hora(t[0]) + ' a ' + hora(t[1]); }).join(' y ') + ' Úsalo para tus turnos y para lanzar promociones en los días flojos.'
-      : '';
-
-    // Clientes que se están yendo.
-    var rz = $('n-riesgo');
-    rz.textContent = '';
-    $('n-riesgo-nota').textContent = 'Vinieron 2 veces o más y no regresan hace más de ' + d.riesgo.dias + ' días.'
-      + (perdidos && !sinPrecio ? ' Si vuelven a su ritmo de siempre, son unos ' + plata(perdida) + ' más al mes.' : '') + ' Un mensaje a tiempo los recupera.';
-    if (!d.riesgo.clientes.length) rz.appendChild(Sellos.el('li', { texto: 'Nadie por ahora. ¡Bien!' }));
-    d.riesgo.clientes.forEach(function (c) {
-      var hace = Math.round((Date.now() - Date.parse(c.ultimaVisita.replace(' ', 'T') + 'Z')) / 86400000);
-      var nombre = c.nombre.split(' ')[0];
-      var botones = [];
-      if (!ej) {
-        var ver = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
-        ver.addEventListener('click', function () { mostrarCliente(c, true); });
-        botones.push(ver);
-      }
-      if (c.recordatorios && !ej) {
-        var msg = 'Hola ' + nombre + ', te extrañamos en ' + negocio + ' 💈 Tienes ' + resumenCli(c) + ' en tu tarjeta ' + programa + '. ¿Te reservamos una cita esta semana? (Si no deseas recibir estos mensajes, responde BAJA.)';
-        botones.push(Sellos.el('a', { clase: 'boton chico primario', href: 'https://wa.me/' + c.celularWa + '?text=' + encodeURIComponent(msg), target: '_blank', rel: 'noopener', texto: 'Escribir por WhatsApp' }));
-      }
-      rz.appendChild(Sellos.el('li', {}, [
-        Sellos.el('div', { clase: 'quien' }, [
-          Sellos.el('strong', { texto: c.nombre }),
-          Sellos.el('span', { texto: 'Última visita hace ' + hace + ' días · ' + plural(c.visitas, 'visita', 'visitas') + (c.recordatorios ? '' : ' · no aceptó recordatorios') }),
-        ]),
-        Sellos.el('div', { clase: 'botones chicos' }, botones),
-      ]));
-    });
-
-    var aj = d.ajustes, en = function (c) { return c ? String(c / 100) : ''; };
-    var foco = document.activeElement;
-    if (!(foco && foco.tagName === 'INPUT' && $('f-ajustes').contains(foco))) {
-      $('a-precio').value = en(aj.precio); $('a-premio').value = en(aj.costoPremio);
-      if (!ej) $('a-servicios').value = (d.servicios || []).map(function (x) { return x.n + ' = ' + x.p / 100; }).join('\n');
-    }
   }
-  $('n-mes').addEventListener('change', function () { if (num) pintarNumeros(); });
 
-  // Ejemplo con datos inventados, para ver cómo se llena «Tus números» antes de tener visitas.
-  function ejemplo() {
-    var p = real.ajustes.precio || 3500, cp = real.ajustes.costoPremio || p;
-    var vis = [38, 52, 61, 74, 70, 48], reg = [.45, .55, .6, .66, .7, .74], can = [0, 1, 2, 3, 3, 2], nue = [22, 18, 15, 14, 12, 7];
-    var mes = function (k, f) {
-      f = f || 1;
-      var v = Math.round(vis[k] * f), r = Math.round(v * reg[k]), c = Math.round(can[k] * f);
-      var x = { mes: real.meses[k].mes, visitas: v, regreso: r, volvieron: Math.round(r * .85), clientes: Math.round(v * .8), nuevos: Math.round(nue[k] * f), canjes: c,
-        ingresos: v * p, ingresosRegreso: r * p, premios: c * cp };
-      return x;
-    };
-    var hoy = real.anteriorAlDia.hasta, ant = mes(4, hoy / 30);
-    ant.hasta = hoy;
-    var horas = [];
-    [6, 12, 10, 13, 16, 24, 28].forEach(function (total, dia) {
-      [10, 11, 12, 15, 16, 17, 18, 19].forEach(function (h, k) { horas.push({ dia: dia, hora: h, v: Math.max(1, Math.round(total * [.6, .7, .5, .6, .8, 1.4, 1.6, 1.2][k] / 7.4 * 3)) }); });
-    });
-    var persona = function (nombre, v, premios, dias) {
-      return { nombre: nombre, visitas90: v, gasto90: v * p, premios: premios, visitas: v + 4, sellos: v % 10, puntos: v * 30, saldo: v * 150, recordatorios: true, ultimaVisita: new Date(Date.now() - dias * 864e5).toISOString().slice(0, 19).replace('T', ' ') };
-    };
-    return {
-      ajustes: { precio: p, costoPremio: real.ajustes.costoPremio }, meses: [0, 1, 2, 3, 4, 5].map(function (k) { return mes(k); }), anteriorAlDia: ant,
-      top: [persona('Carlos R.', 9, 1, 3), persona('Luis T.', 8, 1, 6), persona('Diego F.', 7, 0, 2), persona('Jorge C.', 7, 0, 9), persona('Miguel A.', 6, 0, 12)],
-      horas: horas, fidelidad: { clientes: 124, repiten: 79, cadaDias: 24 }, tipo: real.tipo,
-      vendidos: (real.servicios.length ? real.servicios : [{ n: 'Servicio A', p: p }, { n: 'Servicio B', p: Math.round(p * 0.6) }, { n: 'Servicio C', p: Math.round(p * 1.4) }])
-        .slice(0, 5).map(function (x, k) { var v = [46, 31, 22, 14, 9][k]; return { n: x.n, veces: v, ingresos: v * x.p }; }),
-      riesgo: { dias: 45, total: 9, clientes: [persona('Andrés V.', 6, 0, 52), persona('Kevin H.', 4, 0, 61), persona('Piero C.', 3, 0, 75)] },
-    };
+  // ---------- tus números (solo si el administrador los activó) ----------
+  var numeros = $('t-numeros') && window.Numeros ? Numeros.montar({
+    verCliente: function (c) { mostrarCliente(c, true); },
+    mensaje: mensajeExtranamos,
+  }) : null;
+  async function cargarNumeros() {
+    if (!numeros) return;
+    var r = await pedir(base + '/numeros');
+    if (r.ok) numeros.poner(r.datos);
   }
-  $('n-ver-ejemplo').addEventListener('click', function () { viendoEjemplo = true; num = ejemplo(); pintarNumeros(); $('n-salir-ejemplo').focus(); });
-  $('n-salir-ejemplo').addEventListener('click', function () { viendoEjemplo = false; num = real; pintarNumeros(); $('n-ver-ejemplo').hidden || $('t-numeros').focus(); });
-  $('n-inicio').addEventListener('submit', async function (ev) {
-    ev.preventDefault();
-    var v = $('i-precio').value.trim(), msg = $('i-msg'), boton = this.querySelector('button');
-    if (!/^\d{1,6}([.,]\d{1,2})?$/.test(v) || !Number(v.replace(',', '.'))) { msg.textContent = 'Escribe el monto solo con números, por ejemplo 35.'; msg.className = 'estado mal'; return; }
-    var en = function (c) { return c ? String(c / 100) : ''; };
-    boton.disabled = true;
-    var r = await pedir(base + '/ajustes', { body: { precio: v, costoPremio: en(real.ajustes.costoPremio) } });
-    boton.disabled = false;
-    if (!r.ok) { msg.textContent = r.datos.error || 'No se pudo guardar.'; msg.className = 'estado mal'; return; }
-    real = r.datos; viendoEjemplo = false; num = real; pintarNumeros();
-    $('a-msg').textContent = '✓ Listo: ya calculamos tus números con S/ ' + v + ' por servicio.'; $('a-msg').className = 'estado ok';
-    $('n-heroe').focus();
-  });
-  window.addEventListener('resize', function () { var w = $('n-grafico').clientWidth; if (num && Math.abs(w - anchoAntes) > 20) { anchoAntes = w; pintarNumeros(); } });
-  $('f-ajustes').addEventListener('submit', async function (ev) {
-    ev.preventDefault();
-    var boton = this.querySelector('button'), msg = $('a-msg');
-    boton.disabled = true;
-    var r = await pedir(base + '/ajustes', { body: { precio: $('a-precio').value, costoPremio: $('a-premio').value, servicios: $('a-servicios').value } });
-    boton.disabled = false;
-    if (r.ok) { real = num = r.datos; servicios = r.datos.servicios || []; viendoEjemplo = false; boton.focus(); pintarNumeros(); msg.textContent = '✓ Montos guardados.'; msg.className = 'estado ok'; }
-    else { msg.textContent = r.datos.error || 'No se pudieron guardar.'; msg.className = 'estado mal'; }
-  });
 
   var enlace = $('enlace-registro');
   enlace.textContent = location.origin + '/' + slug;

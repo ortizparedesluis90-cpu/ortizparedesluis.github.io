@@ -31,7 +31,7 @@
       var editar = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Editar' });
       editar.addEventListener('click', function () { llenar(n); });
       tb.appendChild(Sellos.el('tr', {}, [
-        Sellos.el('td', {}, [Sellos.el('strong', { texto: n.nombre }), Sellos.el('br'), Sellos.el('span', { clase: 'nota', texto: n.programa + ' · ' + resumenPrograma(n) })]),
+        Sellos.el('td', {}, [Sellos.el('strong', { texto: n.nombre }), Sellos.el('br'), Sellos.el('span', { clase: 'nota', texto: n.programa + ' · ' + resumenPrograma(n) }), Sellos.el('br'), botonNumeros(n.slug)]),
         Sellos.el('td', { texto: String(n.clientes) }),
         Sellos.el('td', { texto: String(n.escaneos30) }),
         Sellos.el('td', { texto: String(n.visitas30) }),
@@ -82,14 +82,14 @@
         + '• ' + x.visitas + ' visitas registradas' + (a && cambio(x.visitas, a.visitas) ? ' (' + cambio(x.visitas, a.visitas) + ' vs. el mes pasado a la misma fecha)' : '') + '\n'
         + (n.conMontos ? '• Tus clientes con tarjeta te dejaron ' + plata(x.ingresos) + '\n' : '')
         + '• ' + x.volvieron + (x.volvieron === 1 ? ' cliente volvió' : ' clientes volvieron') + '\n'
-        + (n.riesgo ? '• ' + n.riesgo + (n.riesgo === 1 ? ' cliente dejó' : ' clientes dejaron') + ' de venir: escríbeles desde «Tus números» en tu panel.\n' : '')
-        + 'Revisa todo el detalle en tu panel: ' + location.origin + '/' + n.slug + '/panel';
-      var acciones = [Sellos.el('a', { href: '/' + n.slug + '/panel', texto: 'Panel' })];
+        + (n.riesgo ? '• ' + n.riesgo + (n.riesgo === 1 ? ' cliente dejó' : ' clientes dejaron') + ' de venir: aparecen en «Escríbeles hoy» de tu panel.\n' : '')
+        + 'A fin de mes te mando tu reporte completo.';
+      var acciones = [botonNumeros(n.slug)];
       acciones.push(wa
         ? Sellos.el('a', { href: 'https://wa.me/' + wa + '?text=' + encodeURIComponent(informe), target: '_blank', rel: 'noopener', texto: 'Enviar por WhatsApp' })
         : Sellos.el('span', { clase: 'nota', texto: 'Sin WhatsApp del negocio' }));
       tb.appendChild(Sellos.el('tr', {}, [
-        Sellos.el('td', {}, [Sellos.el('strong', { texto: n.nombre }), n.conMontos ? null : Sellos.el('span', { clase: 'dato-nota alerta', texto: 'Faltan sus montos en «Tus números»' })]),
+        Sellos.el('td', {}, [Sellos.el('strong', { texto: n.nombre }), n.conMontos ? null : Sellos.el('span', { clase: 'dato-nota alerta', texto: 'Falta su precio promedio («Editar» → 3. Servicios y precios)' })]),
         celda(String(x.visitas), a && cambio(x.visitas, a.visitas)),
         celda(n.conMontos ? plata(x.ingresosRegreso) : x.volvieron + ' clientes', a && cambio(n.conMontos ? x.ingresosRegreso : x.volvieron, n.conMontos ? a.ingresosRegreso : a.volvieron)),
         celda(n.conMontos ? plata(x.ganancia) : '—'),
@@ -118,6 +118,48 @@
       dl.appendChild(Sellos.el('div', {}, [Sellos.el('dt', { texto: p[0] }), Sellos.el('dd', {}, [document.createTextNode(p[1]), Sellos.el('span', { clase: 'dato-nota', texto: p[2] })])]));
     });
   }
+
+  // ---------- números de un negocio (antes en su panel) ----------
+  function botonNumeros(slug) {
+    var b = Sellos.el('button', { clase: 'boton chico primario', type: 'button', texto: 'Ver números' });
+    b.addEventListener('click', function () { verNumeros(slug); });
+    return b;
+  }
+  var detalle = null, numeros = window.Numeros ? Numeros.montar({ quien: 'sus clientes con tarjeta le dejaron', alPintar: alPintar }) : null;
+  function alPintar(d, m) {
+    if (!detalle) return;
+    var neg = detalle.negocio;
+    $('det-reporte').href = '/admin/reporte?n=' + encodeURIComponent(neg.slug) + '&mes=' + m.mes;
+    var texto = Numeros.mensaje(neg, d, m.mes);
+    $('det-wa').href = neg.whatsapp ? 'https://wa.me/' + neg.whatsapp + '?text=' + encodeURIComponent(texto) : 'https://wa.me/?text=' + encodeURIComponent(texto);
+  }
+  async function verNumeros(slug) {
+    var r = await Sellos.api('/api/admin/numeros?n=' + encodeURIComponent(slug));
+    if (!r.ok) return alert(r.datos.error || 'No se pudieron cargar los números.');
+    detalle = r.datos;
+    var neg = detalle.negocio, caja = $('det-logo');
+    $('det-nombre').textContent = neg.nombre;
+    caja.textContent = '';
+    if (neg.logo) caja.appendChild(Sellos.el('img', { src: '/m/' + neg.logo, alt: '' }));
+    else caja.textContent = neg.nombre.charAt(0).toUpperCase();
+    var al = detalle.alcance, dl = $('det-alcance');
+    var conversion = al.aperturas30 ? Math.min(100, Math.round(al.tarjetasNuevas30 / al.aperturas30 * 100)) + ' %' : '—';
+    dl.textContent = '';
+    [
+      ['Escaneos del QR', al.escaneosQr30, 'Hoy: ' + al.escaneosQrHoy],
+      ['Abrieron su enlace', al.aperturas30, 'Contando QR, bio y WhatsApp'],
+      ['Tarjetas nuevas', al.tarjetasNuevas30, al.tarjetasDesdeQr30 + ' desde el QR'],
+      ['Crean su tarjeta', conversion, 'De quienes abren el enlace'],
+      ['Clientes con tarjeta', al.clientes, al.conRecordatorios + ' aceptan recordatorios'],
+    ].forEach(function (p) {
+      dl.appendChild(Sellos.el('div', {}, [Sellos.el('dt', { texto: p[0] }), Sellos.el('dd', {}, [document.createTextNode(String(p[1])), Sellos.el('span', { clase: 'dato-nota', texto: p[2] })])]));
+    });
+    $('detalle').hidden = false;
+    numeros.poner(detalle);
+    $('detalle').focus();
+    $('detalle').scrollIntoView({ block: 'start' });
+  }
+  $('det-cerrar').addEventListener('click', function () { $('detalle').hidden = true; detalle = null; $('t-negocios').scrollIntoView(); });
 
   // ---------- tipo de tarjeta ----------
   function reglasDe(n) { try { return JSON.parse(n.reglas || '{}') || {}; } catch (e) { return {}; } }
@@ -206,6 +248,8 @@
     mostrarTipo();
     f.elements.precio.value = n.precio ? String(n.precio / 100) : '';
     f.elements.pedir_servicio.checked = n.pedir_servicio === undefined || n.pedir_servicio === null ? true : !!n.pedir_servicio;
+    f.elements.costo_premio.value = n.costo_premio ? String(n.costo_premio / 100) : '';
+    f.elements.mostrar_numeros.checked = !!n.mostrar_numeros;
     f.elements.editar.value = n.slug;
     f.elements.clave.value = '';
     ponerDiseno(n.diseno || {});

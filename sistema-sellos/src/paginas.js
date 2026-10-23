@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-10-31';
+const V = '2026-11-01';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -309,12 +309,50 @@ ${pie(n)}`,
   });
 }
 
+/** «Tus números» completos (los pinta public/static/numeros.js). Van en /admin y, si se activa, en el panel. */
+function bloqueNumeros(titulo = 'Tus números') {
+  return `
+    <section class="bloque numeros" aria-labelledby="t-numeros">
+      <div class="fila"><h2 id="t-numeros">${titulo}</h2><label class="mes"><span class="oculto-accesible">Mes</span><select id="n-mes"></select></label></div>
+      <div class="vacio-numeros" id="n-vacio" hidden>
+        <p><strong>Aún no hay visitas registradas.</strong> Con cada sello que se sume, aquí se irá llenando cuánto dejan los clientes, los mejores clientes y los días más fuertes.</p>
+        <button class="boton chico" type="button" id="n-ver-ejemplo">Ver un ejemplo</button>
+      </div>
+      <div class="aviso-plan" id="n-ejemplo" role="status" hidden><span>Estás viendo un <strong>ejemplo con datos inventados</strong>.</span> <button class="boton chico" type="button" id="n-salir-ejemplo">Volver a los datos reales</button></div>
+      <div class="heroe" id="n-heroe" aria-live="polite" tabindex="-1"></div>
+      <p class="nota solo-tarjeta">Solo cuenta a los clientes <strong>con tarjeta</strong>: las visitas de quienes no se registraron no aparecen aquí. Por eso estos números son menores que la caja total; mientras más clientes se registren, más completos serán.</p>
+      <dl class="datos" id="n-datos"></dl>
+
+      <h3 class="subtitulo">Lo que dejaron los clientes con tarjeta, mes a mes <span>(últimos 6 meses)</span></h3>
+      <div class="grafico" id="n-grafico"></div>
+      <details class="ver-tabla"><summary>Ver en tabla</summary><div class="tabla-envoltura"><table class="tabla" id="n-tabla"></table></div></details>
+
+      <h3 class="subtitulo">Clientes más fieles <span>(últimos 90 días)</span></h3>
+      <ol class="lista ranking" id="n-top"></ol>
+
+      <div id="n-vendidos-caja" hidden>
+        <h3 class="subtitulo">Servicios más vendidos <span>(últimos 90 días)</span></h3>
+        <ol class="lista ranking" id="n-vendidos"></ol>
+      </div>
+
+      <h3 class="subtitulo">Días con más visitas <span>(últimos 90 días)</span></h3>
+      <div class="grafico" id="n-dias"></div>
+      <p class="nota" id="n-horas"></p>
+
+      <h3 class="subtitulo">Hace tiempo que no vienen</h3>
+      <p class="nota" id="n-riesgo-nota"></p>
+      <ul class="lista" id="n-riesgo"></ul>
+
+      <p class="nota">Cómo se calcula: solo cuentan los clientes con tarjeta, y cada vez que registras una visita (sello o compra) cuenta como visita. Se usa lo cobrado en cada visita; si no se anotó, el precio promedio. «Clientes que volvieron» son los que vinieron este mes y ya habían venido antes. «Dejaron de venir» son los que venían seguido y llevan más de 45 días sin aparecer.</p>
+    </section>`;
+}
+
 export function panel(n) {
   return base({
     titulo: `Panel · ${n.nombre}`,
     negocio: n,
     clase: 'es-panel',
-    scripts: ['jsqr.js', 'comun.js', 'panel.js'],
+    scripts: ['jsqr.js', 'comun.js', ...(n.mostrar_numeros ? ['numeros.js'] : []), 'panel.js'],
     cuerpo: `
 <main id="principal" class="contenedor ancho" data-slug="${e(n.slug)}" data-meta="${n.meta}" data-premio="${e(n.premio)}" data-negocio="${e(n.nombre)}" data-programa="${e(n.programa)}" data-tipo="${leerPrograma(n).tipo}" data-reglas="${e(JSON.stringify(leerPrograma(n)))}" data-servicios="${e(JSON.stringify(leerServicios(n)))}" data-pedir="${n.pedir_servicio ? 1 : 0}">
   <header class="cabeza compacta fila">
@@ -334,13 +372,6 @@ export function panel(n) {
   </form>
 
   <div id="app" hidden>
-    <form class="bloque inicio-numeros" id="n-inicio" aria-labelledby="t-inicio" hidden>
-      <h2 id="t-inicio">Para empezar: ¿cuánto cobras en promedio por un servicio?</h2>
-      <p>Por ejemplo, lo que cuesta un corte. Con ese monto, en «Tus números» calculamos cuánto te dejan tus clientes con tarjeta y cuánto dejas de ganar con los que no vuelven.</p>
-      <div class="fila-input"><label class="oculto-accesible" for="i-precio">Precio promedio por servicio, en soles</label><span class="prefijo" aria-hidden="true">S/</span><input id="i-precio" type="text" inputmode="decimal" maxlength="9" placeholder="35" required><button class="boton primario" type="submit">Guardar</button></div>
-      <p class="estado" id="i-msg" role="status"></p>
-    </form>
-    <p class="atajo"><a class="boton chico" href="#t-numeros">Ver tus números: ventas y clientes</a></p>
     <section class="bloque" aria-labelledby="t-buscar">
       <h2 id="t-buscar">Registrar visita</h2>
       <button class="boton primario ancho grande" type="button" id="escanear">${icono('qr')}Escanear QR del cliente</button>
@@ -393,72 +424,47 @@ export function panel(n) {
       </details>
     </section>
 
-    <section class="bloque" aria-labelledby="t-clientes">
-      <div class="fila"><h2 id="t-clientes">Clientes registrados</h2><span class="chip" id="total-clientes">0</span></div>
-      <p class="nota">Aparecen aquí apenas crean su tarjeta. Se actualiza solo cada minuto.</p>
-      <ul class="lista" id="clientes"></ul>
-      <button class="boton chico" type="button" id="mas-clientes" hidden>Ver más</button>
+    <section class="bloque" aria-labelledby="t-mes">
+      <div class="fila"><h2 id="t-mes">Este mes</h2><span class="chip" id="mes-nombre"></span></div>
+      <dl class="datos simples" id="res-mes"></dl>
+      ${n.mostrar_numeros ? '' : '<p class="nota">Tu reporte completo (cuánto te dejaron tus clientes, tus días más fuertes y quiénes dejaron de venir) te llega cada mes por WhatsApp.</p>'}
     </section>
 
     <section class="bloque" aria-labelledby="t-cerca">
-      <div class="fila"><h2 id="t-cerca">Cerca del premio</h2><button class="boton chico" type="button" id="recargar">Actualizar</button></div>
-      <p class="nota">Clientes que aceptaron recordatorios y les faltan 2 sellos o menos (o ya tienen su premio). Escríbeles con un toque.</p>
-      <ul class="lista" id="cerca"></ul>
+      <div class="fila"><h2 id="t-cerca">Escríbeles hoy <span class="chip" id="escribir-total" hidden></span></h2><button class="boton chico" type="button" id="recargar">Actualizar</button></div>
+      <p class="nota">Un mensaje a tiempo hace que vuelvan. Solo aparecen los clientes que aceptaron recordatorios.</p>
+      <p class="vacio-lista" id="escribir-vacio">Nadie por ahora. Cuando alguien esté cerca de su premio o deje de venir, aparecerá aquí.</p>
+      <div id="cerca-caja" hidden>
+        <h3 class="subtitulo">Cerca de su premio</h3>
+        <ul class="lista" id="cerca"></ul>
+      </div>
+      <div id="extranamos-caja" hidden>
+        <h3 class="subtitulo">Hace tiempo que no vienen</h3>
+        <ul class="lista" id="extranamos"></ul>
+      </div>
     </section>
 
-    <section class="bloque numeros" aria-labelledby="t-numeros">
-      <div class="fila"><h2 id="t-numeros">Tus números</h2><label class="mes"><span class="oculto-accesible">Mes</span><select id="n-mes"></select></label></div>
-      <div class="vacio-numeros" id="n-vacio" hidden>
-        <p><strong>Aún no hay visitas registradas.</strong> Cada vez que sumes un sello, aquí se irá llenando cuánto te dejan tus clientes, tus mejores clientes y tus días más fuertes.</p>
-        <button class="boton chico" type="button" id="n-ver-ejemplo">Ver un ejemplo</button>
-      </div>
-      <div class="aviso-plan" id="n-ejemplo" role="status" hidden><span>Estás viendo un <strong>ejemplo con datos inventados</strong>.</span> <button class="boton chico" type="button" id="n-salir-ejemplo">Volver a mis números</button></div>
-      <div class="heroe" id="n-heroe" aria-live="polite" tabindex="-1"></div>
-      <p class="nota solo-tarjeta">Solo cuenta a tus clientes <strong>con tarjeta</strong>: las visitas de quienes no se registraron no aparecen aquí. Por eso estos números son menores que tu caja total; mientras más clientes registres, más completos serán.</p>
-      <dl class="datos" id="n-datos"></dl>
-
-      <h3 class="subtitulo">Lo que te dejaron tus clientes con tarjeta, mes a mes <span>(últimos 6 meses)</span></h3>
-      <div class="grafico" id="n-grafico"></div>
-      <details class="ver-tabla"><summary>Ver en tabla</summary><div class="tabla-envoltura"><table class="tabla" id="n-tabla"></table></div></details>
-
-      <h3 class="subtitulo">Tus clientes más fieles <span>(últimos 90 días)</span></h3>
-      <ol class="lista ranking" id="n-top"></ol>
-
-      <div id="n-vendidos-caja" hidden>
-        <h3 class="subtitulo">Servicios más vendidos <span>(últimos 90 días)</span></h3>
-        <ol class="lista ranking" id="n-vendidos"></ol>
-      </div>
-
-      <h3 class="subtitulo">Días con más visitas <span>(últimos 90 días)</span></h3>
-      <div class="grafico" id="n-dias"></div>
-      <p class="nota" id="n-horas"></p>
-
-      <h3 class="subtitulo">Hace tiempo que no vienen</h3>
-      <p class="nota" id="n-riesgo-nota"></p>
-      <ul class="lista" id="n-riesgo"></ul>
-
-      <details class="ajustes" id="n-ajustes">
-        <summary>Configurar tus montos</summary>
-        <form id="f-ajustes" class="rejilla">
-          <div class="campo"><label for="a-precio">Precio o consumo promedio por visita (S/)</label><input id="a-precio" name="precio" type="text" inputmode="decimal" maxlength="9" placeholder="35" aria-describedby="a-precio-ayuda"><p class="ayuda" id="a-precio-ayuda">Lo que paga en promedio un cliente. Se usa en las visitas sin monto anotado.</p></div>
-          <div class="campo"><label for="a-premio">Lo que te cuesta dar el premio (S/)</label><input id="a-premio" name="costoPremio" type="text" inputmode="decimal" maxlength="9" placeholder="Igual al precio" aria-describedby="a-premio-ayuda"><p class="ayuda" id="a-premio-ayuda">Vacío = se cuenta como una visita que no cobras.</p></div>
-          <div class="campo ancho-total"><label for="a-servicios">Tus servicios o productos y sus precios</label><textarea id="a-servicios" name="servicios" rows="5" placeholder="Corte = 30&#10;Barba = 15&#10;Corte + barba = 40" aria-describedby="a-servicios-ayuda"></textarea><p class="ayuda" id="a-servicios-ayuda">Uno por línea: nombre = precio. Al registrar una visita los eliges con un toque y el monto se suma solo.</p></div>
-          <div class="campo"><button class="boton primario" type="submit">Guardar montos</button><p class="estado" id="a-msg" role="status"></p></div>
-        </form>
-      </details>
-      <p class="nota">Cómo se calcula: solo cuentan los clientes con tarjeta, y cada vez que registras una visita (sello o compra) cuenta como visita. Si anotas lo cobrado, se usa ese monto; si no, tu precio promedio. «Clientes que volvieron» son los que vinieron este mes y ya habían venido antes. «Dejaron de venir» son los que venían seguido y llevan más de 45 días sin aparecer.</p>
+    <section class="bloque" aria-labelledby="t-top">
+      <h2 id="t-top">Tus mejores clientes</h2>
+      <p class="nota">Los que más vinieron en los últimos 3 meses. Trátalos como VIP.</p>
+      <ol class="lista ranking" id="top"></ol>
     </section>
 
-    <section class="bloque" aria-labelledby="t-resumen">
-      <h2 id="t-resumen">Resumen</h2>
-      <h3 class="subtitulo">Tu cartel y tu enlace <span>(últimos 30 días)</span></h3>
-      <dl class="datos" id="res-alcance"></dl>
-      <p class="nota">Cada celular cuenta una vez cada 12 horas. «Escaneos del QR» cuenta solo el QR del cartel del mostrador.</p>
-      <h3 class="subtitulo">Tus clientes</h3>
-      <dl class="datos" id="res-clientes"></dl>
-      <p><a class="boton chico" id="csv" href="/api/n/${e(n.slug)}/clientes.csv" download>Descargar clientes (CSV)</a></p>
-      <p class="nota">Enlace para que tus clientes creen su tarjeta: <a id="enlace-registro" href="/${e(n.slug)}">/${e(n.slug)}</a></p>
-      <p><a class="boton chico" href="/${e(n.slug)}/cartel" target="_blank" rel="noopener">${icono('qr')}Cartel con QR para el mostrador</a></p>
+    ${n.mostrar_numeros ? bloqueNumeros() : ''}
+
+    <section class="bloque" aria-labelledby="t-clientes">
+      <div class="fila"><h2 id="t-clientes">Clientes registrados</h2><span class="chip" id="total-clientes">0</span></div>
+      <p class="nota">Los últimos que crearon su tarjeta. Para encontrar a alguien, búscalo arriba en «Registrar visita».</p>
+      <ul class="lista" id="clientes"></ul>
+      <button class="boton chico" type="button" id="mas-clientes" hidden>Ver más clientes</button>
+    </section>
+
+    <section class="bloque" aria-labelledby="t-cartel">
+      <h2 id="t-cartel">Tu cartel y tu enlace</h2>
+      <p class="nota">Pon el cartel en el mostrador: tus clientes escanean el QR y crean su tarjeta en segundos.</p>
+      <p><a class="boton primario" href="/${e(n.slug)}/cartel" target="_blank" rel="noopener">${icono('qr')}Imprimir cartel con QR</a></p>
+      <p class="nota">O comparte este enlace en tu Instagram o WhatsApp: <a id="enlace-registro" href="/${e(n.slug)}">/${e(n.slug)}</a></p>
+      <p><a class="boton chico" id="csv" href="/api/n/${e(n.slug)}/clientes.csv" download>Descargar lista de clientes (Excel)</a></p>
     </section>
   </div>
 </main>`,
@@ -469,7 +475,7 @@ export function admin() {
   return base({
     titulo: 'Administración · Sistema de sellos',
     clase: 'es-panel',
-    scripts: ['comun.js', 'admin.js'],
+    scripts: ['comun.js', 'numeros.js', 'admin.js'],
     cuerpo: `
 <main id="principal" class="contenedor ancho admin">
   <header class="cabeza compacta fila">
@@ -495,6 +501,21 @@ export function admin() {
           <tbody id="negocios"></tbody>
         </table>
       </div>
+    </section>
+
+    <section class="bloque detalle" id="detalle" aria-labelledby="t-numeros" hidden tabindex="-1">
+      <div class="detalle-cabeza">
+        <div class="detalle-negocio"><span class="detalle-logo" id="det-logo" aria-hidden="true"></span><div><p class="antetitulo">Números del negocio</p><p class="detalle-nombre" id="det-nombre"></p></div></div>
+        <div class="botones chicos">
+          <a class="boton chico primario" id="det-reporte" target="_blank" rel="noopener">Reporte del mes (PDF)</a>
+          <a class="boton chico" id="det-wa" target="_blank" rel="noopener">${icono('wa')}Enviar resumen</a>
+          <button class="boton chico" type="button" id="det-cerrar">Cerrar</button>
+        </div>
+      </div>
+      <p class="nota">Esto ya no lo ve el dueño en su panel (salvo que actives «Mostrar números completos al dueño»). Elige el mes, abre el reporte, guárdalo en PDF y mándaselo por WhatsApp.</p>
+      ${bloqueNumeros('Resumen del mes')}
+      <h3 class="subtitulo">Su cartel y su enlace <span>(últimos 30 días)</span></h3>
+      <dl class="datos" id="det-alcance"></dl>
     </section>
 
     <section class="bloque numeros" aria-labelledby="t-rend">
@@ -602,10 +623,13 @@ export function admin() {
           <p class="nota">Pon cada servicio con su precio. En cada visita el cajero lo elige con un toque y así «Tus números» del negocio muestra lo que de verdad ganó.</p>
           <div class="rejilla">
             <div class="campo"><label for="f-precio">Precio promedio por servicio (S/)</label><input id="f-precio" name="precio" type="text" inputmode="decimal" maxlength="7" placeholder="35" aria-describedby="f-precio-ayuda"><p class="ayuda" id="f-precio-ayuda">Lo que cobra en promedio (un corte, por ejemplo). Con eso su panel calcula cuánto le dejan sus clientes y cuánto deja de ganar.</p></div>
+            <div class="campo"><label for="f-costo-premio">Lo que le cuesta dar el premio (S/)</label><input id="f-costo-premio" name="costo_premio" type="text" inputmode="decimal" maxlength="7" placeholder="Igual al precio" aria-describedby="f-costo-premio-ayuda"><p class="ayuda" id="f-costo-premio-ayuda">Vacío = se cuenta como un servicio que no cobra.</p></div>
             <div class="campo"><label for="f-espera">Minutos mínimos entre visitas</label><input id="f-espera" name="espera_min" type="number" min="0" max="10080" value="180"></div>
             <div class="campo ancho-total"><label for="f-servicios">Servicios o productos con su precio</label><textarea id="f-servicios" name="servicios_texto" rows="4" placeholder="Corte = 30&#10;Barba = 15&#10;Café americano = 8" aria-describedby="f-servicios-ayuda"></textarea><p class="ayuda" id="f-servicios-ayuda">Uno por línea: nombre = precio. En el panel se eligen con un toque al registrar la visita, y «Tus números» muestra los más vendidos.</p></div>
             <div class="check ancho-total"><input id="f-pedir" name="pedir_servicio" type="checkbox" value="1" checked aria-describedby="f-pedir-ayuda"><label for="f-pedir">Pedir el servicio en cada visita (recomendado)</label></div>
             <p class="ayuda ancho-total" id="f-pedir-ayuda">El cajero no puede sumar la visita sin elegir el servicio o escribir el monto cobrado. Desmárcalo solo si casi todo es un mismo servicio al mismo precio.</p>
+            <div class="check ancho-total"><input id="f-mostrar" name="mostrar_numeros" type="checkbox" value="1" aria-describedby="f-mostrar-ayuda"><label for="f-mostrar">Mostrar números completos al dueño en su panel</label></div>
+            <p class="ayuda ancho-total" id="f-mostrar-ayuda">Apagado (recomendado): su panel queda simple y tú le mandas el reporte cada mes. Actívalo solo si el dueño te pide ver todo.</p>
           </div>
         </fieldset>
         <fieldset class="grupo">
@@ -645,6 +669,23 @@ export function admin() {
     </section>
   </div>
 </main>`,
+  });
+}
+
+/** Reporte del mes de un negocio, para guardar en PDF y mandarlo por WhatsApp (lo arma reporte.js). */
+export function reporte() {
+  return base({
+    titulo: 'Reporte del mes',
+    clase: 'es-reporte',
+    scripts: ['comun.js', 'numeros.js', 'reporte.js'],
+    cuerpo: `
+<div class="reporte-barra" role="toolbar" aria-label="Opciones del reporte">
+  <label>Mes <select id="r-mes"></select></label>
+  <button class="boton primario chico" type="button" id="r-imprimir">Guardar en PDF</button>
+  <a class="boton chico" id="r-wa" target="_blank" rel="noopener" hidden>${icono('wa')}Mensaje para el dueño</a>
+  <span class="nota">En el celular: «Guardar en PDF» → Compartir → WhatsApp.</span>
+</div>
+<main id="principal" class="reporte-hoja"><p class="nota" id="r-estado">Cargando…</p><article id="reporte" hidden></article></main>`,
   });
 }
 
