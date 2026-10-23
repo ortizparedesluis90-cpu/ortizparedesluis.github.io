@@ -37,6 +37,7 @@ const COLUMNAS_NUEVAS = [
   ['movimientos', 'sellos', 'INTEGER'],
   ['negocios', 'pedir_servicio', 'INTEGER NOT NULL DEFAULT 1'],
   ['negocios', 'mostrar_numeros', 'INTEGER NOT NULL DEFAULT 0'],
+  ['negocios', 'sello_regalo', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
@@ -183,11 +184,17 @@ async function registrar(req, env, n) {
   const recordatorios = datos.recordatorios === true || datos.recordatorios === '1' ? 1 : 0;
   const origen = datos.origen === 'qr' ? 'qr' : 'enlace';
   const consentimiento = `${new Date().toISOString()} aviso ${AVISO_VERSION}${recordatorios ? ' + recordatorios' : ''}`;
+  // «Primer sello de regalo» (si el negocio lo activó): la tarjeta empieza en 1. No cuenta como visita.
+  const regalo = n.sello_regalo && leerPrograma(n).tipo === 'sellos' ? 1 : 0;
   for (let intento = 0; intento < 5; intento++) {
     try {
-      await env.DB.prepare(
-        'INSERT INTO clientes (negocio_id, token, codigo, nombre, celular, recordatorios, consentimiento, origen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(n.id, token, nuevoCodigo(), nombre, celular, recordatorios, consentimiento, origen).run();
+      await env.DB.batch([
+        env.DB.prepare(
+          'INSERT INTO clientes (negocio_id, token, codigo, nombre, celular, recordatorios, consentimiento, origen, sellos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(n.id, token, nuevoCodigo(), nombre, celular, recordatorios, consentimiento, origen, regalo),
+        env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, servicio, sellos) SELECT ?, id, 'regalo', 'Sello de bienvenida', 1 FROM clientes WHERE token = ? AND ? = 1`)
+          .bind(n.id, token, regalo),
+      ]);
       break;
     } catch (err) {
       if (!/UNIQUE/i.test(String(err))) throw err;
@@ -704,7 +711,7 @@ async function apiAdmin(req, env, partes, url) {
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
       `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
-         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio, n.costo_premio, n.mostrar_numeros,
+         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio, n.costo_premio, n.mostrar_numeros, n.sello_regalo,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
          (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
@@ -800,12 +807,13 @@ async function apiAdmin(req, env, partes, url) {
     const pedir = d.pedir_servicio === undefined ? null : (d.pedir_servicio === '1' ? 1 : 0);
     // «Mostrar números completos al dueño»: apagado por defecto (el reporte se lo mandas tú).
     const mostrar = d.mostrar_numeros === undefined ? null : (d.mostrar_numeros === '1' ? 1 : 0);
+    const regalo = d.sello_regalo === undefined ? null : (d.sello_regalo === '1' ? 1 : 0);
     if (existe) {
       await env.DB.prepare(
         `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?, pedir_servicio=COALESCE(?, pedir_servicio),
-         costo_premio=COALESCE(?, costo_premio), mostrar_numeros=COALESCE(?, mostrar_numeros)
+         costo_premio=COALESCE(?, costo_premio), mostrar_numeros=COALESCE(?, mostrar_numeros), sello_regalo=COALESCE(?, sello_regalo)
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, pedir, d.costo_premio === undefined ? null : costoPremio || 0, mostrar, ...(hash ? [hash] : []), existe.id).run();
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, pedir, d.costo_premio === undefined ? null : costoPremio || 0, mostrar, regalo, ...(hash ? [hash] : []), existe.id).run();
       return json({ ok: true, creado: false });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
@@ -813,9 +821,9 @@ async function apiAdmin(req, env, partes, url) {
     if (!v.vence) v.vence = sumarMeses(hoyLima(), 1);
     if (!v.plan) v.plan = 'prueba';
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, pedir_servicio, costo_premio, mostrar_numeros)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, pedir === null ? 1 : pedir, costoPremio || 0, mostrar || 0).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, pedir_servicio, costo_premio, mostrar_numeros, sello_regalo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, pedir === null ? 1 : pedir, costoPremio || 0, mostrar || 0, regalo || 0).run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);
@@ -884,7 +892,7 @@ async function vistaPrevia(req, env, pagina, url) {
   const meta = Math.min(20, Math.max(3, Math.round(Number(d.meta)) || 10));
   const n = {
     slug: 'vista', nombre: limpiarTexto(d.nombre, 60) || 'Tu negocio', programa: limpiarTexto(d.programa, 40) || 'Club de clientes',
-    premio: limpiarTexto(d.premio, 60) || 'Premio', meta, redes: '{}', razon_social: '', vista: true, tipo: 'sellos', reglas: '{}',
+    premio: limpiarTexto(d.premio, 60) || 'Premio', meta, redes: '{}', razon_social: '', vista: true, tipo: 'sellos', reglas: '{}', sello_regalo: d.sello_regalo ? 1 : 0,
     d: leerDiseno(null, d.diseno), temaUrl: `/admin/vista/tema.css?d=${encodeURIComponent(crudo)}`,
   };
   try { n.redes = leerRedes(d).redes || '{}'; } catch { n.redes = '{}'; }

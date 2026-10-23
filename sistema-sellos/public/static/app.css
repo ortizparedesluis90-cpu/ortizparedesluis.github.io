@@ -435,9 +435,6 @@ html[data-tema="oscuro"] .boton.wallet{border-color:rgba(255,255,255,.35)}
 .campo textarea{width:100%;font:inherit;padding:10px 12px;border-radius:12px;border:1.5px solid var(--borde-campo);background:var(--superficie-2);color:var(--texto);resize:vertical}
 
 /* ===== Panel simple del negocio ===== */
-.datos.simples{grid-template-columns:repeat(2,1fr);margin:10px 0 6px}
-.datos.simples dd{font-size:1.9rem;line-height:1.1}
-@media(min-width:640px){.datos.simples{grid-template-columns:repeat(4,1fr)}}
 h2 .chip{font:800 .85rem/1 var(--f-texto,system-ui);letter-spacing:0;padding:5px 9px;margin-left:6px;vertical-align:middle;background:var(--acento);color:var(--sobre-acento);border-color:transparent}
 .vacio-lista{color:var(--suave);background:var(--superficie-2);border-radius:14px;padding:12px 14px;margin:12px 0 0}
 .lista li.vacio,.ranking li.vacio{color:var(--suave)}
@@ -514,3 +511,57 @@ body.es-reporte::before{display:none}
 }
 @media(min-width:900px){.detalle #n-datos{grid-template-columns:repeat(5,1fr)}}
 .lista .quien{flex:1;min-width:0}
+
+/* ===== Rediseño (revisión de Figma): tarjeta, registro y panel ===== */
+/* Tarjeta: lo que falta para el premio, en grande, con barra de avance */
+.carnet-top{align-items:center;margin-bottom:6px}
+.pill-avance{font-weight:800;font-size:.85rem;line-height:1;padding:6px 10px;border-radius:999px;background:var(--acento);color:var(--sobre-acento);white-space:nowrap}
+.frase-avance{font-size:1.4rem;line-height:1.25;margin:0 0 12px;color:var(--texto)}
+.frase-avance strong{font-weight:800}
+.carnet .barra{margin:0 0 16px;background:color-mix(in srgb,var(--texto) 14%,transparent)}
+.barra span{width:0;transition:width .6s ease}
+.qr-caja h2{font-family:var(--f-texto,system-ui);font-size:1.05rem;font-weight:700;margin-bottom:12px}
+/* Registro: vista de la tarjeta, formulario arriba y pasos en una línea */
+.vista-tarjeta{padding:16px 16px 14px}
+.vista-nombre{margin:0;font-family:var(--f-titulo,ui-serif,Georgia,serif);font-size:1.15rem;font-weight:var(--w-titulo,600)}
+.vista-tarjeta .carnet-top{margin-bottom:12px}
+.vista-tarjeta .sellos{gap:8px}
+.regalo-aviso{display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0 0;padding:8px 10px;border-radius:12px;font-weight:700;font-size:.9rem;text-align:center;background:color-mix(in srgb,var(--texto) 8%,transparent)}
+.regalo-aviso .ico{flex:none}
+.tarjeta-form .boton.ancho.grande{margin-top:16px}
+.seguro{font-size:.82rem;color:var(--suave);text-align:center;margin:10px 0 0}
+.pasos-cortos{list-style:none;padding:0;margin:0 0 22px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pasos-cortos li{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;background:var(--superficie);border:1px solid var(--borde);border-radius:14px;padding:10px 6px;font-size:.8rem;line-height:1.3;color:var(--suave)}
+.pasos-cortos strong{font-size:1rem;color:var(--texto)}
+/* Panel: cabecera compacta, «Hoy» destacado, «Escríbeles hoy» con borde y barra fija para escanear */
+.cabeza-panel{flex-wrap:nowrap;padding-top:4px}
+.cabeza-panel h1{font-size:calc(1.6rem * var(--escala-titulo,1))}
+.cabeza-panel .antetitulo{margin-bottom:2px}
+.salir-discreto{flex:none;font:inherit;font-size:.85rem;font-weight:600;color:var(--suave);background:transparent;border:1px solid var(--borde);border-radius:999px;padding:8px 14px;min-height:40px;cursor:pointer}
+.hoy{background:var(--acento);color:var(--sobre-acento);border-radius:var(--radio);padding:16px 18px;margin-bottom:18px}
+.hoy p{margin:0}
+.hoy-t{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;opacity:.75}
+.hoy-valor{font-size:2.2rem;font-weight:800;line-height:1.15}
+.hoy-nota{font-size:.88rem;opacity:.8}
+.bloque.destacado{border:2px solid var(--acento)}
+.etiqueta-mes{font-size:.85rem;font-weight:600;color:var(--suave)}
+.datos.simples{grid-template-columns:repeat(3,1fr);margin:10px 0 6px}
+.datos.simples dd{font-size:1.7rem;line-height:1.1}
+.datos.simples dt{font-size:.8rem}
+.es-panel #app{padding-bottom:96px}
+.barra-fija{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;gap:10px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--fondo) 92%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-top:1px solid var(--borde)}
+.barra-fija .boton{min-height:56px}
+.barra-fija #escanear{flex:1}
+@media(min-width:900px){.barra-fija{left:50%;right:auto;transform:translateX(-50%);width:min(860px,100%);border:1px solid var(--borde);border-bottom:0;border-radius:20px 20px 0 0}}
+@media print{.barra-fija{display:none}}
+.vista-tarjeta .sellos.chicos{margin:0;gap:5px}
+.vista-tarjeta .sellos.chicos .sello .ico{width:62%;height:62%}
+.barra-fija .boton{white-space:nowrap}
+.vista-tarjeta .sellos.chicos[data-n="3"]{grid-template-columns:repeat(3,1fr)}
+.vista-tarjeta .sellos.chicos[data-n="4"]{grid-template-columns:repeat(4,1fr)}
+.vista-tarjeta .sellos.chicos[data-n="5"]{grid-template-columns:repeat(5,1fr)}
+.vista-tarjeta .sellos.chicos[data-n="6"]{grid-template-columns:repeat(6,1fr)}
+.vista-tarjeta .sellos.chicos[data-n="7"]{grid-template-columns:repeat(7,1fr)}
+.vista-tarjeta .sellos.chicos[data-n="8"]{grid-template-columns:repeat(8,1fr)}
+.vista-tarjeta .sellos.chicos[data-n="9"]{grid-template-columns:repeat(9,1fr)}
+.vista-tarjeta .sellos.chicos .sello{max-width:56px;justify-self:center;width:100%}

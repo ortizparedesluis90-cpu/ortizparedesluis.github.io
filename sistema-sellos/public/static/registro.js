@@ -30,7 +30,7 @@
       body: { nombre: nombre.value, celular: digitos, acepta: true, recordatorios: document.getElementById('recordatorios').checked, origen: document.getElementById('origen').value },
     });
     if (r.ok && r.datos.url) { location.href = r.datos.url; return; }
-    boton.disabled = false; boton.textContent = 'Crear mi tarjeta';
+    boton.disabled = false; boton.textContent = 'Crear mi tarjeta gratis';
     fallo(r.datos.error || 'No se pudo crear la tarjeta. Intenta de nuevo.');
   });
 })();

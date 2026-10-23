@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS negocios (
   servicios     TEXT NOT NULL DEFAULT '[]',       -- JSON: [{n: nombre, p: precio en céntimos}]
   pedir_servicio INTEGER NOT NULL DEFAULT 1,      -- 1 = el cajero debe elegir el servicio (o escribir el monto) en cada visita
   mostrar_numeros INTEGER NOT NULL DEFAULT 0,     -- 1 = el dueño ve «Tus números» completos en su panel (si no, solo en /admin)
+  sello_regalo  INTEGER NOT NULL DEFAULT 0,       -- 1 = la tarjeta nueva empieza con 1 sello de regalo (solo sellos)
   clave_hash    TEXT NOT NULL DEFAULT '',         -- clave del panel (PBKDF2)
   clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar la clave: cierra sesiones viejas
   activo        INTEGER NOT NULL DEFAULT 1,
@@ -61,7 +62,7 @@ CREATE TABLE IF NOT EXISTS movimientos (
   id          INTEGER PRIMARY KEY,
   negocio_id  INTEGER NOT NULL,
   cliente_id  INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
-  tipo        TEXT NOT NULL,                      -- sello (visita) | canje | traspaso (sellos de la tarjeta de papel, una vez)
+  tipo        TEXT NOT NULL,                      -- sello (visita) | canje | traspaso (sellos de la tarjeta de papel, una vez) | regalo (sello de bienvenida)
   monto       INTEGER,                            -- lo cobrado en esa visita, en céntimos (opcional). En un canje de cashback, el saldo usado
   servicio    TEXT,                               -- servicios de la visita («Corte + Barba») o premio canjeado
   puntos      INTEGER,                            -- puntos sumados (o restados en un canje). NULL en sellos

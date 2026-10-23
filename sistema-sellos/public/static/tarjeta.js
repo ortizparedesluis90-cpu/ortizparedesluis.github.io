@@ -7,25 +7,26 @@
   var $ = function (id) { return document.getElementById(id); };
   var actual = null;
 
+  // Misma frase que fraseFalta() en src/paginas.js.
+  // (d.premio de la API es la frase del estado; el nombre del premio va en la página).
+  var nombrePremio = main.getAttribute('data-premio');
+  function frase(nodo, d) {
+    var f = Math.max(0, d.meta - d.sellos), b = function (t) { return Sellos.el('strong', { texto: t }); };
+    nodo.textContent = '';
+    if (!f) nodo.append('¡Completaste tu tarjeta!', document.createElement('br'), 'Pide en caja tu ', b(nombrePremio));
+    else if (f === 1) nodo.append('¡Te falta solo ', b('1 sello'), '!', document.createElement('br'), 'para tu ', b(nombrePremio));
+    else nodo.append('Te faltan ', b(f + ' sellos'), document.createElement('br'), 'para tu ', b(nombrePremio));
+  }
   function pintar(d) {
-    var listo = d.sellos >= d.meta;
+    var listo = d.sellos >= d.meta, llenos = Math.min(d.sellos, d.meta);
     var extra = Math.max(0, d.sellos - d.meta);
     Sellos.casillas($('sellos'), d.sellos, d.meta);
-    $('sellos').setAttribute('aria-label', 'Sellos: ' + Math.min(d.sellos, d.meta) + ' de ' + d.meta);
-    $('progreso').innerHTML = '';
-    if (listo) $('progreso').textContent = '¡Completaste tu tarjeta!';
-    else {
-      $('progreso').append('Llevas ', Sellos.el('strong', { texto: String(d.sellos) }), ' de ' + d.meta + ' sellos');
-    }
+    $('sellos').setAttribute('aria-label', 'Sellos: ' + llenos + ' de ' + d.meta);
+    $('avance').textContent = llenos + ' de ' + d.meta;
+    $('barra').setAttribute('aria-valuenow', String(llenos)); Sellos.barras();
+    frase($('progreso'), d);
     Sellos.mostrar($('extra'), extra ? '+' + extra + ' sello' + (extra === 1 ? '' : 's') + ' para tu próxima tarjeta' : '');
-    var premio = $('premio');
-    premio.classList.toggle('listo', listo);
-    var span = premio.querySelector('span');
-    span.textContent = '';
-    if (listo) span.append(Sellos.el('strong', { texto: '¡Premio listo!' }), ' Pide en caja: ' + d.premio);
-    else span.textContent = 'Premio: ' + d.premio;
-    $('visitas').textContent = d.visitas;
-    $('premios').textContent = d.premios;
+    $('premio').hidden = !listo;
   }
 
   async function revisar() {

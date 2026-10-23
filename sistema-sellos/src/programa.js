@@ -107,9 +107,3 @@ export function lema(n) {
   if (pr.tipo === 'cashback') return ['Recibe ', `${pr.pct} % de vuelta`, ' en cada compra para usar en la ', 'próxima'];
   return ['Junta ', `${n.meta} sellos`, ' y gana ', n.premio];
 }
-export function pasos(n) {
-  const pr = leerPrograma(n);
-  if (pr.tipo === 'puntos') return ['En cada compra muestra tu código QR en caja y te sumamos tus puntos.', 'Canjea tus puntos por los premios que quieras.'];
-  if (pr.tipo === 'cashback') return [`En cada compra muestra tu código QR en caja y recibes el ${pr.pct} % como saldo.`, 'Usa tu saldo como descuento en tus próximas compras.'];
-  return ['En cada visita muestra tu código QR en caja y te sumamos un sello.', `Al completar ${n.meta} sellos, reclamas tu premio.`];
-}

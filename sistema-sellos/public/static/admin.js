@@ -250,6 +250,7 @@
     f.elements.pedir_servicio.checked = n.pedir_servicio === undefined || n.pedir_servicio === null ? true : !!n.pedir_servicio;
     f.elements.costo_premio.value = n.costo_premio ? String(n.costo_premio / 100) : '';
     f.elements.mostrar_numeros.checked = !!n.mostrar_numeros;
+    f.elements.sello_regalo.checked = !!n.sello_regalo;
     f.elements.editar.value = n.slug;
     f.elements.clave.value = '';
     ponerDiseno(n.diseno || {});
@@ -421,6 +422,7 @@
       var f = $('form-negocio');
       var d = { nombre: f.elements.nombre.value, programa: f.elements.programa.value, premio: f.elements.premio.value, meta: f.elements.meta.value, diseno: diseno };
       ['tipo', 'por_sol', 'premios_texto', 'pct', 'minimo'].forEach(function (k) { d[k] = f.elements[k].value; });
+      d.sello_regalo = f.elements.sello_regalo.checked;
       ['whatsapp', 'instagram', 'tiktok', 'facebook', 'maps', 'web'].forEach(function (k) { d['red_' + k] = f.elements['red_' + k].value; });
       var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(d)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
       $('v-registro').src = '/admin/vista/registro?d=' + b64;
@@ -429,6 +431,7 @@
   }
   ['nombre', 'programa', 'premio', 'meta', 'por_sol', 'premios_texto', 'pct', 'minimo'].forEach(function (k) { $('form-negocio').elements[k].addEventListener('input', vistaPrevia); });
   $('form-negocio').elements.slug.addEventListener('input', pintarMedios);
+  $('form-negocio').elements.sello_regalo.addEventListener('change', vistaPrevia);
   // Pestañas de la vista previa: tarjeta o página de registro.
   document.querySelectorAll('[data-vista]').forEach(function (b) {
     b.addEventListener('click', function () {

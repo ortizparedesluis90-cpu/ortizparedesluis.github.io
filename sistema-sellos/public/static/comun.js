@@ -46,5 +46,14 @@ window.Sellos = (function () {
     }
   }
   function mostrar(nodo, texto) { nodo.textContent = texto || ''; nodo.hidden = !texto; }
-  return { api: api, el: el, casillas: casillas, mostrar: mostrar };
+  /** Barras de avance: el ancho sale de aria-valuenow / aria-valuemax (la CSP no permite style="" en el HTML). */
+  function barras() {
+    document.querySelectorAll('.barra[role=progressbar]').forEach(function (b) {
+      var max = Number(b.getAttribute('aria-valuemax')) || 100, v = Number(b.getAttribute('aria-valuenow')) || 0;
+      var span = b.querySelector('span');
+      if (span) span.style.width = Math.max(0, Math.min(100, v / max * 100)) + '%';
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', barras); else barras();
+  return { api: api, el: el, casillas: casillas, mostrar: mostrar, barras: barras };
 })();

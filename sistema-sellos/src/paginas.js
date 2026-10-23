@@ -1,10 +1,10 @@
 // Plantillas HTML. Todo el JavaScript va en /static (la política CSP no permite scripts en línea).
 import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './diseno.js';
-import { leerPrograma, leerServicios, estado, lema, pasos, soles, TIPOS } from './programa.js';
+import { leerPrograma, leerServicios, estado, lema, soles, TIPOS } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-11-01';
+const V = '2026-11-02';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -71,10 +71,41 @@ const pie = (n) => `<footer class="pie">
 
 // «Junta <b>10 sellos</b> y gana <b>Corte gratis</b>» según el tipo de programa.
 const lemaHtml = (n) => { const [a, b, c, d] = lema(n); return `${e(a)}<strong>${e(b)}</strong>${e(c)}${d ? `<strong>${e(d)}</strong>` : ''}`; };
+/** Arriba de la página: si hay logo, solo el logo (el nombre queda para lectores de pantalla); si no, nombre y programa. */
+const marca = (n) => (n.d.logo
+  ? `${logoHtml(n.d, n.nombre)}<h1 class="oculto-accesible">${e(n.programa)} · ${e(n.nombre)}</h1>`
+  : `<p class="antetitulo">${e(n.nombre)}</p><h1>${e(n.programa)}</h1>`);
+/** La frase que más motiva: cuánto le falta. La repite public/static/tarjeta.js al actualizarse. */
+function fraseFalta(n, c) {
+  const f = Math.max(0, n.meta - c.sellos);
+  if (!f) return `¡Completaste tu tarjeta!<br>Pide en caja tu <strong>${e(n.premio)}</strong>`;
+  if (f === 1) return `¡Te falta solo <strong>1 sello</strong>!<br>para tu <strong>${e(n.premio)}</strong>`;
+  return `Te faltan <strong>${f} sellos</strong><br>para tu <strong>${e(n.premio)}</strong>`;
+}
 const pausa = (texto) => `<section class="pausa" role="status"><h2>Programa en pausa</h2><p>${texto}</p></section>`;
 
+/** Los 3 pasos en palabras cortas, para el final de la página de registro. */
+function pasosCortos(n) {
+  const t = leerPrograma(n).tipo;
+  if (t === 'puntos') return ['Creas tu tarjeta', 'Sumas puntos al comprar', 'Los canjeas por premios'];
+  if (t === 'cashback') return ['Creas tu tarjeta', 'Juntas saldo al comprar', 'Lo usas como descuento'];
+  return ['Creas tu tarjeta', 'Muestras tu QR en caja', `Ganas tu ${n.premio}`];
+}
+
+/** Así se verá su tarjeta (solo en sellos): lo que va a recibir, con el sello de regalo si el negocio lo da. */
+function vistaTarjeta(n) {
+  if (leerPrograma(n).tipo !== 'sellos') return '';
+  const regalo = n.sello_regalo ? 1 : 0;
+  const casillas = Array.from({ length: n.meta }, (_, i) => `<li class="sello${i < regalo ? ' lleno' : ''}">${i < regalo ? selloLleno(n.d) : `<span>${i + 1}</span>`}</li>`).join('');
+  return `
+  <section class="carnet vista-tarjeta" aria-label="Así se verá tu tarjeta">
+    <div class="carnet-top"><p class="vista-nombre">${e(n.programa)}</p><span class="pill-avance">${regalo} de ${n.meta}</span></div>
+    <ol class="sellos chicos" data-n="${Math.min(n.meta, 10)}" aria-hidden="true">${casillas}</ol>
+    <p class="regalo-aviso">${icono('regalo')}<span>${regalo ? 'Tu primer sello va de regalo al crear tu tarjeta' : `Completa ${n.meta} sellos y gana ${e(n.premio)}`}</span></p>
+  </section>`;
+}
+
 export function registro(n, { error = '', valores = {} } = {}) {
-  const titular = n.razon_social || n.nombre;
   return base({
     titulo: `${n.programa} · ${n.nombre}`,
     negocio: n,
@@ -83,33 +114,24 @@ export function registro(n, { error = '', valores = {} } = {}) {
     cuerpo: `
 <main id="principal" class="contenedor">
   ${portadaHtml(n.d)}
-  <header class="cabeza">
-    ${logoHtml(n.d, n.nombre)}
-    <p class="antetitulo">${e(n.nombre)}</p>
-    <h1>${e(n.programa)}</h1>
+  <header class="cabeza compacta">
+    ${marca(n)}
     <p class="bajada">${lemaHtml(n)}.</p>
   </header>
 
-  ${redes(n, 'Síguenos y reserva')}
-
   ${n.suspendido ? pausa('Por ahora no estamos creando tarjetas nuevas. Vuelve a intentarlo más adelante.') : ''}
   <div${n.suspendido ? ' hidden' : ''}>
-  <ol class="pasos" aria-label="Cómo funciona">
-    <li><span class="num" aria-hidden="true">1</span><span>Crea tu tarjeta gratis con tu nombre y celular.</span></li>
-    <li><span class="num" aria-hidden="true">2</span><span>${e(pasos(n)[0])}</span></li>
-    <li><span class="num" aria-hidden="true">3</span><span>${e(pasos(n)[1])}</span></li>
-  </ol>
+  ${vistaTarjeta(n)}
 
   <form class="tarjeta-form" id="form-registro" method="post" action="/${e(n.slug)}/registro" novalidate>
     <input type="hidden" name="origen" id="origen" value="${valores.origen === 'qr' ? 'qr' : 'enlace'}">
-    <h2>Crea tu tarjeta</h2>
-    <p class="nota">Solo pedimos lo necesario: tu nombre y tu celular.</p>
+    <h2 class="oculto-accesible">Crea tu tarjeta</h2>
     <div class="campo">
-      <label for="nombre">Nombre</label>
+      <label for="nombre">Tu nombre</label>
       <input id="nombre" name="nombre" type="text" autocomplete="given-name" maxlength="60" required value="${e(valores.nombre)}">
     </div>
     <div class="campo">
-      <label for="celular">Celular (WhatsApp)</label>
+      <label for="celular">Tu celular (WhatsApp)</label>
       <div class="prefijo"><span aria-hidden="true">+51</span>
         <input id="celular" name="celular" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="16" placeholder="9XX XXX XXX" required aria-describedby="celular-ayuda" value="${e(valores.celular)}">
       </div>
@@ -117,16 +139,22 @@ export function registro(n, { error = '', valores = {} } = {}) {
     </div>
     <div class="check">
       <input id="acepta" name="acepta" type="checkbox" value="1" required>
-      <label for="acepta">Tengo 14 años o más, leí el <a href="/${e(n.slug)}/privacidad" target="_blank" rel="noopener">aviso de privacidad</a> y acepto que ${e(titular)} use mi nombre y celular para administrar mi tarjeta de cliente frecuente.</label>
+      <label for="acepta">Tengo 14 años o más y acepto el <a href="/${e(n.slug)}/privacidad" target="_blank" rel="noopener">aviso de privacidad</a>.</label>
     </div>
     <div class="check">
       <input id="recordatorios" name="recordatorios" type="checkbox" value="1">
-      <label for="recordatorios">Quiero recibir por WhatsApp recordatorios de mis sellos y premios. <span class="opcional">(Opcional. Puedes darte de baja cuando quieras.)</span></label>
+      <label for="recordatorios">Avísame por WhatsApp cuando esté cerca de mi premio <span class="opcional">(opcional, te das de baja cuando quieras)</span></label>
     </div>
     <p class="aviso-error" id="registro-error" role="alert"${error ? '' : ' hidden'}>${e(error)}</p>
-    <button class="boton primario ancho" type="submit">Crear mi tarjeta</button>
+    <button class="boton primario ancho grande" type="submit">Crear mi tarjeta gratis</button>
+    <p class="seguro">Solo usamos tu nombre y celular para tu tarjeta. Sin apps ni contraseñas.</p>
   </form>
+  <ol class="pasos-cortos" aria-label="Cómo funciona">
+    ${pasosCortos(n).map((t, i) => `<li><strong>${i + 1}</strong><span>${e(t)}</span></li>`).join('')}
+  </ol>
   </div>
+
+  ${redes(n, 'Síguenos y reserva')}
 </main>
 ${pie(n)}`,
   });
@@ -140,7 +168,7 @@ function carnetSaldo(n, c) {
     const avance = Math.min(100, Math.round((st.puntos / base) * 100));
     return `
     <div class="saldo-grande"><strong id="saldo-valor">${st.puntos}</strong><span>punto${st.puntos === 1 ? '' : 's'}</span></div>
-    <div class="barra" role="progressbar" aria-label="Avance al siguiente premio" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${avance}"><span style="width:${avance}%"></span></div>
+    <div class="barra" role="progressbar" aria-label="Avance al siguiente premio" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${avance}"><span></span></div>
     <p class="premio${st.listo ? ' listo' : ''}" id="premio">${icono('regalo')}<span>${e(st.premio)}</span></p>
     <ul class="premios-lista">${pr.premios.map((p) => `<li class="${p.p <= st.puntos ? 'alcanzado' : ''}"><span>${e(p.n)}</span><strong>${p.p} pts</strong></li>`).join('')}</ul>
     <p class="nota">Ganas ${pr.porSol === 1 ? '1 punto' : `${pr.porSol} puntos`} por cada S/ 1 de compra.</p>`;
@@ -166,12 +194,10 @@ export function tarjeta(n, c, qrSvg, url) {
     scripts: ['comun.js', 'tarjeta.js', 'efectos.js'],
     decorar: true,
     cuerpo: `
-<main id="principal" class="contenedor"${n.vista ? '' : ` data-api="/api/n/${e(n.slug)}/t/${e(c.token)}"`} data-meta="${n.meta}" data-tipo="${tipo}">
+<main id="principal" class="contenedor"${n.vista ? '' : ` data-api="/api/n/${e(n.slug)}/t/${e(c.token)}"`} data-meta="${n.meta}" data-tipo="${tipo}" data-premio="${e(n.premio)}">
   <template id="sello-lleno">${selloLleno(n.d)}</template>
   <header class="cabeza compacta">
-    ${logoHtml(n.d, n.nombre)}
-    <p class="antetitulo">${e(n.nombre)}</p>
-    <h1>${e(n.programa)}</h1>
+    ${marca(n)}
   </header>
 
   ${n.suspendido ? pausa('Tus sellos están guardados. Por ahora el negocio no está sumando sellos.') : ''}
@@ -179,32 +205,28 @@ export function tarjeta(n, c, qrSvg, url) {
     <span class="brillo" aria-hidden="true"></span>
     <div class="carnet-top">
       <h2 id="hola">Hola, ${e(primerNombre(c.nombre))}</h2>
-      ${tipo === 'sellos' ? `<p class="progreso" id="progreso" aria-live="polite">${listo ? '¡Completaste tu tarjeta!' : `Llevas <strong>${c.sellos}</strong> de ${n.meta} sellos`}</p>` : ''}
+      ${tipo === 'sellos' ? `<span class="pill-avance" id="avance">${sellos} de ${n.meta}</span>` : ''}
     </div>
-    ${tipo === 'sellos' ? `<ol class="sellos" id="sellos" aria-label="Sellos: ${sellos} de ${n.meta}">${casillas}</ol>
+    ${tipo === 'sellos' ? `<p class="frase-avance" id="progreso" aria-live="polite">${fraseFalta(n, c)}</p>
+    <div class="barra" role="progressbar" aria-label="Avance de tu tarjeta" aria-valuemin="0" aria-valuemax="${n.meta}" aria-valuenow="${sellos}" id="barra"><span></span></div>
+    <ol class="sellos" id="sellos" aria-label="Sellos: ${sellos} de ${n.meta}">${casillas}</ol>
     <p class="extra" id="extra"${extra ? '' : ' hidden'}>+${extra} sello${extra === 1 ? '' : 's'} para tu próxima tarjeta</p>
-    <p class="premio${listo ? ' listo' : ''}" id="premio">${icono('regalo')}<span>${listo ? `<strong>¡Premio listo!</strong> Pide en caja: ${e(n.premio)}` : `Premio: ${e(n.premio)}`}</span></p>` : carnetSaldo(n, c)}
+    <p class="premio listo" id="premio"${listo ? '' : ' hidden'}>${icono('regalo')}<span><strong>¡Premio listo!</strong> Muestra tu código en caja</span></p>` : carnetSaldo(n, c)}
   </section>
 
   <section class="qr-caja" aria-labelledby="qr-titulo">
-    <h2 id="qr-titulo">Tu código</h2>
-    <p>Muéstralo en caja en cada visita.</p>
+    <h2 id="qr-titulo">Muestra este código en caja</h2>
     <div class="qr" role="img" aria-label="Código QR de tu tarjeta">${qrSvg}</div>
     <p class="codigo" aria-label="Código ${e(c.codigo.split('').join(' '))}">${e(codigo)}</p>
   </section>
 
   <section class="acciones">
     ${n.wallet ? `<a class="boton wallet" href="/${e(n.slug)}/t/${e(c.token)}/wallet" rel="nofollow">${icono('wallet')}Agregar a Google Wallet</a>` : ''}
-    <a class="boton" href="https://wa.me/${e(c.celular)}?text=${encodeURIComponent(mensaje)}" target="_blank" rel="noopener">${icono('wa')}Enviarme el enlace por WhatsApp</a>
-    <p class="nota">Guarda este enlace o agrégalo a tu pantalla de inicio (menú del navegador → «Agregar a pantalla de inicio»). Es tu tarjeta: no lo compartas.</p>
+    <a class="boton" href="https://wa.me/${e(c.celular)}?text=${encodeURIComponent(mensaje)}" target="_blank" rel="noopener">${icono('wa')}Guardar mi tarjeta por WhatsApp</a>
+    <p class="nota">Te llega tu enlace a tu WhatsApp para abrirla cuando quieras. No lo compartas.</p>
   </section>
 
   ${redes(n, `Reserva y síguenos`)}
-
-  <dl class="datos">
-    <div><dt>Visitas</dt><dd id="visitas">${c.visitas}</dd></div>
-    <div><dt>${tipo === 'cashback' ? 'Veces que usaste tu saldo' : 'Premios canjeados'}</dt><dd id="premios">${c.premios}</dd></div>
-  </dl>
 
   <details class="borrar">
     <summary>Eliminar mis datos</summary>
@@ -355,9 +377,9 @@ export function panel(n) {
     scripts: ['jsqr.js', 'comun.js', ...(n.mostrar_numeros ? ['numeros.js'] : []), 'panel.js'],
     cuerpo: `
 <main id="principal" class="contenedor ancho" data-slug="${e(n.slug)}" data-meta="${n.meta}" data-premio="${e(n.premio)}" data-negocio="${e(n.nombre)}" data-programa="${e(n.programa)}" data-tipo="${leerPrograma(n).tipo}" data-reglas="${e(JSON.stringify(leerPrograma(n)))}" data-servicios="${e(JSON.stringify(leerServicios(n)))}" data-pedir="${n.pedir_servicio ? 1 : 0}">
-  <header class="cabeza compacta fila">
-    <div><p class="antetitulo">Panel del negocio</p><h1>${e(n.nombre)}</h1></div>
-    <button class="boton chico" type="button" id="salir" hidden>${icono('salir')}Salir</button>
+  <header class="cabeza compacta fila cabeza-panel">
+    <div><p class="antetitulo">Panel</p><h1>${e(n.nombre)}</h1></div>
+    <button class="salir-discreto" type="button" id="salir" hidden>Salir</button>
   </header>
 
   <noscript><p class="aviso-error">El panel necesita JavaScript activado.</p></noscript>
@@ -372,9 +394,14 @@ export function panel(n) {
   </form>
 
   <div id="app" hidden>
-    <section class="bloque" aria-labelledby="t-buscar">
-      <h2 id="t-buscar">Registrar visita</h2>
-      <button class="boton primario ancho grande" type="button" id="escanear">${icono('qr')}Escanear QR del cliente</button>
+    <section class="hoy" aria-labelledby="t-hoy">
+      <p class="hoy-t" id="t-hoy">Hoy</p>
+      <p class="hoy-valor" id="hoy-visitas" aria-live="polite">0 visitas</p>
+      <p class="hoy-nota">Escanea a cada cliente al cobrar.</p>
+    </section>
+
+    <section class="bloque" aria-labelledby="t-buscar" id="registrar">
+      <h2 id="t-buscar">Buscar cliente</h2>
       <div class="camara" id="camara" hidden>
         <video id="video" playsinline muted></video>
         <div class="mira" aria-hidden="true"></div>
@@ -382,7 +409,7 @@ export function panel(n) {
         <div class="camara-botones"><button class="boton chico" type="button" id="linterna" aria-pressed="false" hidden>Linterna</button><button class="boton chico" type="button" id="cerrar-camara">Cerrar cámara</button></div>
       </div>
       <form id="buscar" class="buscar">
-        <label for="q">O escribe el código, celular o nombre</label>
+        <label for="q">Código, celular o nombre</label>
         <div class="fila-input"><input id="q" type="search" autocomplete="off" required><button class="boton" type="submit">Buscar</button></div>
       </form>
       <p class="aviso-error" id="buscar-msg" role="alert" hidden></p>
@@ -424,15 +451,9 @@ export function panel(n) {
       </details>
     </section>
 
-    <section class="bloque" aria-labelledby="t-mes">
-      <div class="fila"><h2 id="t-mes">Este mes</h2><span class="chip" id="mes-nombre"></span></div>
-      <dl class="datos simples" id="res-mes"></dl>
-      ${n.mostrar_numeros ? '' : '<p class="nota">Tu reporte completo (cuánto te dejaron tus clientes, tus días más fuertes y quiénes dejaron de venir) te llega cada mes por WhatsApp.</p>'}
-    </section>
-
-    <section class="bloque" aria-labelledby="t-cerca">
+    <section class="bloque destacado" aria-labelledby="t-cerca">
       <div class="fila"><h2 id="t-cerca">Escríbeles hoy <span class="chip" id="escribir-total" hidden></span></h2><button class="boton chico" type="button" id="recargar">Actualizar</button></div>
-      <p class="nota">Un mensaje a tiempo hace que vuelvan. Solo aparecen los clientes que aceptaron recordatorios.</p>
+      <p class="nota">Un mensaje a tiempo hace que vuelvan. Solo salen los que aceptaron mensajes.</p>
       <p class="vacio-lista" id="escribir-vacio">Nadie por ahora. Cuando alguien esté cerca de su premio o deje de venir, aparecerá aquí.</p>
       <div id="cerca-caja" hidden>
         <h3 class="subtitulo">Cerca de su premio</h3>
@@ -442,6 +463,12 @@ export function panel(n) {
         <h3 class="subtitulo">Hace tiempo que no vienen</h3>
         <ul class="lista" id="extranamos"></ul>
       </div>
+    </section>
+
+    <section class="bloque" aria-labelledby="t-mes">
+      <div class="fila"><h2 id="t-mes">Este mes</h2><span class="etiqueta-mes" id="mes-nombre"></span></div>
+      <dl class="datos simples" id="res-mes"></dl>
+      ${n.mostrar_numeros ? '' : '<p class="nota">Tu reporte completo (cuánto te dejaron tus clientes, tus días más fuertes y quiénes dejaron de venir) te llega cada mes por WhatsApp.</p>'}
     </section>
 
     <section class="bloque" aria-labelledby="t-top">
@@ -466,6 +493,11 @@ export function panel(n) {
       <p class="nota">O comparte este enlace en tu Instagram o WhatsApp: <a id="enlace-registro" href="/${e(n.slug)}">/${e(n.slug)}</a></p>
       <p><a class="boton chico" id="csv" href="/api/n/${e(n.slug)}/clientes.csv" download>Descargar lista de clientes (Excel)</a></p>
     </section>
+
+    <nav class="barra-fija" aria-label="Registrar visita">
+      <button class="boton primario grande" type="button" id="escanear" aria-label="Escanear QR del cliente">${icono('qr')}Escanear QR</button>
+      <button class="boton grande" type="button" id="ir-buscar">Buscar</button>
+    </nav>
   </div>
 </main>`,
   });
@@ -550,6 +582,8 @@ export function admin() {
             <div class="campo" data-solo="cashback" hidden><label for="f-minimo">Saldo mínimo para usar (S/)</label><input id="f-minimo" name="minimo" type="text" inputmode="decimal" value="5" maxlength="7"></div>
             <div class="campo" data-solo="sellos"><label for="f-meta">Sellos para el premio</label><input id="f-meta" name="meta" type="number" min="3" max="20" value="10" required></div>
             <div class="campo" data-solo="sellos"><label for="f-premio">Premio</label><input id="f-premio" name="premio" required maxlength="60" placeholder="Corte gratis"></div>
+            <div class="check ancho-total" data-solo="sellos"><input id="f-regalo" name="sello_regalo" type="checkbox" value="1" aria-describedby="f-regalo-ayuda"><label for="f-regalo">Primer sello de regalo al crear la tarjeta</label></div>
+            <p class="ayuda ancho-total" data-solo="sellos" id="f-regalo-ayuda">Recomendado: una tarjeta que empieza con 1 sello se completa más que una vacía. No cuenta como visita.</p>
           </div>
         </fieldset>
         <fieldset class="diseno" id="diseno">

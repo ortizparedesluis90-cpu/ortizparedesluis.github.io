@@ -97,6 +97,7 @@
     var video = $('video');
     video.srcObject = stream;
     $('camara').hidden = false; $('escanear').hidden = true;
+    $('camara').scrollIntoView({ block: 'center', behavior: 'smooth' });
     await video.play().catch(function () {});
     buscando = true;
     requestAnimationFrame(leer);
@@ -146,6 +147,8 @@
     pista.applyConstraints({ advanced: [{ torch: on }] }).then(function () { b.setAttribute('aria-pressed', String(on)); }).catch(function () {});
   });
   $('escanear').addEventListener('click', abrirCamara);
+  // «Buscar» de la barra fija: lleva al buscador.
+  $('ir-buscar').addEventListener('click', function () { $('registrar').scrollIntoView({ block: 'start', behavior: 'smooth' }); $('q').focus({ preventScroll: true }); });
   $('cerrar-camara').addEventListener('click', function () { detenerCamara(); $('escanear').focus(); });
   document.addEventListener('visibilitychange', function () { if (document.hidden) detenerCamara(); });
 
@@ -290,6 +293,7 @@
     movs.forEach(function (m) {
       var que;
       if (m.tipo === 'canje') que = tipo === 'cashback' ? 'Usó ' + solesTxt(m.monto || 0) + ' de saldo' : 'Canjeó: ' + (m.servicio || premio);
+      else if (m.tipo === 'regalo') que = 'Sello de bienvenida (regalo)';
       else if (m.tipo === 'traspaso') que = 'Pasó ' + (m.sellos || 0) + ' sello' + (m.sellos === 1 ? '' : 's') + ' de su tarjeta de papel';
       else que = [m.servicio || 'Visita', m.monto ? solesTxt(m.monto) : ''].filter(Boolean).join(' · ');
       ul.appendChild(Sellos.el('li', { clase: 'h-' + m.tipo }, [
@@ -458,9 +462,9 @@
     if (!r.ok) return;
     var d = r.datos, dl = $('res-mes');
     $('mes-nombre').textContent = mesNombre.format(new Date()).replace(/^./, function (x) { return x.toUpperCase(); });
+    $('hoy-visitas').textContent = d.visitasHoy + (d.visitasHoy === 1 ? ' visita' : ' visitas');
     dl.textContent = '';
     [
-      ['Visitas hoy', d.visitasHoy],
       ['Visitas del mes', d.mes.visitas],
       ['Clientes nuevos', d.mes.nuevos],
       [tipo === 'cashback' ? 'Veces que usaron saldo' : 'Premios entregados', d.mes.premios],
