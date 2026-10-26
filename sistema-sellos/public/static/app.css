@@ -511,7 +511,7 @@ body.es-reporte::before{display:none}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 @media(min-width:900px){.detalle #n-datos{grid-template-columns:repeat(5,1fr)}}
-.lista .quien{flex:1;min-width:0}
+.lista .quien{flex:1 1 170px;min-width:0}
 
 /* ===== Rediseño (revisión de Figma): tarjeta, registro y panel ===== */
 /* Tarjeta: lo que falta para el premio, en grande, con barra de avance */
@@ -603,3 +603,25 @@ body.es-panel .dato-nota.alerta{color:#F2C14E}
 .lamina[data-f=acrilico] .l-marco{padding-top:6cqw;gap:2cqw}
 .promo-anterior{margin:10px 0 0;font-size:.85rem;color:var(--suave);text-align:center}
 .promo-aviso{margin:8px 0 0;padding:8px 12px;border-radius:12px;font-size:.88rem;font-weight:600;background:color-mix(in srgb,#F2C14E 16%,var(--superficie-2));border:1px solid color-mix(in srgb,#F2C14E 45%,transparent)}
+/* Cumpleaños, productos y premios en el camino */
+fieldset.campo.cumple{border:0;padding:0;margin-inline:0;min-width:0}
+fieldset.campo.cumple legend{padding:0;font-weight:600;margin-bottom:6px}
+.fila-cumple{display:flex;gap:8px;flex-wrap:wrap}
+.fila-cumple select{flex:1 1 90px;width:auto}
+.fila-cumple select+label+select{flex:2 1 140px}
+.cumple-aviso{margin:8px 0 0;padding:8px 12px;border-radius:12px;font-size:.88rem;font-weight:600;background:color-mix(in srgb,#E86A9E 16%,var(--superficie-2));border:1px solid color-mix(in srgb,#E86A9E 45%,transparent)}
+.grupo-catalogo{flex-basis:100%;margin:6px 0 0;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--suave)}
+.grupo-catalogo:first-child{margin-top:0}
+.premios-lista em{font-style:normal;font-size:.78em;font-weight:700;margin-left:4px;color:var(--suave)}
+.premios-lista li.alcanzado em{color:var(--ok)}
+.premios-lista li.canjeado{opacity:.6}
+.premios-lista li.canjeado span::before{content:"✓ ";font-weight:800}
+.sello{position:relative}
+.hito-marca{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:var(--acento);color:var(--sobre-acento);box-shadow:0 0 0 2px var(--superficie, #000)}
+.hito-marca .ico{width:12px;height:12px;stroke-width:2.4}
+.sellos.chicos .hito-marca{width:14px;height:14px;top:-5px;right:-5px}
+.sellos.chicos .hito-marca .ico{width:9px;height:9px}
+html[data-forma="diamante"] .sello>.hito-marca{transform:none}
+.l-hitos{display:flex;flex-wrap:wrap;justify-content:center;gap:.6cqw 2.4cqw;margin:1cqw 0 0;font-size:3cqw;line-height:1.25;color:var(--suave);max-width:86cqw}
+.l-hitos strong{color:var(--acento)}
+.lamina:is([data-f=a5h],[data-f=a4h]) .l-hitos{font-size:2.1cqw;max-width:52cqw}

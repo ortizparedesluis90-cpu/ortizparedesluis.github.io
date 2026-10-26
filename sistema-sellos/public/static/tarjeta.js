@@ -36,10 +36,11 @@
     var r = await Sellos.api(apiUrl);
     if (!r.ok) return;
     var d = r.datos;
-    var clave = d.sellos + '/' + d.puntos + '/' + d.saldo + '/' + d.visitas + '/' + d.premios;
+    var clave = d.sellos + '/' + d.puntos + '/' + d.saldo + '/' + d.visitas + '/' + d.premios + '/' + d.meta + '/' + d.premioNombre;
     if (actual !== null && clave !== actual) {
       // Puntos y cashback: la página trae el carnet ya armado, así que se recarga.
-      if (main.getAttribute('data-tipo') !== 'sellos') { location.reload(); return; }
+      // Sellos con premios en el camino: también (la lista de premios cambia).
+      if (main.getAttribute('data-tipo') !== 'sellos' || main.hasAttribute('data-hitos')) { location.reload(); return; }
       pintar(d);
       if (navigator.vibrate) navigator.vibrate(60);
     }

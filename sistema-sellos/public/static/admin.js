@@ -168,7 +168,7 @@
     var r = reglasDe(n);
     if (n.tipo === 'puntos') return 'Puntos: ' + (r.porSol || 1) + ' por S/ 1 · ' + (r.premios || []).length + ' premios';
     if (n.tipo === 'cashback') return 'Cashback: ' + (r.pct || 5) + ' % de vuelta';
-    return n.meta + ' sellos → ' + n.premio;
+    return n.meta + ' sellos → ' + n.premio + ((r.hitos || []).length ? ' · ' + r.hitos.length + ' premio' + (r.hitos.length === 1 ? '' : 's') + ' en el camino' : '');
   }
   // Muestra solo los campos del tipo elegido; los ocultos no son obligatorios.
   function mostrarTipo() {
@@ -245,6 +245,10 @@
     f.elements.pct.value = r.pct || 5;
     f.elements.minimo.value = r.minimo !== undefined ? String(r.minimo / 100) : '5';
     f.elements.servicios_texto.value = serviciosDe(n).map(function (x) { return x.n + ' = ' + x.p / 100; }).join('\n');
+    var pr = []; try { pr = JSON.parse(n.productos || '[]') || []; } catch (e) { pr = []; }
+    f.elements.productos_texto.value = pr.map(function (x) { return x.n + ' = ' + x.p / 100; }).join('\n');
+    f.elements.hitos_texto.value = (r.hitos || []).map(function (h) { return h.s + ' = ' + h.n; }).join('\n');
+    f.elements.regalo_cumple.value = n.regalo_cumple || '';
     mostrarTipo();
     f.elements.precio.value = n.precio ? String(n.precio / 100) : '';
     f.elements.pedir_servicio.checked = n.pedir_servicio === undefined || n.pedir_servicio === null ? true : !!n.pedir_servicio;
@@ -421,7 +425,7 @@
     espera = setTimeout(function () {
       var f = $('form-negocio');
       var d = { nombre: f.elements.nombre.value, programa: f.elements.programa.value, premio: f.elements.premio.value, meta: f.elements.meta.value, diseno: diseno };
-      ['tipo', 'por_sol', 'premios_texto', 'pct', 'minimo'].forEach(function (k) { d[k] = f.elements[k].value; });
+      ['tipo', 'por_sol', 'premios_texto', 'pct', 'minimo', 'hitos_texto', 'regalo_cumple'].forEach(function (k) { d[k] = f.elements[k].value; });
       d.sello_regalo = f.elements.sello_regalo.checked;
       ['whatsapp', 'instagram', 'tiktok', 'facebook', 'maps', 'web'].forEach(function (k) { d['red_' + k] = f.elements['red_' + k].value; });
       var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(d)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -429,7 +433,7 @@
       $('v-tarjeta').src = '/admin/vista/tarjeta?d=' + b64;
     }, 450);
   }
-  ['nombre', 'programa', 'premio', 'meta', 'por_sol', 'premios_texto', 'pct', 'minimo'].forEach(function (k) { $('form-negocio').elements[k].addEventListener('input', vistaPrevia); });
+  ['nombre', 'programa', 'premio', 'meta', 'por_sol', 'premios_texto', 'pct', 'minimo', 'hitos_texto', 'regalo_cumple'].forEach(function (k) { $('form-negocio').elements[k].addEventListener('input', vistaPrevia); });
   $('form-negocio').elements.slug.addEventListener('input', pintarMedios);
   $('form-negocio').elements.sello_regalo.addEventListener('change', vistaPrevia);
   // Pestañas de la vista previa: tarjeta o página de registro.

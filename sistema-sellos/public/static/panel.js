@@ -8,6 +8,9 @@
   var tipo = main.getAttribute('data-tipo') || 'sellos';
   var reglas = JSON.parse(main.getAttribute('data-reglas') || '{}');
   var servicios = JSON.parse(main.getAttribute('data-servicios') || '[]');
+  var productos = JSON.parse(main.getAttribute('data-productos') || '[]');
+  var catalogo = servicios.concat(productos);
+  var regaloCumple = main.getAttribute('data-regalo-cumple') || '';
   var exigirServicio = main.getAttribute('data-pedir') === '1';
   var negocio = main.getAttribute('data-negocio');
   var programa = main.getAttribute('data-programa');
@@ -210,6 +213,24 @@
       };
     }
     var f = faltan(c), meta = metaDe(c), premio = premioDe(c);
+    // Premios en el camino: el que ya tiene listo o el próximo.
+    var hs = c.hitos || [], camino = hs.filter(function (h) { return h.listo && !h.final; })[0];
+    var prox = hs.filter(function (h) { return !h.canjeado && !h.final && h.s > c.sellos; })[0];
+    if (camino) return {
+      listo: true,
+      progreso: c.sellos + ' de ' + meta + ' sellos · ¡puede canjear «' + camino.n + '»!' + (f ? ' Le falta' + (f === 1 ? '' : 'n') + ' ' + f + ' para «' + premio + '».' : ' Y ya completó su tarjeta.'),
+      detalle: 'Tiene listo: ' + camino.n,
+      msg: 'Hola ' + nombre + ', te escribimos de ' + negocio + '. ¡Ya tienes listo tu ' + camino.n + ' en tu tarjeta ' + programa + '! ¿Te reservamos una cita?' + baja,
+    };
+    if (prox && f) {
+      var k = prox.s - c.sellos;
+      return {
+        listo: false,
+        progreso: c.sellos + ' de ' + meta + ' sellos · le falta' + (k === 1 ? '' : 'n') + ' ' + k + ' para «' + prox.n + '» y ' + f + ' para «' + premio + '».',
+        detalle: 'Le falta' + (k === 1 ? '' : 'n') + ' ' + k + ' sello' + (k === 1 ? '' : 's') + ' para «' + prox.n + '»',
+        msg: 'Hola ' + nombre + ', te escribimos de ' + negocio + '. ¡Te falta' + (k === 1 ? '' : 'n') + ' solo ' + k + ' sello' + (k === 1 ? '' : 's') + ' para tu ' + prox.n + '! ¿Te reservamos una cita?' + baja,
+      };
+    }
     return {
       listo: c.sellos >= meta,
       progreso: c.sellos >= meta ? '¡Premio listo! Tiene ' + c.sellos + ' sellos: puede canjear «' + premio + '».'
@@ -227,7 +248,7 @@
     // Con «pedir el servicio», el monto deja de ser opcional.
     if (exigirServicio && tipo === 'sellos') {
       $('c-monto-label').textContent = 'Cobrado en esta visita (S/)';
-      $('c-monto-ayuda').textContent = servicios.length ? 'Toca el servicio que se hizo y el monto se llena solo. Si cobraste otro monto, escríbelo.' : 'Escribe cuánto cobraste en esta visita.';
+      $('c-monto-ayuda').textContent = catalogo.length ? 'Toca lo que se hizo o compró y el monto se llena solo. Si cobraste otro monto, escríbelo.' : 'Escribe cuánto cobraste en esta visita.';
     }
     if (tipo !== 'sellos') {
       $('c-monto-label').textContent = 'Monto de la compra (S/)';
@@ -236,25 +257,25 @@
     }
   })();
   // Servicios del catálogo: un toque los elige y el monto se suma solo.
+  // Servicios y, aparte, los productos (si el negocio los cargó).
   function pintarServicios() {
     var caja = $('c-servicios');
     caja.textContent = '';
-    caja.hidden = !servicios.length;
-    servicios.forEach(function (sv) {
-      var b = Sellos.el('button', { clase: 'chip-servicio', type: 'button', 'aria-pressed': 'false' }, [Sellos.el('span', { texto: sv.n }), Sellos.el('small', { texto: solesTxt(sv.p) })]);
+    caja.hidden = !catalogo.length;
+    catalogo.forEach(function (sv, i) {
+      if (productos.length && (i === 0 || i === servicios.length)) caja.appendChild(Sellos.el('p', { clase: 'grupo-catalogo', texto: i < servicios.length ? 'Servicios' : 'Productos' }));
+      var b = Sellos.el('button', { clase: 'chip-servicio', type: 'button', 'aria-pressed': 'false', 'data-i': String(i) }, [Sellos.el('span', { texto: sv.n }), Sellos.el('small', { texto: solesTxt(sv.p) })]);
       b.addEventListener('click', function () {
         b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
         var total = 0;
-        caja.querySelectorAll('[aria-pressed=true]').forEach(function (x, k) { total += servicios[Array.prototype.indexOf.call(caja.children, x)].p; });
+        caja.querySelectorAll('[aria-pressed=true]').forEach(function (x) { total += catalogo[Number(x.getAttribute('data-i'))].p; });
         $('c-monto').value = total ? String(total / 100) : '';
       });
       caja.appendChild(b);
     });
   }
   function elegidos() {
-    var caja = $('c-servicios');
-    return Array.prototype.filter.call(caja.children, function (x) { return x.getAttribute('aria-pressed') === 'true'; })
-      .map(function (x) { return servicios[Array.prototype.indexOf.call(caja.children, x)].n; });
+    return Array.prototype.map.call($('c-servicios').querySelectorAll('[aria-pressed=true]'), function (x) { return catalogo[Number(x.getAttribute('data-i'))].n; });
   }
 
   // ---------- cliente ----------
@@ -265,9 +286,18 @@
     $('c-nombre').textContent = c.nombre;
     $('c-codigo').textContent = c.codigo.replace(/(.{4})(.{4})/, '$1 $2');
     $('c-celular').textContent = c.celular + ' · ' + c.visitas + ' visita' + (c.visitas === 1 ? '' : 's') + ' · ' + c.premios + ' premio' + (c.premios === 1 ? '' : 's') + ' canjeado' + (c.premios === 1 ? '' : 's');
-    if (tipo === 'sellos') Sellos.casillas($('c-sellos'), c.sellos, metaDe(c));
+    if (tipo === 'sellos') Sellos.casillas($('c-sellos'), c.sellos, metaDe(c), (c.hitos || []).filter(function (h) { return !h.final; }).map(function (h) { return h.s; }));
     // Si su tarjeta conserva una promoción anterior, el cajero lo ve para cobrarle bien el premio.
     Sellos.mostrar($('c-promo'), tipo === 'sellos' && c.promoAnterior ? 'Promoción anterior: ' + metaDe(c) + ' sellos = ' + premioDe(c) + '. La conserva hasta canjearla.' : '');
+    // Cumpleaños: aviso si es hoy o esta semana, y el formulario para anotarlo o corregirlo.
+    Sellos.mostrar($('c-cumple-hoy'), c.cumpleEn === 0 ? '🎂 ¡Hoy es su cumpleaños!' + (regaloCumple ? ' Su regalo: ' + regaloCumple + '.' : ' Salúdalo.')
+      : c.cumpleEn !== null && c.cumpleEn <= 6 ? '🎂 Cumple años ' + (c.cumpleEn === 1 ? 'mañana' : 'en ' + c.cumpleEn + ' días') + ' (' + fechaCumple(c.cumple) + ').' : '');
+    $('c-cumple-t').textContent = c.cumple ? 'Cumpleaños: ' + fechaCumple(c.cumple) : 'Agregar su cumpleaños';
+    if (enfocar) {
+      $('c-cumple').open = false;
+      $('c-cumple-dia').value = c.cumple ? String(Number(c.cumple.slice(3))) : '';
+      $('c-cumple-mes').value = c.cumple ? String(Number(c.cumple.slice(0, 2))) : '';
+    }
     var info = infoCli(c);
     $('c-progreso').textContent = info.progreso;
     $('canjear').disabled = !info.listo;
@@ -307,6 +337,8 @@
       ]));
     });
   }
+  var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  function fechaCumple(md) { return Number(md.slice(3)) + ' de ' + MESES[Number(md.slice(0, 2)) - 1]; }
   function ocultarCliente() { actual = null; $('cliente').hidden = true; }
   function estado(texto, tipo) { var n = $('c-msg'); n.textContent = texto; n.className = 'estado' + (tipo ? ' ' + tipo : ''); }
 
@@ -324,8 +356,8 @@
     if (monto && !/^\d{1,6}([.,]\d{1,2})?$/.test(monto)) { estado('Escribe el monto solo con números, por ejemplo 35 o 35.50.', 'mal'); $('c-monto').focus(); return; }
     if (tipo !== 'sellos' && !Number((monto || '0').replace(',', '.'))) { estado('Escribe el monto de la compra o elige los servicios.', 'mal'); $('c-monto').focus(); return; }
     if (exigirServicio && !Number((monto || '0').replace(',', '.')) && !elegidos().length) {
-      estado(servicios.length ? 'Elige el servicio que se hizo (o escribe el monto cobrado).' : 'Escribe el monto cobrado en esta visita.', 'mal');
-      var primero = $('c-servicios').querySelector('button'); (servicios.length && primero ? primero : $('c-monto')).focus(); return;
+      estado(catalogo.length ? 'Elige el servicio o producto (o escribe el monto cobrado).' : 'Escribe el monto cobrado en esta visita.', 'mal');
+      var primero = $('c-servicios').querySelector('button'); (catalogo.length && primero ? primero : $('c-monto')).focus(); return;
     }
     var antes = actual ? { puntos: actual.puntos, saldo: actual.saldo } : { puntos: 0, saldo: 0 };
     // Lo que quedó registrado (servicio y monto), para que el cajero lo confirme de un vistazo.
@@ -336,18 +368,37 @@
       if (navigator.vibrate) navigator.vibrate(60);
       if (tipo === 'puntos') return '✓ +' + (c.puntos - antes.puntos) + ' puntos. Ahora tiene ' + c.puntos + '.' + (infoCli(c).listo ? ' Ya puede canjear un premio.' : '');
       if (tipo === 'cashback') return '✓ Ganó ' + solesTxt(c.saldo - antes.saldo) + ' de saldo. Ahora tiene ' + solesTxt(c.saldo) + '.';
-      return (c.sellos >= metaDe(c) ? '✓ Sello sumado. ¡Completó su tarjeta! Ya puede canjear su premio.' : '✓ Sello sumado: ' + c.sellos + ' de ' + metaDe(c) + '.') + registro;
+      var camino = (c.hitos || []).filter(function (h) { return h.listo && !h.final; })[0];
+      return (c.sellos >= metaDe(c) ? '✓ Sello sumado. ¡Completó su tarjeta! Ya puede canjear su premio.'
+        : '✓ Sello sumado: ' + c.sellos + ' de ' + metaDe(c) + '.' + (camino ? ' ¡Ya puede canjear «' + camino.n + '»!' : '')) + registro;
     });
   });
   $('canjear').addEventListener('click', function () {
     if (!actual) return;
     var boton = this;
+    var caja = $('c-canje');
+    // Sellos con premios en el camino: elige cuál entrega (los que aún no tiene, desactivados).
+    if (tipo === 'sellos' && (actual.hitos || []).length > 1) {
+      caja.textContent = '';
+      caja.appendChild(Sellos.el('p', { clase: 'nota', texto: 'Elige el premio que se lleva:' }));
+      actual.hitos.forEach(function (h) {
+        var b = Sellos.el('button', { clase: 'boton', type: 'button', texto: h.n + ' · ' + h.s + ' sello' + (h.s === 1 ? '' : 's') + (h.canjeado ? ' (ya canjeado)' : '') });
+        b.disabled = !h.listo;
+        b.addEventListener('click', function () {
+          if (!confirm(h.final ? '¿Entregar «' + h.n + '» a ' + actual.nombre + '? Se descontarán ' + h.s + ' sellos y su tarjeta empieza de nuevo.' : '¿Entregar «' + h.n + '» a ' + actual.nombre + '? Sus sellos siguen igual.')) return;
+          accion('canje', h.final ? {} : { hito: h.s }, b, function () { return h.final ? '✓ Premio canjeado. Su tarjeta empieza de nuevo.' : '✓ Canjeó «' + h.n + '». Sus sellos siguen sumando.'; });
+        });
+        caja.appendChild(b);
+      });
+      caja.hidden = false;
+      var listoB = caja.querySelector('button:not([disabled])'); if (listoB) listoB.focus();
+      return;
+    }
     if (tipo === 'sellos') {
       if (!confirm('¿Entregar «' + premioDe(actual) + '» a ' + actual.nombre + '? Se descontarán ' + metaDe(actual) + ' sellos.')) return;
       return accion('canje', {}, boton, function () { return '✓ Premio canjeado. Su tarjeta empieza de nuevo.'; });
     }
     // Puntos: elige un premio que le alcance. Cashback: cuánto saldo usar en esta compra.
-    var caja = $('c-canje');
     caja.textContent = '';
     if (tipo === 'puntos') {
       caja.appendChild(Sellos.el('p', { clase: 'nota', texto: 'Elige el premio que se lleva:' }));
@@ -386,6 +437,11 @@
     accion('traspaso', { sellos: n }, this, function (c) {
       return '✓ Se pasaron ' + n + ' sello' + (n === 1 ? '' : 's') + ' de papel: ahora tiene ' + c.sellos + ' de ' + metaDe(c) + '.' + (c.sellos >= metaDe(c) ? ' ¡Ya puede canjear su premio!' : '');
     });
+  });
+  $('c-cumple-btn').addEventListener('click', function () {
+    var dia = $('c-cumple-dia').value, mes = $('c-cumple-mes').value;
+    if (!dia !== !mes) { estado('Elige el día y el mes (o deja los dos vacíos para borrarlo).', 'mal'); return; }
+    accion('cumple', { dia: dia, mes: mes }, this, function (c) { $('c-cumple').open = false; return c.cumple ? '✓ Cumpleaños guardado: ' + fechaCumple(c.cumple) + '.' : 'Cumpleaños borrado.'; });
   });
   $('c-recordatorios').addEventListener('change', function () {
     var activo = this.checked;
@@ -431,6 +487,13 @@
   function mensajeExtranamos(c) {
     return 'Hola ' + c.nombre.split(' ')[0] + ', te extrañamos en ' + negocio + '. Tienes ' + resumenCli(c) + ' en tu tarjeta ' + programa + '. ¿Te reservamos una cita esta semana? (Si no deseas recibir estos mensajes, responde BAJA.)';
   }
+  function mensajeCumple(c, regalo) {
+    var nombre = c.nombre.split(' ')[0];
+    if (c.cumpleEn === 0) return '¡Feliz cumpleaños, ' + nombre + '! 🎉 Todo el equipo de ' + negocio + ' te desea un gran día.'
+      + (regalo ? ' Por tu cumpleaños te regalamos ' + regalo + ': te esperamos esta semana para celebrarlo.' : ' Te esperamos para celebrarlo.');
+    return 'Hola ' + nombre + ', se viene tu cumpleaños 🎉 y en ' + negocio + ' queremos celebrarlo contigo.'
+      + (regalo ? ' Tu regalo: ' + regalo + '.' : '') + ' ¿Te reservamos una cita para verte regio en tu día?';
+  }
   function filaWa(c, detalle, msg) {
     var ver = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Ver' });
     ver.addEventListener('click', function () { mostrarCliente(c, true); });
@@ -445,8 +508,12 @@
   async function cargarCerca() {
     var r = await pedir(base + '/cerca');
     if (!r.ok) return;
-    var ul = $('cerca'), ex = $('extranamos'), d = r.datos;
-    ul.textContent = ''; ex.textContent = '';
+    var ul = $('cerca'), ex = $('extranamos'), cu = $('cumples'), d = r.datos;
+    ul.textContent = ''; ex.textContent = ''; cu.textContent = '';
+    (d.cumples || []).forEach(function (c) {
+      cu.appendChild(filaWa(c, c.cumpleEn === 0 ? '🎂 ¡Hoy cumple años!' : 'Cumple el ' + fechaCumple(c.cumple) + (c.cumpleEn === 1 ? ' (mañana)' : ' (en ' + c.cumpleEn + ' días)'), mensajeCumple(c, d.regaloCumple)));
+    });
+    $('cumple-caja').hidden = !(d.cumples || []).length;
     d.clientes.forEach(function (c) { var info = infoCli(c); ul.appendChild(filaWa(c, info.detalle, info.msg)); });
     (d.extranamos || []).forEach(function (c) {
       var hace = Math.round((Date.now() - Date.parse(c.ultimaVisita.replace(' ', 'T') + 'Z')) / 86400000);
@@ -454,8 +521,8 @@
     });
     $('cerca-caja').hidden = !d.clientes.length;
     $('extranamos-caja').hidden = !(d.extranamos || []).length;
-    $('escribir-vacio').hidden = !!(d.clientes.length || (d.extranamos || []).length);
-    var total = d.clientes.length + (d.extranamos || []).length;
+    $('escribir-vacio').hidden = !!(d.clientes.length || (d.extranamos || []).length || (d.cumples || []).length);
+    var total = d.clientes.length + (d.extranamos || []).length + (d.cumples || []).length;
     $('escribir-total').textContent = total ? String(total) : '';
     $('escribir-total').hidden = !total;
   }

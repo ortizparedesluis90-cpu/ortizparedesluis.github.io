@@ -5,7 +5,7 @@ import ESQUEMA from '../migrations/0001_inicial.sql';
 import * as P from './paginas.js';
 import { leerDiseno, temaCss, catalogo, mediosDe, colores } from './diseno.js';
 import { walletActivo, enlaceGuardar, actualizar as actualizarWallet } from './wallet.js';
-import { TIPOS, leerPrograma, leerServicios, textoAServicios, textoAPremios, ganar, estado, conTarjeta } from './programa.js';
+import { TIPOS, leerPrograma, leerCatalogo, textoAServicios, textoAPremios, textoAHitos, ganar, estado, conTarjeta } from './programa.js';
 import {
   AVISO_VERSION, EN_MARCO, html, json, error, texto, redirigir, cookies, cookie, cuerpo, nuevoToken, nuevoCodigo, aleatorio,
   normalizarCodigo, celularPeru, celularVisible, limpiarTexto, SLUG, RESERVADOS, primerNombre,
@@ -40,6 +40,11 @@ const COLUMNAS_NUEVAS = [
   ['negocios', 'sello_regalo', 'INTEGER NOT NULL DEFAULT 0'],
   ['clientes', 'meta_t', 'INTEGER'],
   ['clientes', 'premio_t', 'TEXT'],
+  ['clientes', 'hitos_t', 'TEXT'],
+  ['clientes', 'hito', 'INTEGER NOT NULL DEFAULT 0'],
+  ['clientes', 'cumple', 'TEXT'],
+  ['negocios', 'productos', "TEXT NOT NULL DEFAULT '[]'"],
+  ['negocios', 'regalo_cumple', "TEXT NOT NULL DEFAULT ''"],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
@@ -61,7 +66,7 @@ async function negocioPorSlug(env, slug) {
   return n;
 }
 
-const CAMPOS_CLIENTE = 'id, token, codigo, nombre, celular, recordatorios, sellos, puntos, saldo, visitas, premios, ultima_visita, creado, wallet, meta_t, premio_t';
+const CAMPOS_CLIENTE = 'id, token, codigo, nombre, celular, recordatorios, sellos, puntos, saldo, visitas, premios, ultima_visita, creado, wallet, meta_t, premio_t, hitos_t, hito, cumple';
 
 function clientePublico(c, n) {
   const t = conTarjeta(n, c);
@@ -69,10 +74,12 @@ function clientePublico(c, n) {
 }
 
 function clientePanel(c, n, origen) {
+  const st = estado(n, c);
   return {
     id: c.id, nombre: c.nombre, codigo: c.codigo, celular: celularVisible(c.celular), celularWa: c.celular,
     recordatorios: !!c.recordatorios, sellos: c.sellos, puntos: c.puntos | 0, saldo: c.saldo | 0, visitas: c.visitas, premios: c.premios,
     ultimaVisita: c.ultima_visita, creado: c.creado, meta: conTarjeta(n, c).meta, premio: conTarjeta(n, c).premio, promoAnterior: !!(c.meta_t || c.premio_t), traspaso: !!c.traspaso,
+    hitos: st.tipo === 'sellos' ? st.hitos : [], cumple: c.cumple || '', cumpleEn: diasACumple(c.cumple),
     enlace: `${origen}/${n.slug}/t/${c.token}`,
   };
 }
@@ -133,6 +140,34 @@ function sumarMeses(fecha, meses) {
   f.setUTCDate(Math.min(d, ultimo));
   return f.toISOString().slice(0, 10);
 }
+// ---------- cumpleaños (se guarda «MM-DD», sin año) ----------
+const CUMPLE = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const bisiesto = (a) => (a % 4 === 0 && a % 100 !== 0) || a % 400 === 0;
+/** «MM-DD» válido (acepta el 29 de febrero) o null. */
+function leerCumple(mes, dia) {
+  const m = Number(mes), d = Number(dia);
+  if (!(m >= 1 && m <= 12 && d >= 1 && d <= [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1])) return null;
+  return `${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+/** Días que faltan para su próximo cumpleaños (0 = hoy), en hora de Lima. El 29 de febrero se celebra el 28 en años no bisiestos. */
+function diasACumple(md) {
+  if (!CUMPLE.test(md || '')) return null;
+  const hoy = Date.parse(hoyLima()), a = Number(hoyLima().slice(0, 4)), [m, d] = md.split('-').map(Number);
+  const fecha = (y) => Date.UTC(y, m - 1, m === 2 && d === 29 && !bisiesto(y) ? 28 : d);
+  const f = fecha(a) >= hoy ? fecha(a) : fecha(a + 1);
+  return Math.round((f - hoy) / 86400000);
+}
+/** Los «MM-DD» de los próximos días (hoy incluido), para buscar cumpleaños con un IN (...). */
+function proximosCumples(dias) {
+  const out = [], hoy = Date.parse(hoyLima());
+  for (let k = 0; k < dias; k++) {
+    const f = new Date(hoy + k * 86400000), md = f.toISOString().slice(5, 10);
+    out.push(md);
+    if (md === '02-28' && !bisiesto(f.getUTCFullYear())) out.push('02-29');
+  }
+  return out;
+}
+
 /** Días que faltan para el vencimiento (negativo si ya venció; null si no tiene fecha). */
 const diasPara = (vence) => (FECHA.test(vence || '') ? Math.round((Date.parse(vence) - Date.parse(hoyLima())) / 86400000) : null);
 const estadoPlan = (n) => ({ plan: n.plan || '', vence: n.vence || '', dias: diasPara(n.vence), suspendido: !!n.suspendido });
@@ -171,12 +206,16 @@ async function registrar(req, env, n) {
   const nombre = limpiarTexto(datos.nombre, 60);
   const celular = celularPeru(datos.celular);
   const fallo = (msg, status = 400) =>
-    formulario ? html(P.registro(n, { error: msg, valores: { nombre, celular: String(datos.celular || '').slice(0, 11), origen: datos.origen === 'qr' ? 'qr' : 'enlace' } }), status) : error(msg, status);
+    formulario ? html(P.registro(n, { error: msg, valores: { nombre, celular: String(datos.celular || '').slice(0, 11), origen: datos.origen === 'qr' ? 'qr' : 'enlace', cumple_dia: datos.cumple_dia, cumple_mes: datos.cumple_mes } }), status) : error(msg, status);
 
   if (n.suspendido) return fallo('Este programa está en pausa por ahora. Vuelve a intentarlo más adelante.', 403);
   if (nombre.length < 2) return fallo('Escribe tu nombre.');
   if (!celular) return fallo('Revisa tu celular: deben ser 9 dígitos y empezar con 9.');
   if (!(datos.acepta === true || datos.acepta === '1')) return fallo('Para crear tu tarjeta debes aceptar el aviso de privacidad.');
+  // Cumpleaños opcional: día y mes (sin año).
+  const conCumple = String(datos.cumple_dia || '') !== '' || String(datos.cumple_mes || '') !== '';
+  const cumple = conCumple ? leerCumple(datos.cumple_mes, datos.cumple_dia) : null;
+  if (conCumple && !cumple) return fallo('Revisa tu cumpleaños: elige el día y el mes (o déjalo vacío).');
   if (!(await limitar(env, `reg:${n.id}:${ip(req)}`, 60, 3600))) return fallo('Demasiados registros desde esta conexión. Intenta más tarde.', 429);
 
   const existe = await env.DB.prepare('SELECT 1 FROM clientes WHERE negocio_id = ? AND celular = ?').bind(n.id, celular).first();
@@ -186,15 +225,15 @@ async function registrar(req, env, n) {
   const token = nuevoToken();
   const recordatorios = datos.recordatorios === true || datos.recordatorios === '1' ? 1 : 0;
   const origen = datos.origen === 'qr' ? 'qr' : 'enlace';
-  const consentimiento = `${new Date().toISOString()} aviso ${AVISO_VERSION}${recordatorios ? ' + recordatorios' : ''}`;
+  const consentimiento = `${new Date().toISOString()} aviso ${AVISO_VERSION}${recordatorios ? ' + recordatorios' : ''}${cumple ? ' + cumpleaños' : ''}`;
   // «Primer sello de regalo» (si el negocio lo activó): la tarjeta empieza en 1. No cuenta como visita.
   const regalo = n.sello_regalo && leerPrograma(n).tipo === 'sellos' ? 1 : 0;
   for (let intento = 0; intento < 5; intento++) {
     try {
       await env.DB.batch([
         env.DB.prepare(
-          'INSERT INTO clientes (negocio_id, token, codigo, nombre, celular, recordatorios, consentimiento, origen, sellos) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        ).bind(n.id, token, nuevoCodigo(), nombre, celular, recordatorios, consentimiento, origen, regalo),
+          'INSERT INTO clientes (negocio_id, token, codigo, nombre, celular, recordatorios, consentimiento, origen, sellos, cumple) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(n.id, token, nuevoCodigo(), nombre, celular, recordatorios, consentimiento, origen, regalo, cumple),
         env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, servicio, sellos) SELECT ?, id, 'regalo', 'Sello de bienvenida', 1 FROM clientes WHERE token = ? AND ? = 1`)
           .bind(n.id, token, regalo),
       ]);
@@ -282,18 +321,26 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     const pr = leerPrograma(n);
     const [col, umbral] = pr.tipo === 'puntos' ? ['puntos', Math.max(1, Math.floor((pr.premios[0]?.p || 1) * 0.8))]
       : pr.tipo === 'cashback' ? ['saldo', Math.max(1, pr.minimo)] : ['sellos', n.meta];
-    // En sellos, cada tarjeta se compara con su propia meta (puede conservar una promoción anterior).
-    const condicion = col === 'sellos' ? 'sellos >= MAX(COALESCE(meta_t, ?) - 2, 1)' : `${col} >= ?`;
+    // En sellos, cada tarjeta se compara con su propia meta (puede conservar una promoción anterior),
+    // y también salen los que ya tienen listo un premio del camino.
+    const condicion = col === 'sellos' ? 'sellos >= MAX(COALESCE(meta_t, ?) - 2, 1) OR (sellos > hito AND sellos >= ?)' : `${col} >= ? AND ? > 0`;
     const filas = await env.DB.prepare(
-      `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND recordatorios = 1 AND ${condicion}
+      `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND recordatorios = 1 AND (${condicion})
        ORDER BY ${col} DESC, ultima_visita ASC LIMIT 100`
-    ).bind(n.id, umbral).all();
+    ).bind(n.id, umbral, pr.hitos[0]?.s || 999).all();
+    const cerca = filas.results.filter((c) => col !== 'sellos' || c.sellos >= Math.max(conTarjeta(n, c).meta - 2, 1) || estado(n, c).hitos.some((h) => h.listo));
     // Y los que venían seguido y dejaron de venir: un mensaje a tiempo los recupera.
     const idos = await env.DB.prepare(
       `SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND recordatorios = 1 AND visitas >= 2 AND ultima_visita < datetime('now', ?)
        ORDER BY visitas DESC, ultima_visita DESC LIMIT 30`
     ).bind(n.id, `-${DIAS_RIESGO} days`).all();
-    return json({ clientes: filas.results.map((c) => clientePanel(c, n, url.origin)), extranamos: idos.results.map((c) => clientePanel(c, n, url.origin)), diasRiesgo: DIAS_RIESGO });
+    // Cumpleaños de hoy y de los próximos 6 días (dio su cumpleaños para que lo saluden).
+    const dias = proximosCumples(7);
+    const cumples = await env.DB.prepare(`SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE negocio_id = ? AND cumple IN (${dias.map(() => '?').join(', ')}) LIMIT 60`).bind(n.id, ...dias).all();
+    return json({
+      clientes: cerca.map((c) => clientePanel(c, n, url.origin)), extranamos: idos.results.map((c) => clientePanel(c, n, url.origin)), diasRiesgo: DIAS_RIESGO,
+      cumples: cumples.results.map((c) => clientePanel(c, n, url.origin)).sort((a, b) => a.cumpleEn - b.cumpleEn), regaloCumple: n.regalo_cumple || '',
+    });
   }
 
   if (accion === 'resumen' && metodo === 'GET') return json(await resumen(env, n, url.origin));
@@ -332,14 +379,14 @@ async function apiPanel(req, env, n, partes, url, ctx) {
       const pr = leerPrograma(n);
       if (pr.tipo !== 'sellos' && !monto) return error(`Escribe el monto de la compra: con eso se calculan ${pr.tipo === 'puntos' ? 'sus puntos' : 'su saldo'}.`);
       const gana = ganar(pr, monto || 0);
-      // Servicios elegidos (solo los del catálogo), para «Servicios más vendidos».
-      const nombres = new Set(leerServicios(n).map((x) => x.n));
-      const lista = (Array.isArray(datos.servicios) ? datos.servicios : []).map(String).filter((x) => nombres.has(x)).slice(0, 6);
+      // Servicios y productos elegidos (solo los del catálogo), para «Servicios más vendidos».
+      const catalogo = leerCatalogo(n), nombres = new Set(catalogo.map((x) => x.n));
+      const lista = (Array.isArray(datos.servicios) ? datos.servicios : []).map(String).filter((x) => nombres.has(x)).slice(0, 10);
       const servicio = lista.join(' + ') || null;
       // Si eligió servicios y no escribió el monto, el monto es la suma de sus precios.
-      if (!monto && lista.length) monto = lista.reduce((t, x) => t + (leerServicios(n).find((sv) => sv.n === x)?.p || 0), 0) || null;
+      if (!monto && lista.length) monto = lista.reduce((t, x) => t + (catalogo.find((sv) => sv.n === x)?.p || 0), 0) || null;
       // «Pedir el servicio en cada visita» (por defecto): sin servicio ni monto no se registra.
-      if (n.pedir_servicio && !monto && !servicio) return error(leerServicios(n).length ? 'Elige el servicio que se hizo (o escribe el monto cobrado).' : 'Escribe el monto cobrado en esta visita.');
+      if (n.pedir_servicio && !monto && !servicio) return error(catalogo.length ? 'Elige el servicio o producto (o escribe el monto cobrado).' : 'Escribe el monto cobrado en esta visita.');
       const espera = `-${Math.max(0, n.espera_min | 0)} minutes`;
       const [upd] = await env.DB.batch([
         env.DB.prepare(
@@ -380,10 +427,21 @@ async function apiPanel(req, env, n, partes, url, ctx) {
         if (!upd.meta.changes) return error('No tiene ese saldo.', 409);
         return listo();
       }
+      // Un premio del camino (por ejemplo, 20 % a los 2 sellos): no descuenta sellos, la tarjeta sigue.
+      if (datos.hito !== undefined && datos.hito !== null && datos.hito !== '') {
+        const h = estado(n, c).hitos.find((x) => !x.final && x.s === Number(datos.hito));
+        if (!h) return error('Ese premio no está en su tarjeta.');
+        const [upd] = await env.DB.batch([
+          env.DB.prepare('UPDATE clientes SET hito = ?, premios = premios + 1 WHERE id = ? AND negocio_id = ? AND sellos >= ? AND hito < ?').bind(h.s, cid, n.id, h.s, h.s),
+          env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, servicio) SELECT ?, ?, 'canje', ? WHERE changes() > 0`).bind(n.id, cid, h.n),
+        ]);
+        if (!upd.meta.changes) return error(h.canjeado ? `Ya canjeó «${h.n}» en esta tarjeta.` : `Aún no tiene los ${h.s} sellos para «${h.n}».`, 409);
+        return listo();
+      }
       // Se canjea con la promoción de su tarjeta; la tarjeta siguiente ya usa la promoción actual del negocio.
       const t = conTarjeta(n, c);
       const [upd] = await env.DB.batch([
-        env.DB.prepare('UPDATE clientes SET sellos = sellos - ?, premios = premios + 1, meta_t = NULL, premio_t = NULL WHERE id = ? AND negocio_id = ? AND sellos >= ?').bind(t.meta, cid, n.id, t.meta),
+        env.DB.prepare('UPDATE clientes SET sellos = sellos - ?, premios = premios + 1, hito = 0, meta_t = NULL, premio_t = NULL, hitos_t = NULL WHERE id = ? AND negocio_id = ? AND sellos >= ?').bind(t.meta, cid, n.id, t.meta),
         env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, servicio) SELECT ?, ?, 'canje', ? WHERE changes() > 0`).bind(n.id, cid, t.premio),
       ]);
       if (!upd.meta.changes) return error(`Aún no completa los ${t.meta} sellos.`, 409);
@@ -438,6 +496,15 @@ async function apiPanel(req, env, n, partes, url, ctx) {
       return listo();
     }
 
+    // El cajero anota (o corrige) el cumpleaños que le dice el cliente. Vacío = lo borra.
+    if (sub === 'cumple' && metodo === 'POST') {
+      const vacio = !datos.mes && !datos.dia;
+      const md = vacio ? null : leerCumple(datos.mes, datos.dia);
+      if (!vacio && !md) return error('Elige el día y el mes de su cumpleaños.');
+      await env.DB.prepare('UPDATE clientes SET cumple = ? WHERE id = ? AND negocio_id = ?').bind(md, cid, n.id).run();
+      return json({ cliente: clientePanel(await leer(), n, url.origin) });
+    }
+
     if (sub === 'recordatorios' && metodo === 'POST') {
       await env.DB.prepare('UPDATE clientes SET recordatorios = ? WHERE id = ? AND negocio_id = ?').bind(datos.activo ? 1 : 0, cid, n.id).run();
       return json({ cliente: clientePanel(await leer(), n, url.origin) });
@@ -460,15 +527,15 @@ async function apiPanel(req, env, n, partes, url, ctx) {
 
   if (accion === 'clientes.csv' && metodo === 'GET') {
     const filas = await env.DB.prepare(
-      'SELECT nombre, celular, codigo, sellos, puntos, saldo, visitas, premios, recordatorios, ultima_visita, creado, consentimiento FROM clientes WHERE negocio_id = ? ORDER BY creado'
+      'SELECT nombre, celular, codigo, sellos, puntos, saldo, visitas, premios, recordatorios, cumple, ultima_visita, creado, consentimiento FROM clientes WHERE negocio_id = ? ORDER BY creado'
     ).bind(n.id).all();
     const celda = (v) => {
       let s = String(v ?? '');
       if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // evita fórmulas al abrir en Excel
       return `"${s.replace(/"/g, '""')}"`;
     };
-    const cab = ['nombre', 'celular', 'codigo', 'sellos', 'puntos', 'saldo_soles', 'visitas', 'premios', 'acepta_recordatorios', 'ultima_visita_utc', 'creado_utc', 'consentimiento'];
-    const lineas = [cab.join(','), ...filas.results.map((f) => [f.nombre, f.celular, f.codigo, f.sellos, f.puntos, (f.saldo / 100).toFixed(2), f.visitas, f.premios, f.recordatorios ? 'si' : 'no', f.ultima_visita, f.creado, f.consentimiento].map(celda).join(','))];
+    const cab = ['nombre', 'celular', 'codigo', 'sellos', 'puntos', 'saldo_soles', 'visitas', 'premios', 'acepta_recordatorios', 'cumpleanos_dd_mm', 'ultima_visita_utc', 'creado_utc', 'consentimiento'];
+    const lineas = [cab.join(','), ...filas.results.map((f) => [f.nombre, f.celular, f.codigo, f.sellos, f.puntos, (f.saldo / 100).toFixed(2), f.visitas, f.premios, f.recordatorios ? 'si' : 'no', f.cumple ? f.cumple.split('-').reverse().join('/') : '', f.ultima_visita, f.creado, f.consentimiento].map(celda).join(','))];
     return texto('﻿' + lineas.join('\r\n'), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="clientes-${n.slug}.csv"` });
   }
 
@@ -607,7 +674,7 @@ async function numeros(env, n, origen) {
   const f = fieles.results[0];
   return {
     ajustes: { precio, costoPremio: n.costo_premio | 0, inversion },
-    tipo: pr.tipo, servicios: leerServicios(n), vendidos: masVendidos(vendidos.results, leerServicios(n)),
+    tipo: pr.tipo, servicios: leerCatalogo(n), vendidos: masVendidos(vendidos.results, leerCatalogo(n)),
     meses: lista,
     // El mes en curso se compara con el anterior hasta el mismo día.
     anteriorAlDia: { hasta: Number(hoy.slice(8)), ...resumir(meses[4], Number(hoy.slice(8))) },
@@ -680,6 +747,8 @@ function programaDe(d, v) {
   const tipo = Object.prototype.hasOwnProperty.call(TIPOS, d.tipo) ? d.tipo : 'sellos';
   const sv = textoAServicios(d.servicios_texto);
   if (sv.error) return sv;
+  const pd = textoAServicios(d.productos_texto, 'Productos');
+  if (pd.error) return pd;
   const reglas = {};
   if (tipo === 'puntos') {
     const pm = textoAPremios(d.premios_texto);
@@ -696,8 +765,13 @@ function programaDe(d, v) {
     if (Number.isNaN(minimo)) return { error: 'Revisa el saldo mínimo para usar: solo números, por ejemplo 5.' };
     reglas.minimo = minimo || 0;
     v.premio = `${reglas.pct} % de vuelta en cada compra`.slice(0, 60);
+  } else if (String(d.hitos_texto || '').trim()) {
+    // Sellos con premios en el camino (antes de la meta).
+    const hs = textoAHitos(d.hitos_texto, Math.round(Number(v.meta)) || 10);
+    if (hs.error) return hs;
+    reglas.hitos = hs.lista;
   }
-  return { tipo, reglas: JSON.stringify(reglas), servicios: JSON.stringify(sv.lista) };
+  return { tipo, reglas: JSON.stringify(reglas), servicios: JSON.stringify(sv.lista), productos: JSON.stringify(pd.lista) };
 }
 
 // ---------- API de administración ----------
@@ -719,7 +793,7 @@ async function apiAdmin(req, env, partes, url) {
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
       `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
-         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio, n.costo_premio, n.mostrar_numeros, n.sello_regalo,
+         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio, n.costo_premio, n.mostrar_numeros, n.sello_regalo, n.productos, n.regalo_cumple,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
          (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
@@ -791,7 +865,8 @@ async function apiAdmin(req, env, partes, url) {
     v.color = diseno.acento; v.tema = colores(diseno).claro ? 'claro' : 'oscuro';
     if (!v.nombre || !v.programa || !v.premio) return error('Completa nombre, programa y premio.');
     if (!(v.meta >= 3 && v.meta <= 20)) return error('Los sellos para el premio deben estar entre 3 y 20.');
-    v.tipo = prog.tipo; v.reglas = prog.reglas; v.servicios = prog.servicios;
+    v.tipo = prog.tipo; v.reglas = prog.reglas; v.servicios = prog.servicios; v.productos = prog.productos;
+    v.regalo_cumple = limpiarTexto(d.regalo_cumple, 60);
     if (!(v.espera_min >= 0 && v.espera_min <= 10080)) return error('Los minutos entre sellos deben estar entre 0 y 10080.');
     if (v.ruc && v.ruc.length !== 11) return error('El RUC debe tener 11 dígitos.');
     if (v.correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.correo)) return error('Revisa el correo.');
@@ -820,20 +895,22 @@ async function apiAdmin(req, env, partes, url) {
     if (existe) {
       // Cada tarjeta respeta su promoción: si cambian los sellos o el premio, las tarjetas que ya tienen sellos
       // se quedan con la promoción con la que empezaron hasta canjearla. Las que vuelven a coincidir, se liberan.
-      const antes = await env.DB.prepare('SELECT tipo, meta, premio FROM negocios WHERE id = ?').bind(existe.id).first();
-      if (antes.tipo === 'sellos' && v.tipo === 'sellos' && (antes.meta !== v.meta || antes.premio !== v.premio)) {
+      // También los premios en el camino: se guardan con la promoción de la tarjeta.
+      const antes = await env.DB.prepare('SELECT tipo, meta, premio, reglas FROM negocios WHERE id = ?').bind(existe.id).first();
+      const hitosAntes = JSON.stringify(leerPrograma(antes).hitos), hitosNuevos = JSON.stringify(leerPrograma(v).hitos);
+      if (antes.tipo === 'sellos' && v.tipo === 'sellos' && (antes.meta !== v.meta || antes.premio !== v.premio || hitosAntes !== hitosNuevos)) {
         const [, , cuenta] = await env.DB.batch([
-          env.DB.prepare('UPDATE clientes SET meta_t = ?, premio_t = ? WHERE negocio_id = ? AND sellos > 0 AND meta_t IS NULL AND premio_t IS NULL').bind(antes.meta, antes.premio, existe.id),
-          env.DB.prepare('UPDATE clientes SET meta_t = NULL, premio_t = NULL WHERE negocio_id = ? AND meta_t = ? AND premio_t = ?').bind(existe.id, v.meta, v.premio),
+          env.DB.prepare('UPDATE clientes SET meta_t = ?, premio_t = ?, hitos_t = ? WHERE negocio_id = ? AND sellos > 0 AND meta_t IS NULL AND premio_t IS NULL').bind(antes.meta, antes.premio, hitosAntes, existe.id),
+          env.DB.prepare(`UPDATE clientes SET meta_t = NULL, premio_t = NULL, hitos_t = NULL WHERE negocio_id = ? AND meta_t = ? AND premio_t = ? AND COALESCE(hitos_t, '[]') = ?`).bind(existe.id, v.meta, v.premio, hitosNuevos),
           env.DB.prepare('SELECT COUNT(*) AS n FROM clientes WHERE negocio_id = ? AND (meta_t IS NOT NULL OR premio_t IS NOT NULL)').bind(existe.id),
         ]);
         conservan = cuenta.results[0].n;
       }
       await env.DB.prepare(
-        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?, pedir_servicio=COALESCE(?, pedir_servicio),
+        `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?, productos=?, regalo_cumple=?, pedir_servicio=COALESCE(?, pedir_servicio),
          costo_premio=COALESCE(?, costo_premio), mostrar_numeros=COALESCE(?, mostrar_numeros), sello_regalo=COALESCE(?, sello_regalo)
          ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, pedir, d.costo_premio === undefined ? null : costoPremio || 0, mostrar, regalo, ...(hash ? [hash] : []), existe.id).run();
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, v.productos, v.regalo_cumple, pedir, d.costo_premio === undefined ? null : costoPremio || 0, mostrar, regalo, ...(hash ? [hash] : []), existe.id).run();
       return json({ ok: true, creado: false, conservan });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
@@ -841,9 +918,9 @@ async function apiAdmin(req, env, partes, url) {
     if (!v.vence) v.vence = sumarMeses(hoyLima(), 1);
     if (!v.plan) v.plan = 'prueba';
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, pedir_servicio, costo_premio, mostrar_numeros, sello_regalo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, pedir === null ? 1 : pedir, costoPremio || 0, mostrar || 0, regalo || 0).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, productos, regalo_cumple, pedir_servicio, costo_premio, mostrar_numeros, sello_regalo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, v.productos, v.regalo_cumple, pedir === null ? 1 : pedir, costoPremio || 0, mostrar || 0, regalo || 0).run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);
@@ -912,7 +989,7 @@ async function vistaPrevia(req, env, pagina, url) {
   const meta = Math.min(20, Math.max(3, Math.round(Number(d.meta)) || 10));
   const n = {
     slug: 'vista', nombre: limpiarTexto(d.nombre, 60) || 'Tu negocio', programa: limpiarTexto(d.programa, 40) || 'Club de clientes',
-    premio: limpiarTexto(d.premio, 60) || 'Premio', meta, redes: '{}', razon_social: '', vista: true, tipo: 'sellos', reglas: '{}', sello_regalo: d.sello_regalo ? 1 : 0,
+    premio: limpiarTexto(d.premio, 60) || 'Premio', meta, redes: '{}', razon_social: '', vista: true, tipo: 'sellos', reglas: '{}', sello_regalo: d.sello_regalo ? 1 : 0, regalo_cumple: limpiarTexto(d.regalo_cumple, 60),
     d: leerDiseno(null, d.diseno), temaUrl: `/admin/vista/tema.css?d=${encodeURIComponent(crudo)}`,
   };
   try { n.redes = leerRedes(d).redes || '{}'; } catch { n.redes = '{}'; }
@@ -921,7 +998,7 @@ async function vistaPrevia(req, env, pagina, url) {
   if (pagina === 'registro') return html(P.registro(n), 200, EN_MARCO);
   if (pagina === 'tarjeta') {
     const pr = leerPrograma(n);
-    const c = { token: 'vista', codigo: 'ABCD2345', nombre: 'Cliente', celular: '51900000000', sellos: Math.max(1, meta - 3), visitas: meta - 3, premios: 1,
+    const c = { token: 'vista', codigo: 'ABCD2345', nombre: 'Cliente', celular: '51900000000', sellos: Math.max(1, meta - 3), visitas: meta - 3, premios: 1, hito: 0,
       puntos: Math.round((pr.premios[0]?.p || 100) * 0.7), saldo: 1250 };
     return html(P.tarjeta(n, c, qrSvg(`${url.origin}/vista`), url.origin), 200, EN_MARCO);
   }

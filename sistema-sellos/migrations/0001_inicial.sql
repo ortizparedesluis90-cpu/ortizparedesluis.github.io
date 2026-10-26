@@ -25,8 +25,10 @@ CREATE TABLE IF NOT EXISTS negocios (
   costo_premio  INTEGER NOT NULL DEFAULT 0,       -- lo que le cuesta al negocio dar el premio (0 = el ticket)
   inversion_mes INTEGER NOT NULL DEFAULT 0,       -- lo que paga al mes por el sistema
   tipo          TEXT NOT NULL DEFAULT 'sellos',   -- sellos | puntos | cashback (src/programa.js)
-  reglas        TEXT NOT NULL DEFAULT '{}',       -- JSON: puntos por S/ 1 y premios, o % de vuelta y saldo mínimo
+  reglas        TEXT NOT NULL DEFAULT '{}',       -- JSON: puntos por S/ 1 y premios, o % de vuelta y saldo mínimo, o premios en el camino de los sellos (hitos)
   servicios     TEXT NOT NULL DEFAULT '[]',       -- JSON: [{n: nombre, p: precio en céntimos}]
+  productos     TEXT NOT NULL DEFAULT '[]',       -- JSON: productos que vende, igual que servicios (salen aparte en el panel)
+  regalo_cumple TEXT NOT NULL DEFAULT '',         -- regalo de cumpleaños que ofrece (texto libre, opcional)
   pedir_servicio INTEGER NOT NULL DEFAULT 1,      -- 1 = el cajero debe elegir el servicio (o escribir el monto) en cada visita
   mostrar_numeros INTEGER NOT NULL DEFAULT 0,     -- 1 = el dueño ve «Tus números» completos en su panel (si no, solo en /admin)
   sello_regalo  INTEGER NOT NULL DEFAULT 0,       -- 1 = la tarjeta nueva empieza con 1 sello de regalo (solo sellos)
@@ -55,6 +57,9 @@ CREATE TABLE IF NOT EXISTS clientes (
   wallet         INTEGER NOT NULL DEFAULT 0,      -- 1 = guardó su tarjeta en Google Wallet
   meta_t         INTEGER,                         -- promoción que conserva su tarjeta (sellos) si el negocio la cambió; NULL = la actual
   premio_t       TEXT,                            -- premio de esa promoción; se borran al canjear
+  hitos_t        TEXT,                            -- JSON: premios en el camino de esa promoción
+  hito           INTEGER NOT NULL DEFAULT 0,      -- sellos del último premio del camino ya canjeado en esta tarjeta (0 al canjear el final)
+  cumple         TEXT,                            -- cumpleaños «MM-DD» (sin año), opcional
   creado         TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (negocio_id, celular),
   UNIQUE (negocio_id, codigo)

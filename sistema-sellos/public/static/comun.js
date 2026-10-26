@@ -33,8 +33,15 @@ window.Sellos = (function () {
     s.appendChild(p);
     return s;
   }
-  /** Dibuja las casillas de sellos dentro de una lista <ol>. */
-  function casillas(ol, sellos, meta) {
+  function regalito() {
+    var i = el('i', { clase: 'hito-marca', 'aria-hidden': 'true' }), s = document.createElementNS(SVG, 'svg');
+    s.setAttribute('class', 'ico'); s.setAttribute('viewBox', '0 0 24 24');
+    var p = document.createElementNS(SVG, 'path'); p.setAttribute('d', 'M4 11h16v9H4zM3 7h18v4H3zM12 7v13M12 7c-1.5-3-5-3.5-5-1.5S10 7 12 7zm0 0c1.5-3 5-3.5 5-1.5S14 7 12 7z');
+    s.appendChild(p); i.appendChild(s);
+    return i;
+  }
+  /** Dibuja las casillas de sellos dentro de una lista <ol>. hitos: sellos que dan un premio en el camino (llevan un regalito). */
+  function casillas(ol, sellos, meta, hitos) {
     var llenos = Math.min(sellos, meta);
     ol.textContent = '';
     for (var i = 0; i < meta; i++) {
@@ -42,6 +49,7 @@ window.Sellos = (function () {
       var plantilla = document.getElementById('sello-lleno');
       if (i < llenos) li.appendChild(plantilla ? plantilla.content.cloneNode(true) : check());
       else li.appendChild(el('span', { texto: String(i + 1) }));
+      if (hitos && hitos.indexOf(i + 1) >= 0) { li.classList.add('hito'); li.appendChild(regalito()); }
       ol.appendChild(li);
     }
   }

@@ -1,8 +1,9 @@
 // Tipos de programa de fidelización y catálogo de servicios del negocio.
-//   sellos:   cada visita suma 1 sello; al llegar a la meta, se canjea el premio.
+//   sellos:   cada visita suma 1 sello; al llegar a la meta, se canjea el premio y la tarjeta empieza de nuevo.
+//             Puede tener «premios en el camino» (hitos): a los 2 sellos un 20 %, a los 4 otro... sin reiniciar la tarjeta.
 //   puntos:   cada S/ 1 de compra suma puntos; se canjean por premios de una lista.
 //   cashback: cada compra devuelve un % como saldo para usar en la próxima.
-// Las reglas se guardan como JSON en negocios.reglas y los servicios en negocios.servicios.
+// Las reglas se guardan como JSON en negocios.reglas, y los servicios y productos en negocios.servicios y negocios.productos.
 
 export const TIPOS = { sellos: 'Sellos', puntos: 'Puntos', cashback: 'Cashback (saldo de vuelta)' };
 
@@ -16,17 +17,22 @@ export function leerPrograma(n) {
   const premios = (Array.isArray(r.premios) ? r.premios : [])
     .map((p) => ({ p: Math.round(num(p.p, 0, 0, 1e6)), n: texto(p.n, 60) }))
     .filter((p) => p.p > 0 && p.n).sort((a, b) => a.p - b.p).slice(0, 8);
+  const meta = Math.round(Number(n.meta)) || 10;
+  const hitos = (Array.isArray(r.hitos) ? r.hitos : [])
+    .map((h) => ({ s: Math.round(num(h.s, 0, 0, 99)), n: texto(h.n, 60) }))
+    .filter((h, i, l) => h.s >= 1 && h.s < meta && h.n && l.findIndex((x) => x.s === h.s) === i).sort((a, b) => a.s - b.s).slice(0, 5);
   return {
     tipo: TIPOS[n.tipo] ? n.tipo : 'sellos',
     porSol: num(r.porSol, 1, 0.1, 100),
     premios,
     pct: num(r.pct, 5, 0.5, 50),
     minimo: Math.round(num(r.minimo, 0, 0, 1e7)),
+    hitos,
   };
 }
 
-export function leerServicios(n) {
-  const l = json(n.servicios, []);
+export function leerServicios(n, campo = 'servicios') {
+  const l = json(n[campo], []);
   return (Array.isArray(l) ? l : [])
     .map((s) => ({ n: texto(s.n, 40), p: Math.round(num(s.p, 0, 0, 1e7)) })).filter((s) => s.n).slice(0, 30);
 }
@@ -43,8 +49,10 @@ function lineas(t, max, que) {
   if (lista.length > max) return { error: `${que}: máximo ${max} líneas.` };
   return { lista };
 }
-export function textoAServicios(t) {
-  const r = lineas(t, 30, 'Servicios');
+/** Servicios y productos que el cajero elige con un toque en cada visita. */
+export const leerCatalogo = (n) => [...leerServicios(n), ...leerServicios(n, 'productos')];
+export function textoAServicios(t, que = 'Servicios') {
+  const r = lineas(t, 30, que);
   return r.error ? r : { lista: r.lista.map((s) => ({ n: s.n.slice(0, 40), p: Math.round(s.x * 100) })) };
 }
 export function textoAPremios(t) {
@@ -61,6 +69,21 @@ export function textoAPremios(t) {
   if (lista.length > 8) return { error: 'Premios: máximo 8.' };
   return { lista: lista.sort((x, y) => x.p - y.p) };
 }
+/** Premios en el camino de una tarjeta de sellos: «2 = 20 % de descuento» por línea (sellos = premio). */
+export function textoAHitos(t, meta) {
+  const lista = [];
+  for (const [i, l] of String(t || '').split('\n').entries()) {
+    if (!l.trim()) continue;
+    const a = /^(\d+)\s*(?:sellos?)?\s*[=:]\s*(.+)$/i.exec(l.trim()) || /^(.+?)\s*[=:]\s*(\d+)\s*(?:sellos?)?$/i.exec(l.trim());
+    if (!a) return { error: `Premios en el camino, línea ${i + 1}: escribe «sellos = premio», por ejemplo «2 = 20 % de descuento».` };
+    const [s, nombre] = /^\d+$/.test(a[1]) ? [Number(a[1]), a[2]] : [Number(a[2]), a[1]];
+    if (!(s >= 1 && s < meta)) return { error: `Premios en el camino, línea ${i + 1}: los sellos deben ser de 1 a ${meta - 1} (el premio de los ${meta} sellos es el premio final).` };
+    if (lista.some((h) => h.s === s)) return { error: `Premios en el camino: hay dos premios para ${s} sellos.` };
+    lista.push({ s, n: texto(nombre, 60) });
+  }
+  if (lista.length > 5) return { error: 'Premios en el camino: máximo 5.' };
+  return { lista: lista.sort((x, y) => x.s - y.s) };
+}
 export const serviciosATexto = (l) => l.map((s) => `${s.n} = ${s.p / 100}`).join('\n');
 export const premiosATexto = (l) => l.map((p) => `${p.p} = ${p.n}`).join('\n');
 
@@ -75,7 +98,23 @@ export function ganar(pr, monto) {
 
 /** Si la tarjeta del cliente conserva una promoción anterior (meta_t y premio_t, ver «Cada tarjeta respeta su
  *  promoción» en LEEME.md), el negocio se ve con esa meta y ese premio para ese cliente. */
-export const conTarjeta = (n, c) => (c && (c.meta_t || c.premio_t) ? { ...n, meta: c.meta_t || n.meta, premio: c.premio_t || n.premio } : n);
+export function conTarjeta(n, c) {
+  if (!(c && (c.meta_t || c.premio_t))) return n;
+  // Sus premios en el camino también son los de su promoción (sin hitos_t: era una promoción sin ellos).
+  const reglas = n.tipo === 'sellos' || !n.tipo ? JSON.stringify({ ...json(n.reglas, {}), hitos: json(c.hitos_t, []) }) : n.reglas;
+  return { ...n, meta: c.meta_t || n.meta, premio: c.premio_t || n.premio, reglas };
+}
+
+/** Premios de una tarjeta de sellos, en orden: los del camino y el final, con su estado para ese cliente.
+ *  c.hito = sellos del último premio del camino que ya canjeó en esta tarjeta (vuelve a 0 al canjear el final). */
+export function premiosSellos(n, c) {
+  n = conTarjeta(n, c);
+  const sellos = c.sellos | 0, hecho = c.hito | 0;
+  return [
+    ...leerPrograma(n).hitos.map((h) => ({ s: h.s, n: h.n, canjeado: h.s <= hecho, listo: h.s > hecho && sellos >= h.s })),
+    { s: n.meta, n: n.premio, final: true, canjeado: false, listo: sellos >= n.meta },
+  ];
+}
 
 /** Estado de la tarjeta de un cliente, en textos listos para mostrar. */
 export function estado(n, c) {
@@ -98,8 +137,13 @@ export function estado(n, c) {
       premio: listo ? `Puedes usar ${soles(saldo)} en tu próxima compra` : pr.minimo ? `Lo usas desde ${soles(pr.minimo)} de saldo` : 'Junta saldo en cada compra',
     };
   }
-  const sellos = c.sellos | 0, listo = sellos >= n.meta;
-  return { tipo: 'sellos', sellos, listo, progreso: `${Math.min(sellos, n.meta)} de ${n.meta} sellos`, premio: listo ? `¡Premio listo! ${n.premio}` : `Premio: ${n.premio}` };
+  const sellos = c.sellos | 0, hitos = premiosSellos(n, c);
+  const listos = hitos.filter((h) => h.listo), siguiente = hitos.find((h) => !h.canjeado && h.s > sellos) || null;
+  return {
+    tipo: 'sellos', sellos, listo: listos.length > 0, hitos, siguiente,
+    progreso: `${Math.min(sellos, n.meta)} de ${n.meta} sellos`,
+    premio: listos.length ? `¡Premio listo! ${listos[0].n}` : siguiente && !siguiente.final ? `Próximo premio: ${siguiente.n}` : `Premio: ${n.premio}`,
+  };
 }
 
 /** Frase corta del programa (registro, cartel). Devuelve [antes, resaltado, después, resaltado] para armar HTML. */

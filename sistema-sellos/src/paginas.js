@@ -1,10 +1,10 @@
 // Plantillas HTML. Todo el JavaScript va en /static (la política CSP no permite scripts en línea).
 import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './diseno.js';
-import { leerPrograma, leerServicios, estado, lema, soles, TIPOS, conTarjeta } from './programa.js';
+import { leerPrograma, leerServicios, estado, lema, soles, TIPOS, conTarjeta, premiosSellos } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-11-05';
+const V = '2026-11-12';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -51,6 +51,7 @@ ${scripts.map((s) => `<script src="/static/${s}?v=${V}" defer></script>`).join('
 </html>`;
 }
 
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const NOMBRES_REDES = { whatsapp: 'WhatsApp', instagram: 'Instagram', tiktok: 'TikTok', facebook: 'Facebook', maps: 'Cómo llegar', web: 'Página web' };
 const ICONO_RED = { whatsapp: 'wa', instagram: 'instagram', tiktok: 'tiktok', facebook: 'facebook', maps: 'maps', web: 'web' };
 
@@ -79,10 +80,28 @@ const marca = (n) => (n.d.logo
   : `<p class="antetitulo">${e(n.nombre)}</p><h1>${e(n.programa)}</h1>`);
 /** La frase que más motiva: cuánto le falta. La repite public/static/tarjeta.js al actualizarse. */
 function fraseFalta(n, c) {
+  // Con premios en el camino: primero el que ya tiene listo, si no, el más cercano.
+  const st = estado(n, c), listo = st.hitos.find((h) => h.listo);
+  if (listo && !listo.final) return `¡Tienes un premio listo!<br>Pide en caja tu <strong>${e(listo.n)}</strong>`;
+  if (st.siguiente && !st.siguiente.final) {
+    const k = st.siguiente.s - c.sellos;
+    return `${k === 1 ? '¡Te falta solo' : 'Te faltan'} <strong>${k} sello${k === 1 ? '' : 's'}</strong>${k === 1 ? '!' : ''}<br>para tu <strong>${e(st.siguiente.n)}</strong>`;
+  }
   const f = Math.max(0, n.meta - c.sellos);
   if (!f) return `¡Completaste tu tarjeta!<br>Pide en caja tu <strong>${e(n.premio)}</strong>`;
   if (f === 1) return `¡Te falta solo <strong>1 sello</strong>!<br>para tu <strong>${e(n.premio)}</strong>`;
   return `Te faltan <strong>${f} sellos</strong><br>para tu <strong>${e(n.premio)}</strong>`;
+}
+/** Premios de una tarjeta de sellos con premios en el camino: cada uno con sus sellos y si ya está listo o canjeado. */
+function listaHitos(n, c) {
+  const hs = premiosSellos(n, c);
+  if (hs.length < 2) return '';
+  return `<ul class="premios-lista hitos" aria-label="Tus premios">${hs.map((h) => `<li class="${h.canjeado ? 'canjeado' : h.listo ? 'alcanzado' : ''}"><span>${e(h.n)}${h.canjeado ? ' <em>canjeado</em>' : h.listo ? ' <em>¡listo!</em>' : ''}</span><strong>${h.s} sello${h.s === 1 ? '' : 's'}</strong></li>`).join('')}</ul>`;
+}
+/** Casillas de sellos; las que dan un premio en el camino llevan un regalito. */
+function casillasHtml(n, llenos, hitos) {
+  const conHito = new Set(hitos.map((h) => h.s));
+  return Array.from({ length: n.meta }, (_, i) => `<li class="sello${i < llenos ? ' lleno' : ''}${conHito.has(i + 1) ? ' hito' : ''}">${i < llenos ? selloLleno(n.d) : `<span>${i + 1}</span>`}${conHito.has(i + 1) ? `<i class="hito-marca" aria-hidden="true">${icono('regalo')}</i>` : ''}</li>`).join('');
 }
 const pausa = (texto) => `<section class="pausa" role="status"><h2>Programa en pausa</h2><p>${texto}</p></section>`;
 
@@ -97,13 +116,14 @@ function pasosCortos(n) {
 /** Así se verá su tarjeta (solo en sellos): lo que va a recibir, con el sello de regalo si el negocio lo da. */
 function vistaTarjeta(n) {
   if (leerPrograma(n).tipo !== 'sellos') return '';
-  const regalo = n.sello_regalo ? 1 : 0;
-  const casillas = Array.from({ length: n.meta }, (_, i) => `<li class="sello${i < regalo ? ' lleno' : ''}">${i < regalo ? selloLleno(n.d) : `<span>${i + 1}</span>`}</li>`).join('');
+  const regalo = n.sello_regalo ? 1 : 0, hitos = leerPrograma(n).hitos;
+  const casillas = casillasHtml(n, regalo, hitos);
   return `
   <section class="carnet vista-tarjeta" aria-label="Así se verá tu tarjeta">
     <div class="carnet-top"><p class="vista-nombre">${e(n.programa)}</p><span class="pill-avance">${regalo} de ${n.meta}</span></div>
     <ol class="sellos chicos" data-n="${Math.min(n.meta, 10)}" aria-hidden="true">${casillas}</ol>
-    <p class="regalo-aviso">${icono('regalo')}<span>${regalo ? 'Tu primer sello va de regalo al crear tu tarjeta' : `Completa ${n.meta} sellos y gana ${e(n.premio)}`}</span></p>
+    ${hitos.length ? listaHitos(n, { sellos: regalo, hito: 0 }) : ''}
+    <p class="regalo-aviso">${icono('regalo')}<span>${regalo ? 'Tu primer sello va de regalo al crear tu tarjeta' : hitos.length ? 'Premios en el camino y uno grande al final' : `Completa ${n.meta} sellos y gana ${e(n.premio)}`}</span></p>
   </section>`;
 }
 
@@ -139,6 +159,16 @@ export function registro(n, { error = '', valores = {} } = {}) {
       </div>
       <p class="ayuda" id="celular-ayuda">9 dígitos, empieza con 9.</p>
     </div>
+    <fieldset class="campo cumple">
+      <legend>Tu cumpleaños <span class="opcional">(opcional)</span></legend>
+      <div class="fila-cumple">
+        <label class="oculto-accesible" for="cumple-dia">Día</label>
+        <select id="cumple-dia" name="cumple_dia" aria-describedby="cumple-ayuda"><option value="">Día</option>${Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}"${String(valores.cumple_dia) === String(i + 1) ? ' selected' : ''}>${i + 1}</option>`).join('')}</select>
+        <label class="oculto-accesible" for="cumple-mes">Mes</label>
+        <select id="cumple-mes" name="cumple_mes" aria-describedby="cumple-ayuda"><option value="">Mes</option>${MESES.map((m, i) => `<option value="${i + 1}"${String(valores.cumple_mes) === String(i + 1) ? ' selected' : ''}>${m}</option>`).join('')}</select>
+      </div>
+      <p class="ayuda" id="cumple-ayuda">${n.regalo_cumple ? `En tu cumpleaños te regalamos <strong>${e(n.regalo_cumple)}</strong> y te saludamos por WhatsApp.` : 'Para saludarte por WhatsApp en tu día con una sorpresa.'}</p>
+    </fieldset>
     <div class="check">
       <input id="acepta" name="acepta" type="checkbox" value="1" required>
       <label for="acepta">Tengo 14 años o más y acepto el <a href="/${e(n.slug)}/privacidad" target="_blank" rel="noopener">aviso de privacidad</a>.</label>
@@ -187,9 +217,9 @@ export function tarjeta(n, c, qrSvg, url) {
   const tipo = leerPrograma(n).tipo;
   const sellos = Math.min(c.sellos, n.meta);
   const extra = Math.max(0, c.sellos - n.meta);
-  const listo = c.sellos >= n.meta;
-  const casillas = Array.from({ length: n.meta }, (_, i) =>
-    `<li class="sello${i < sellos ? ' lleno' : ''}">${i < sellos ? selloLleno(n.d) : `<span>${i + 1}</span>`}</li>`).join('');
+  const hitos = tipo === 'sellos' ? leerPrograma(n).hitos : [];
+  const listo = tipo === 'sellos' && estado(n, c).listo;
+  const casillas = casillasHtml(n, sellos, hitos);
   const codigo = c.codigo.replace(/(.{4})(.{4})/, '$1 $2');
   const mensaje = `Mi tarjeta ${n.programa} de ${n.nombre}: ${url}`;
   return base({
@@ -198,7 +228,7 @@ export function tarjeta(n, c, qrSvg, url) {
     scripts: ['comun.js', 'tarjeta.js', 'efectos.js'],
     decorar: true,
     cuerpo: `
-<main id="principal" class="contenedor"${n.vista ? '' : ` data-api="/api/n/${e(n.slug)}/t/${e(c.token)}"`} data-meta="${n.meta}" data-tipo="${tipo}" data-premio="${e(n.premio)}">
+<main id="principal" class="contenedor"${n.vista ? '' : ` data-api="/api/n/${e(n.slug)}/t/${e(c.token)}"`} data-meta="${n.meta}" data-tipo="${tipo}" data-premio="${e(n.premio)}"${hitos.length ? ' data-hitos="1"' : ''}>
   <template id="sello-lleno">${selloLleno(n.d)}</template>
   <header class="cabeza compacta">
     ${marca(n)}
@@ -214,6 +244,7 @@ export function tarjeta(n, c, qrSvg, url) {
     ${tipo === 'sellos' ? `<p class="frase-avance" id="progreso" aria-live="polite">${fraseFalta(n, c)}</p>
     <div class="barra" role="progressbar" aria-label="Avance de tu tarjeta" aria-valuemin="0" aria-valuemax="${n.meta}" aria-valuenow="${sellos}" id="barra"><span></span></div>
     <ol class="sellos" id="sellos" aria-label="Sellos: ${sellos} de ${n.meta}">${casillas}</ol>
+    ${hitos.length ? listaHitos(n, c) : ''}
     ${c.meta_t || c.premio_t ? '<p class="promo-anterior">Tu tarjeta conserva la promoción con la que empezaste.</p>' : ''}
     <p class="extra" id="extra"${extra ? '' : ' hidden'}>+${extra} sello${extra === 1 ? '' : 's'} para tu próxima tarjeta</p>
     <p class="premio listo" id="premio"${listo ? '' : ' hidden'}>${icono('regalo')}<span><strong>¡Premio listo!</strong> Muestra tu código en caja</span></p>` : carnetSaldo(n, c)}
@@ -250,6 +281,9 @@ export function cartel(n, qr, url) {
   // En sellos, una fila con los sellos de la meta (los primeros llenos) para que se entienda de un vistazo.
   const fila = pr.tipo === 'sellos'
     ? `<div class="l-sellos" aria-hidden="true">${Array.from({ length: Math.min(n.meta, 12) }, (_, i) => `<i${i < 3 ? ' class="lleno"' : ''}></i>`).join('')}</div>` : '';
+  // Premios en el camino: una línea corta debajo de los sellos.
+  const camino = pr.tipo === 'sellos' && pr.hitos.length
+    ? `<p class="l-hitos">${pr.hitos.map((h) => `<span><strong>${h.s} sello${h.s === 1 ? '' : 's'}</strong> ${e(h.n)}</span>`).join('')}<span><strong>${n.meta} sellos</strong> ${e(n.premio)}</span></p>` : '';
   const formatos = [['acrilico', 'Tótem acrílico', '15 × 21 cm'], ['a4', 'A4 vertical · pared', '21 × 29.7 cm'], ['a5', 'A5 vertical · mostrador', '14.8 × 21 cm'], ['mesa', 'Mesa', '10 × 15 cm'], ['a5h', 'A5 horizontal', '21 × 15 cm'], ['a4h', 'A4 horizontal', '29.7 × 21 cm']];
   return base({
     titulo: `Cartel · ${n.programa}`,
@@ -271,6 +305,7 @@ export function cartel(n, qr, url) {
         <h2 class="l-programa">${e(n.programa)}</h2>
         <p class="l-lema">${lemaHtml(n)}</p>
         ${fila}
+        ${camino}
       </header>
       <div class="l-qr">
         <p class="l-qr-k">Escanéame</p>
@@ -307,6 +342,7 @@ export function privacidad(n, env) {
   <h2>¿Qué datos usamos?</h2>
   <ul>
     <li>Tu nombre y tu número de celular.</li>
+    <li>Tu cumpleaños (día y mes, sin el año), solo si lo das: es opcional.</li>
     <li>Tus visitas registradas, sellos y premios canjeados (fecha y hora).</li>
   </ul>
   <p>No pedimos DNI, correo, dirección ni datos de pago.</p>
@@ -314,6 +350,7 @@ export function privacidad(n, env) {
   <h2>¿Para qué?</h2>
   <ul>
     <li><strong>Administrar tu tarjeta de sellos</strong>: registrar tus visitas, mostrar tu avance y entregarte tus premios. Es necesario para participar.</li>
+    <li><strong>Saludo de cumpleaños</strong>: si nos diste tu cumpleaños, te escribimos por WhatsApp ese día (con un regalo, si el negocio lo ofrece). Puedes pedir que lo borremos cuando quieras.</li>
     <li><strong>Recordatorios por WhatsApp</strong> sobre tus sellos, premios y promociones del negocio, <strong>solo si marcaste la casilla opcional</strong>. Puedes darte de baja cuando quieras respondiendo «BAJA» o pidiéndolo en caja.</li>
   </ul>
 
@@ -382,7 +419,7 @@ export function panel(n) {
     clase: 'es-panel',
     scripts: ['jsqr.js', 'comun.js', ...(n.mostrar_numeros ? ['numeros.js'] : []), 'panel.js'],
     cuerpo: `
-<main id="principal" class="contenedor ancho" data-slug="${e(n.slug)}" data-meta="${n.meta}" data-premio="${e(n.premio)}" data-negocio="${e(n.nombre)}" data-programa="${e(n.programa)}" data-tipo="${leerPrograma(n).tipo}" data-reglas="${e(JSON.stringify(leerPrograma(n)))}" data-servicios="${e(JSON.stringify(leerServicios(n)))}" data-pedir="${n.pedir_servicio ? 1 : 0}">
+<main id="principal" class="contenedor ancho" data-slug="${e(n.slug)}" data-meta="${n.meta}" data-premio="${e(n.premio)}" data-negocio="${e(n.nombre)}" data-programa="${e(n.programa)}" data-tipo="${leerPrograma(n).tipo}" data-reglas="${e(JSON.stringify(leerPrograma(n)))}" data-servicios="${e(JSON.stringify(leerServicios(n)))}" data-productos="${e(JSON.stringify(leerServicios(n, 'productos')))}" data-regalo-cumple="${e(n.regalo_cumple || '')}" data-pedir="${n.pedir_servicio ? 1 : 0}">
   <header class="cabeza compacta fila cabeza-panel">
     <div><p class="antetitulo">Panel</p><h1>${e(n.nombre)}</h1></div>
     <button class="salir-discreto" type="button" id="salir" hidden>Salir</button>
@@ -428,6 +465,7 @@ export function panel(n) {
       <ol class="sellos chicos" id="c-sellos" aria-hidden="true"></ol>
       <p class="progreso" id="c-progreso" aria-live="polite"></p>
       <p class="promo-aviso" id="c-promo" hidden></p>
+      <p class="cumple-aviso" id="c-cumple-hoy" hidden></p>
       <p class="suele" id="c-suele" hidden></p>
       <div class="servicios-elegir" id="c-servicios" role="group" aria-label="Servicios de esta visita" hidden></div>
       <div class="campo monto"><label for="c-monto" id="c-monto-label">Cobrado en esta visita (S/) <span>opcional</span></label><input id="c-monto" type="text" inputmode="decimal" autocomplete="off" maxlength="9" aria-describedby="c-monto-ayuda"><p class="ayuda" id="c-monto-ayuda">Si lo dejas vacío, se cuenta tu precio promedio en «Tus números».</p></div>
@@ -451,6 +489,15 @@ export function panel(n) {
         <p class="nota">Úsalo una sola vez, cuando el cliente te entrega su tarjeta de papel. Si tiene varias, suma todos los sellos. No cuenta como visita y quédate con su tarjeta de papel.</p>
         <div class="fila-input"><label class="oculto-accesible" for="c-papel-n">Sellos que tenía en papel</label><input id="c-papel-n" type="number" inputmode="numeric" min="1" max="${n.meta}" placeholder="Ej.: 3"><button class="boton" type="button" id="c-papel-btn">Pasar sellos</button></div>
       </details>
+      <details class="papel" id="c-cumple">
+        <summary id="c-cumple-t">Agregar su cumpleaños</summary>
+        <p class="nota">Pregúntale su cumpleaños (día y mes). Ese día aparece en «Escríbeles hoy» para saludarlo por WhatsApp.</p>
+        <div class="fila-input fila-cumple">
+          <label class="oculto-accesible" for="c-cumple-dia">Día</label><select id="c-cumple-dia"><option value="">Día</option>${Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('')}</select>
+          <label class="oculto-accesible" for="c-cumple-mes">Mes</label><select id="c-cumple-mes"><option value="">Mes</option>${MESES.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('')}</select>
+          <button class="boton" type="button" id="c-cumple-btn">Guardar</button>
+        </div>
+      </details>
       <details class="borrar">
         <summary>Eliminar cliente</summary>
         <p>Úsalo si el cliente pide borrar sus datos. No se puede deshacer.</p>
@@ -460,8 +507,12 @@ export function panel(n) {
 
     <section class="bloque destacado" aria-labelledby="t-cerca">
       <div class="fila"><h2 id="t-cerca">Escríbeles hoy <span class="chip" id="escribir-total" hidden></span></h2><button class="boton chico" type="button" id="recargar">Actualizar</button></div>
-      <p class="nota">Un mensaje a tiempo hace que vuelvan. Solo salen los que aceptaron mensajes.</p>
-      <p class="vacio-lista" id="escribir-vacio">Nadie por ahora. Cuando alguien esté cerca de su premio o deje de venir, aparecerá aquí.</p>
+      <p class="nota">Un mensaje a tiempo hace que vuelvan. Solo salen los que aceptaron mensajes o te dieron su cumpleaños.</p>
+      <p class="vacio-lista" id="escribir-vacio">Nadie por ahora. Cuando alguien esté cerca de su premio, cumpla años o deje de venir, aparecerá aquí.</p>
+      <div id="cumple-caja" hidden>
+        <h3 class="subtitulo">Cumpleaños esta semana</h3>
+        <ul class="lista" id="cumples"></ul>
+      </div>
       <div id="cerca-caja" hidden>
         <h3 class="subtitulo">Cerca de su premio</h3>
         <ul class="lista" id="cerca"></ul>
@@ -589,6 +640,7 @@ export function admin() {
             <div class="campo" data-solo="cashback" hidden><label for="f-minimo">Saldo mínimo para usar (S/)</label><input id="f-minimo" name="minimo" type="text" inputmode="decimal" value="5" maxlength="7"></div>
             <div class="campo" data-solo="sellos"><label for="f-meta">Sellos para el premio</label><input id="f-meta" name="meta" type="number" min="3" max="20" value="10" required></div>
             <div class="campo" data-solo="sellos"><label for="f-premio">Premio</label><input id="f-premio" name="premio" required maxlength="60" placeholder="Corte gratis"></div>
+            <div class="campo ancho-total" data-solo="sellos"><label for="f-hitos">Premios en el camino <span class="opcional">(opcional)</span></label><textarea id="f-hitos" name="hitos_texto" rows="3" placeholder="2 = 20 % de descuento&#10;4 = 20 % de descuento" aria-describedby="f-hitos-ayuda"></textarea><p class="ayuda" id="f-hitos-ayuda">Uno por línea: sellos = premio. Se canjean sin reiniciar la tarjeta; al llegar a los «Sellos para el premio» se entrega el premio final y la tarjeta empieza de cero.</p></div>
             <div class="check ancho-total" data-solo="sellos"><input id="f-regalo" name="sello_regalo" type="checkbox" value="1" aria-describedby="f-regalo-ayuda"><label for="f-regalo">Primer sello de regalo al crear la tarjeta</label></div>
             <p class="ayuda ancho-total" data-solo="sellos" id="f-regalo-ayuda">Recomendado: una tarjeta que empieza con 1 sello se completa más que una vacía. No cuenta como visita.</p>
           </div>
@@ -666,7 +718,9 @@ export function admin() {
             <div class="campo"><label for="f-precio">Precio promedio por servicio (S/)</label><input id="f-precio" name="precio" type="text" inputmode="decimal" maxlength="7" placeholder="35" aria-describedby="f-precio-ayuda"><p class="ayuda" id="f-precio-ayuda">Lo que cobra en promedio (un corte, por ejemplo). Con eso su panel calcula cuánto le dejan sus clientes y cuánto deja de ganar.</p></div>
             <div class="campo"><label for="f-costo-premio">Lo que le cuesta dar el premio (S/)</label><input id="f-costo-premio" name="costo_premio" type="text" inputmode="decimal" maxlength="7" placeholder="Igual al precio" aria-describedby="f-costo-premio-ayuda"><p class="ayuda" id="f-costo-premio-ayuda">Vacío = se cuenta como un servicio que no cobra.</p></div>
             <div class="campo"><label for="f-espera">Minutos mínimos entre visitas</label><input id="f-espera" name="espera_min" type="number" min="0" max="10080" value="180"></div>
-            <div class="campo ancho-total"><label for="f-servicios">Servicios o productos con su precio</label><textarea id="f-servicios" name="servicios_texto" rows="4" placeholder="Corte = 30&#10;Barba = 15&#10;Café americano = 8" aria-describedby="f-servicios-ayuda"></textarea><p class="ayuda" id="f-servicios-ayuda">Uno por línea: nombre = precio. En el panel se eligen con un toque al registrar la visita, y «Tus números» muestra los más vendidos.</p></div>
+            <div class="campo ancho-total"><label for="f-servicios">Servicios con su precio</label><textarea id="f-servicios" name="servicios_texto" rows="4" placeholder="Corte = 30&#10;Barba = 15&#10;Corte + barba = 40" aria-describedby="f-servicios-ayuda"></textarea><p class="ayuda" id="f-servicios-ayuda">Uno por línea: nombre = precio. En el panel se eligen con un toque al registrar la visita, y «Tus números» muestra los más vendidos.</p></div>
+            <div class="campo ancho-total"><label for="f-productos">Productos con su precio <span class="opcional">(opcional)</span></label><textarea id="f-productos" name="productos_texto" rows="3" placeholder="Cera para cabello = 25&#10;Shampoo = 30" aria-describedby="f-productos-ayuda"></textarea><p class="ayuda" id="f-productos-ayuda">Lo que vende en el local. En el panel salen aparte, debajo de los servicios, y se suman al monto de la visita.</p></div>
+            <div class="campo ancho-total"><label for="f-regalo-cumple">Regalo de cumpleaños <span class="opcional">(opcional)</span></label><input id="f-regalo-cumple" name="regalo_cumple" maxlength="60" placeholder="20 % de descuento en tu cumpleaños" aria-describedby="f-regalo-cumple-ayuda"><p class="ayuda" id="f-regalo-cumple-ayuda">Sale al registrarse («En tu cumpleaños te regalamos…») y en el mensaje de WhatsApp que el negocio manda ese día.</p></div>
             <div class="check ancho-total"><input id="f-pedir" name="pedir_servicio" type="checkbox" value="1" checked aria-describedby="f-pedir-ayuda"><label for="f-pedir">Pedir el servicio en cada visita (recomendado)</label></div>
             <p class="ayuda ancho-total" id="f-pedir-ayuda">El cajero no puede sumar la visita sin elegir el servicio o escribir el monto cobrado. Desmárcalo solo si casi todo es un mismo servicio al mismo precio.</p>
             <div class="check ancho-total"><input id="f-mostrar" name="mostrar_numeros" type="checkbox" value="1" aria-describedby="f-mostrar-ayuda"><label for="f-mostrar">Mostrar números completos al dueño en su panel</label></div>

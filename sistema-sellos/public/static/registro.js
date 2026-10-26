@@ -16,18 +16,20 @@
   }
   form.addEventListener('submit', async function (ev) {
     ev.preventDefault();
-    ['nombre', 'celular', 'acepta'].forEach(function (id) { document.getElementById(id).removeAttribute('aria-invalid'); });
+    ['nombre', 'celular', 'acepta', 'cumple-dia', 'cumple-mes'].forEach(function (id) { document.getElementById(id).removeAttribute('aria-invalid'); });
     Sellos.mostrar(msg, '');
     var nombre = document.getElementById('nombre');
     var acepta = document.getElementById('acepta');
+    var dia = document.getElementById('cumple-dia'), mes = document.getElementById('cumple-mes');
     var digitos = cel.value.replace(/\D/g, '');
     if (nombre.value.trim().length < 2) return fallo('Escribe tu nombre.', nombre);
     if (!/^9\d{8}$/.test(digitos)) return fallo('Revisa tu celular: deben ser 9 dígitos y empezar con 9.', cel);
+    if (!dia.value !== !mes.value) return fallo('Elige el día y el mes de tu cumpleaños (o déjalos vacíos).', dia.value ? mes : dia);
     if (!acepta.checked) return fallo('Para crear tu tarjeta debes aceptar el aviso de privacidad.', acepta);
     var boton = form.querySelector('button[type=submit]');
     boton.disabled = true; boton.textContent = 'Creando tu tarjeta…';
     var r = await Sellos.api('/api/n/' + slug + '/registro', {
-      body: { nombre: nombre.value, celular: digitos, acepta: true, recordatorios: document.getElementById('recordatorios').checked, origen: document.getElementById('origen').value },
+      body: { nombre: nombre.value, celular: digitos, acepta: true, recordatorios: document.getElementById('recordatorios').checked, origen: document.getElementById('origen').value, cumple_dia: dia.value, cumple_mes: mes.value },
     });
     if (r.ok && r.datos.url) { location.href = r.datos.url; return; }
     boton.disabled = false; boton.textContent = 'Crear mi tarjeta gratis';

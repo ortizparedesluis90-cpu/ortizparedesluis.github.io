@@ -48,7 +48,8 @@ function saldoPase(n, c) {
   n = conTarjeta(n, c);
   return {
     loyaltyPoints: { label: `Sellos (de ${n.meta})`, balance: { int: Math.min(c.sellos, n.meta) } },
-    premio: c.sellos >= n.meta ? `¡Listo! Pide en caja: ${n.premio}` : `Al completar ${n.meta} sellos: ${n.premio}`,
+    premio: st.listo ? `¡Listo! Pide en caja: ${st.hitos.find((h) => h.listo).n}`
+      : st.siguiente && !st.siguiente.final ? `A los ${st.siguiente.s} sellos: ${st.siguiente.n}` : `Al completar ${n.meta} sellos: ${n.premio}`,
   };
 }
 
