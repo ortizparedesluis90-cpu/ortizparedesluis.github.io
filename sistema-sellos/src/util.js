@@ -82,12 +82,12 @@ export function cookie(nombre, valor, { path = '/', maxAge = 60 * 60 * 12, sameS
 }
 
 /** Lee el cuerpo JSON de un POST. Solo acepta JSON del mismo origen (protección CSRF). */
-export async function cuerpo(req) {
+export async function cuerpo(req, max = 8000) {
   const origen = req.headers.get('Origin');
   if (origen && origen !== new URL(req.url).origin) throw new Error('origen');
   if (!(req.headers.get('Content-Type') || '').startsWith('application/json')) throw new Error('tipo');
   const t = await req.text();
-  if (t.length > 8000) throw new Error('tamaño');
+  if (t.length > max) throw new Error('tamaño');
   return t ? JSON.parse(t) : {};
 }
 

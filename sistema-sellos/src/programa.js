@@ -31,10 +31,17 @@ export function leerPrograma(n) {
   };
 }
 
+/** Servicios o productos del negocio: [{n: nombre, p: precio en céntimos}]. La gestión del negocio (src/gestion.js)
+ *  agrega d (minutos que dura un servicio) y, en productos, s (stock) y m (stock mínimo para avisar). */
 export function leerServicios(n, campo = 'servicios') {
   const l = json(n[campo], []);
-  return (Array.isArray(l) ? l : [])
-    .map((s) => ({ n: texto(s.n, 40), p: Math.round(num(s.p, 0, 0, 1e7)) })).filter((s) => s.n).slice(0, 30);
+  return (Array.isArray(l) ? l : []).map((s) => {
+    const o = { n: texto(s.n, 40), p: Math.round(num(s.p, 0, 0, 1e7)) };
+    if (Number(s.d) > 0) o.d = Math.round(num(s.d, 30, 5, 600));
+    if (s.s !== undefined && s.s !== null && s.s !== '' && Number.isFinite(Number(s.s))) o.s = Math.round(num(s.s, 0, -9999, 99999));
+    if (Number(s.m) > 0) o.m = Math.round(num(s.m, 0, 0, 9999));
+    return o;
+  }).filter((s) => s.n).slice(0, 60);
 }
 
 /** «Corte = 30» por línea → [{n, p}] (p en céntimos). Devuelve { lista } o { error }. */
@@ -52,7 +59,7 @@ function lineas(t, max, que) {
 /** Servicios y productos que el cajero elige con un toque en cada visita. */
 export const leerCatalogo = (n) => [...leerServicios(n), ...leerServicios(n, 'productos')];
 export function textoAServicios(t, que = 'Servicios') {
-  const r = lineas(t, 30, que);
+  const r = lineas(t, 60, que);
   return r.error ? r : { lista: r.lista.map((s) => ({ n: s.n.slice(0, 40), p: Math.round(s.x * 100) })) };
 }
 export function textoAPremios(t) {

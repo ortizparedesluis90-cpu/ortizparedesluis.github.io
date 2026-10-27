@@ -5,6 +5,7 @@ import ESQUEMA from '../migrations/0001_inicial.sql';
 import * as P from './paginas.js';
 import { leerDiseno, temaCss, catalogo, mediosDe, colores } from './diseno.js';
 import { walletActivo, enlaceGuardar, actualizar as actualizarWallet } from './wallet.js';
+import { apiGestion, apiReserva, esDueno, reservasActivas, conservarExtras, ahoraLima } from './gestion.js';
 import { TIPOS, leerPrograma, leerCatalogo, textoAServicios, textoAPremios, textoAHitos, ganar, estado, conTarjeta } from './programa.js';
 import {
   AVISO_VERSION, EN_MARCO, html, json, error, texto, redirigir, cookies, cookie, cuerpo, nuevoToken, nuevoCodigo, aleatorio,
@@ -45,6 +46,11 @@ const COLUMNAS_NUEVAS = [
   ['clientes', 'cumple', 'TEXT'],
   ['negocios', 'productos', "TEXT NOT NULL DEFAULT '[]'"],
   ['negocios', 'regalo_cumple', "TEXT NOT NULL DEFAULT ''"],
+  ['negocios', 'gestion', 'INTEGER NOT NULL DEFAULT 0'],
+  ['negocios', 'ajustes', "TEXT NOT NULL DEFAULT '{}'"],
+  ['negocios', 'clave_dueno', "TEXT NOT NULL DEFAULT ''"],
+  ['negocios', 'clave_dueno_ver', 'INTEGER NOT NULL DEFAULT 1'],
+  ['clientes', 'notas', "TEXT NOT NULL DEFAULT ''"],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
@@ -249,6 +255,37 @@ async function registrar(req, env, n) {
   return formulario ? redirigir(destino, { 'Set-Cookie': galleta }) : json({ ok: true, url: destino }, 201, { 'Set-Cookie': galleta });
 }
 
+/** Al borrar a un cliente, sus ventas quedan en la caja del negocio (son contabilidad) pero sin su nombre,
+ *  y sus citas pasadas pierden nombre y celular. Las futuras se quedan: es una reserva que todavía va a atender. */
+function anonimizar(env, cid) {
+  const hoy = ahoraLima().dia;
+  return [
+    env.DB.prepare(`UPDATE ventas SET cliente_id = NULL, nombre = '' WHERE cliente_id = ?`).bind(cid),
+    env.DB.prepare(`UPDATE citas SET cliente_id = NULL, nombre = '', celular = '' WHERE cliente_id = ? AND dia < ?`).bind(cid, hoy),
+    env.DB.prepare('UPDATE citas SET cliente_id = NULL WHERE cliente_id = ?').bind(cid),
+  ];
+}
+
+/** Suma una visita a la tarjeta: 1 sello, o los puntos o el saldo que da el monto (céntimos).
+ *  Devuelve null si se sumó, o el aviso si ya se registró una visita hace menos de espera_min minutos. */
+async function sumarVisita(env, n, c, monto, servicio) {
+  const pr = leerPrograma(n);
+  const gana = ganar(pr, monto || 0);
+  const espera = `-${Math.max(0, n.espera_min | 0)} minutes`;
+  const [upd] = await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE clientes SET sellos = sellos + ?, puntos = puntos + ?, saldo = saldo + ?, visitas = visitas + 1, ultima_visita = datetime('now')
+       WHERE id = ? AND negocio_id = ? AND (ultima_visita IS NULL OR ultima_visita <= datetime('now', ?))`
+    ).bind(gana.sellos, gana.puntos, gana.saldo, c.id, n.id, espera),
+    // puntos y saldo quedan NULL en programas de sellos: así «deshacer» sabe qué devolver.
+    env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, monto, servicio, puntos, saldo) SELECT ?, ?, 'sello', ?, ?, ?, ? WHERE changes() > 0`)
+      .bind(n.id, c.id, monto, servicio, pr.tipo === 'puntos' ? gana.puntos : null, pr.tipo === 'cashback' ? gana.saldo : null),
+  ]);
+  if (upd.meta.changes) return null;
+  const hace = Math.max(0, Math.round((Date.now() - Date.parse(String(c.ultima_visita).replace(' ', 'T') + 'Z')) / 60000));
+  return `Ya se registró una visita hace ${hace} min. Entre dos visitas deben pasar ${n.espera_min} minutos.`;
+}
+
 // ---------- API del panel ----------
 async function apiPanel(req, env, n, partes, url, ctx) {
   const [accion, id, sub] = partes;
@@ -257,7 +294,7 @@ async function apiPanel(req, env, n, partes, url, ctx) {
   if (accion === 'yo' && metodo === 'GET') {
     const sesion = await puedeEntrar(req, env, n);
     // La fecha de vencimiento solo la ve quien ya entró al panel.
-    return json({ sesion, ...(sesion ? estadoPlan(n) : { suspendido: !!n.suspendido, dias: null }) });
+    return json({ sesion, gestion: !!n.gestion, ...(sesion ? estadoPlan(n) : { suspendido: !!n.suspendido, dias: null }) });
   }
 
   if (accion === 'login' && metodo === 'POST') {
@@ -268,10 +305,12 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     try { datos = await cuerpo(req); } catch { return error('Solicitud no válida.'); }
     const clave = String(datos.clave || '');
     // Solo la clave del negocio: el administrador entra por /admin y su sesión abre todos los paneles.
-    const ok = Boolean(n.clave_hash) && (await verificarClave(clave, n.clave_hash));
+    // La clave del dueño (si la tiene) también abre el panel, y además la gestión completa (finanzas, gastos, equipo).
+    const dueno = Boolean(n.clave_dueno) && (await verificarClave(clave, n.clave_dueno));
+    const ok = dueno || (Boolean(n.clave_hash) && (await verificarClave(clave, n.clave_hash)));
     if (!ok) { await registrarFallo(env, llave, 900); return error('Clave incorrecta.', 401); }
     await limpiarFallos(env, llave);
-    const s = await crearSesion(env, { r: 'staff', n: n.id, v: n.clave_ver });
+    const s = await crearSesion(env, { r: 'staff', n: n.id, v: n.clave_ver, ...(dueno ? { d: n.clave_dueno_ver } : {}) });
     return json({ ok: true }, 200, { 'Set-Cookie': cookie('sesion', s, { maxAge: DURACION_SESION }) });
   }
 
@@ -279,7 +318,25 @@ async function apiPanel(req, env, n, partes, url, ctx) {
   if (n.suspendido && !(await esAdmin(req, env))) return error('Este panel está suspendido. Comunícate con tu proveedor para reactivarlo.', 403);
   let datos = {};
   if (metodo === 'POST') {
-    try { datos = await cuerpo(req); } catch { return error('Solicitud no válida.'); }
+    // La gestión guarda el catálogo completo de una vez: admite un cuerpo más grande.
+    try { datos = await cuerpo(req, accion === 'g' ? 32000 : 8000); } catch { return error('Solicitud no válida.'); }
+  }
+
+  // Gestión del negocio: agenda, caja, gastos, finanzas, equipo y catálogo (src/gestion.js).
+  if (accion === 'g') {
+    const sesion = await leerSesion(req, env);
+    return apiGestion(req, env, n, partes.slice(1), url, {
+      sesion, dueno: esDueno(sesion, n), CAMPOS_CLIENTE,
+      clientePanel: (c) => clientePanel(c, n, url.origin),
+      visita: async (c, monto, servicio) => {
+        const aviso = await sumarVisita(env, n, c, monto, servicio);
+        if (!aviso && c.wallet && walletActivo(env) && ctx) {
+          const nuevo = await env.DB.prepare(`SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE id = ?`).bind(c.id).first();
+          ctx.waitUntil(actualizarWallet(env, n, nuevo, url.origin));
+        }
+        return aviso;
+      },
+    }, datos);
   }
 
   if (accion === 'buscar' && metodo === 'GET') {
@@ -378,7 +435,6 @@ async function apiPanel(req, env, n, partes, url, ctx) {
       if (Number.isNaN(monto)) return error('El monto cobrado no es válido.');
       const pr = leerPrograma(n);
       if (pr.tipo !== 'sellos' && !monto) return error(`Escribe el monto de la compra: con eso se calculan ${pr.tipo === 'puntos' ? 'sus puntos' : 'su saldo'}.`);
-      const gana = ganar(pr, monto || 0);
       // Servicios y productos elegidos (solo los del catálogo), para «Servicios más vendidos».
       const catalogo = leerCatalogo(n), nombres = new Set(catalogo.map((x) => x.n));
       const lista = (Array.isArray(datos.servicios) ? datos.servicios : []).map(String).filter((x) => nombres.has(x)).slice(0, 10);
@@ -387,20 +443,8 @@ async function apiPanel(req, env, n, partes, url, ctx) {
       if (!monto && lista.length) monto = lista.reduce((t, x) => t + (catalogo.find((sv) => sv.n === x)?.p || 0), 0) || null;
       // «Pedir el servicio en cada visita» (por defecto): sin servicio ni monto no se registra.
       if (n.pedir_servicio && !monto && !servicio) return error(catalogo.length ? 'Elige el servicio o producto (o escribe el monto cobrado).' : 'Escribe el monto cobrado en esta visita.');
-      const espera = `-${Math.max(0, n.espera_min | 0)} minutes`;
-      const [upd] = await env.DB.batch([
-        env.DB.prepare(
-          `UPDATE clientes SET sellos = sellos + ?, puntos = puntos + ?, saldo = saldo + ?, visitas = visitas + 1, ultima_visita = datetime('now')
-           WHERE id = ? AND negocio_id = ? AND (ultima_visita IS NULL OR ultima_visita <= datetime('now', ?))`
-        ).bind(gana.sellos, gana.puntos, gana.saldo, cid, n.id, espera),
-        // puntos y saldo quedan NULL en programas de sellos: así «deshacer» sabe qué devolver.
-        env.DB.prepare(`INSERT INTO movimientos (negocio_id, cliente_id, tipo, monto, servicio, puntos, saldo) SELECT ?, ?, 'sello', ?, ?, ?, ? WHERE changes() > 0`)
-          .bind(n.id, cid, monto, servicio, pr.tipo === 'puntos' ? gana.puntos : null, pr.tipo === 'cashback' ? gana.saldo : null),
-      ]);
-      if (!upd.meta.changes) {
-        const hace = Math.max(0, Math.round((Date.now() - Date.parse(String(c.ultima_visita).replace(' ', 'T') + 'Z')) / 60000));
-        return error(`Ya se registró una visita hace ${hace} min. Entre dos visitas deben pasar ${n.espera_min} minutos.`, 409);
-      }
+      const espera = await sumarVisita(env, n, c, monto, servicio);
+      if (espera) return error(espera, 409);
       return listo();
     }
 
@@ -512,6 +556,7 @@ async function apiPanel(req, env, n, partes, url, ctx) {
 
     if (sub === 'eliminar' && metodo === 'POST') {
       await env.DB.batch([
+        ...anonimizar(env, cid),
         env.DB.prepare('DELETE FROM movimientos WHERE cliente_id = ? AND negocio_id = ?').bind(cid, n.id),
         env.DB.prepare('DELETE FROM clientes WHERE id = ? AND negocio_id = ?').bind(cid, n.id),
       ]);
@@ -793,7 +838,7 @@ async function apiAdmin(req, env, partes, url) {
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
       `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
-         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio, n.costo_premio, n.mostrar_numeros, n.sello_regalo, n.productos, n.regalo_cumple,
+         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio, n.costo_premio, n.mostrar_numeros, n.sello_regalo, n.productos, n.regalo_cumple, n.gestion,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
          (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
@@ -876,6 +921,11 @@ async function apiAdmin(req, env, partes, url) {
     const clave = String(d.clave || '');
     if (clave && clave.length < 8) return error('La clave del panel debe tener al menos 8 caracteres.');
     const hash = clave ? await hashClave(clave) : null;
+    const claveDueno = String(d.clave_dueno || '');
+    if (claveDueno && claveDueno.length < 8) return error('La clave del dueño debe tener al menos 8 caracteres.');
+    if (claveDueno && claveDueno === clave) return error('La clave del dueño debe ser distinta a la del panel.');
+    const hashDueno = claveDueno ? await hashClave(claveDueno) : null;
+    const gestion = d.gestion === undefined ? null : (d.gestion === '1' ? 1 : 0);
 
     const existe = await env.DB.prepare('SELECT id FROM negocios WHERE slug = ?').bind(slug).first();
     if (existe && d.editar !== slug) return error(`Ya existe un negocio con el identificador «${slug}». Usa otro o toca «Editar» en ese negocio.`, 409);
@@ -896,7 +946,11 @@ async function apiAdmin(req, env, partes, url) {
       // Cada tarjeta respeta su promoción: si cambian los sellos o el premio, las tarjetas que ya tienen sellos
       // se quedan con la promoción con la que empezaron hasta canjearla. Las que vuelven a coincidir, se liberan.
       // También los premios en el camino: se guardan con la promoción de la tarjeta.
-      const antes = await env.DB.prepare('SELECT tipo, meta, premio, reglas FROM negocios WHERE id = ?').bind(existe.id).first();
+      const antes = await env.DB.prepare('SELECT tipo, meta, premio, reglas, servicios, productos, clave_hash FROM negocios WHERE id = ?').bind(existe.id).first();
+      // La duración de los servicios y el stock de los productos los maneja la gestión: no se pierden al guardar aquí.
+      v.servicios = conservarExtras(v.servicios, antes.servicios);
+      v.productos = conservarExtras(v.productos, antes.productos);
+      if (hashDueno && !hash && (await verificarClave(claveDueno, antes.clave_hash))) return error('La clave del dueño debe ser distinta a la del panel.');
       const hitosAntes = JSON.stringify(leerPrograma(antes).hitos), hitosNuevos = JSON.stringify(leerPrograma(v).hitos);
       if (antes.tipo === 'sellos' && v.tipo === 'sellos' && (antes.meta !== v.meta || antes.premio !== v.premio || hitosAntes !== hitosNuevos)) {
         const [, , cuenta] = await env.DB.batch([
@@ -909,8 +963,8 @@ async function apiAdmin(req, env, partes, url) {
       await env.DB.prepare(
         `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?, productos=?, regalo_cumple=?, pedir_servicio=COALESCE(?, pedir_servicio),
          costo_premio=COALESCE(?, costo_premio), mostrar_numeros=COALESCE(?, mostrar_numeros), sello_regalo=COALESCE(?, sello_regalo)
-         ${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, v.productos, v.regalo_cumple, pedir, d.costo_premio === undefined ? null : costoPremio || 0, mostrar, regalo, ...(hash ? [hash] : []), existe.id).run();
+         , gestion=COALESCE(?, gestion)${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''}${hashDueno ? ', clave_dueno=?, clave_dueno_ver=clave_dueno_ver+1' : ''} WHERE id = ?`
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, v.productos, v.regalo_cumple, pedir, d.costo_premio === undefined ? null : costoPremio || 0, mostrar, regalo, gestion, ...(hash ? [hash] : []), ...(hashDueno ? [hashDueno] : []), existe.id).run();
       return json({ ok: true, creado: false, conservan });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
@@ -918,9 +972,9 @@ async function apiAdmin(req, env, partes, url) {
     if (!v.vence) v.vence = sumarMeses(hoyLima(), 1);
     if (!v.plan) v.plan = 'prueba';
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, productos, regalo_cumple, pedir_servicio, costo_premio, mostrar_numeros, sello_regalo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, v.productos, v.regalo_cumple, pedir === null ? 1 : pedir, costoPremio || 0, mostrar || 0, regalo || 0).run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, productos, regalo_cumple, pedir_servicio, costo_premio, mostrar_numeros, sello_regalo, gestion, clave_dueno)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, v.productos, v.regalo_cumple, pedir === null ? 1 : pedir, costoPremio || 0, mostrar || 0, regalo || 0, gestion || 0, hashDueno || '').run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);
@@ -1028,6 +1082,11 @@ async function manejar(req, env, ctx) {
       const n = await negocioPorSlug(env, partes[2]);
       if (!n) return error('Negocio no encontrado.', 404);
       if (partes[3] === 'registro' && req.method === 'POST') return registrar(req, env, n);
+      if (partes[3] === 'reserva') {
+        let datos = {};
+        if (req.method === 'POST') { try { datos = await cuerpo(req); } catch { return error('Solicitud no válida.'); } }
+        return apiReserva(req, env, n, partes.slice(4), url, datos);
+      }
       if (partes[3] === 't' && partes[4]) {
         const c = await env.DB.prepare(`SELECT ${CAMPOS_CLIENTE} FROM clientes WHERE token = ? AND negocio_id = ?`).bind(partes[4], n.id).first();
         if (!c) return error('Tarjeta no encontrada.', 404);
@@ -1035,6 +1094,7 @@ async function manejar(req, env, ctx) {
         if (partes[5] === 'eliminar' && req.method === 'POST') {
           try { await cuerpo(req); } catch { return error('Solicitud no válida.'); }
           await env.DB.batch([
+            ...anonimizar(env, c.id),
             env.DB.prepare('DELETE FROM movimientos WHERE cliente_id = ?').bind(c.id),
             env.DB.prepare('DELETE FROM clientes WHERE id = ?').bind(c.id),
           ]);
@@ -1086,6 +1146,10 @@ async function manejar(req, env, ctx) {
       return html(P.privacidad(n, env));
     case 'panel':
       return html(P.panel(n));
+    case 'gestion':
+      return html(P.gestion(n));
+    case 'reservar':
+      return reservasActivas(n) ? html(P.reservar(n)) : html(P.noEncontrado(), 404);
     case 'cartel': {
       // El QR del cartel va en mayúsculas (/SLUG/Q, menos cuadritos y más fácil de leer de lejos)
       // y redirige a /slug?o=qr para contar cuántas personas lo escanean.
@@ -1107,6 +1171,7 @@ async function manejar(req, env, ctx) {
         return redirigir(await enlaceGuardar(env, n, c, url.origin, logo));
       }
       n.wallet = walletActivo(env) && !/iPhone|iPad|iPod/.test(req.headers.get('User-Agent') || '');
+      n.reserva = reservasActivas(n);
       const enlace = `${url.origin}/${n.slug}/t/${c.token}`;
       // El código va después de # para que no viaje al servidor ni quede en registros.
       return html(P.tarjeta(n, c, qrSvg(qrCliente(url.origin, n, c)), enlace), 200, {
@@ -1131,9 +1196,16 @@ export default {
   // y limpia el registro de intentos.
   async scheduled(_evento, env) {
     await asegurarEsquema(env);
+    // Quien compró o tuvo una cita en la gestión en esos 24 meses no se borra, aunque no haya sumado sellos.
+    const viejo = `COALESCE(ultima_visita, creado) < datetime('now', '-24 months')
+      AND NOT EXISTS (SELECT 1 FROM ventas v WHERE v.cliente_id = clientes.id AND v.creado >= datetime('now', '-24 months'))
+      AND NOT EXISTS (SELECT 1 FROM citas ci WHERE ci.cliente_id = clientes.id AND ci.creado >= datetime('now', '-24 months'))`;
     await env.DB.batch([
-      env.DB.prepare(`DELETE FROM movimientos WHERE cliente_id IN (SELECT id FROM clientes WHERE COALESCE(ultima_visita, creado) < datetime('now', '-24 months'))`),
-      env.DB.prepare(`DELETE FROM clientes WHERE COALESCE(ultima_visita, creado) < datetime('now', '-24 months')`),
+      env.DB.prepare(`UPDATE ventas SET cliente_id = NULL, nombre = '' WHERE cliente_id IN (SELECT id FROM clientes WHERE ${viejo})`),
+      env.DB.prepare(`UPDATE citas SET cliente_id = NULL, nombre = '', celular = '' WHERE cliente_id IN (SELECT id FROM clientes WHERE ${viejo})`),
+      env.DB.prepare(`DELETE FROM movimientos WHERE cliente_id IN (SELECT id FROM clientes WHERE ${viejo})`),
+      env.DB.prepare(`DELETE FROM clientes WHERE ${viejo}`),
+      env.DB.prepare(`DELETE FROM citas WHERE dia < date('now', '-5 hours', '-24 months')`),
       env.DB.prepare('DELETE FROM intentos WHERE desde < ?').bind(Math.floor(Date.now() / 1000) - 86400),
       env.DB.prepare(`DELETE FROM vistas WHERE dia < date('now', '-400 days')`),
     ]);

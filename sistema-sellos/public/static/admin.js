@@ -40,6 +40,7 @@
         Sellos.el('td', {}, [
           Sellos.el('a', { href: '/' + n.slug, texto: 'Registro' }),
           Sellos.el('a', { href: '/' + n.slug + '/panel', texto: 'Panel' }),
+          n.gestion ? Sellos.el('a', { href: '/' + n.slug + '/gestion', texto: 'Gestión' }) : null,
           Sellos.el('a', { href: '/' + n.slug + '/cartel', texto: 'Cartel QR' }),
           Sellos.el('a', { href: '/' + n.slug + '/privacidad', texto: 'Privacidad' }),
           editar,
@@ -254,6 +255,8 @@
     f.elements.pedir_servicio.checked = n.pedir_servicio === undefined || n.pedir_servicio === null ? true : !!n.pedir_servicio;
     f.elements.costo_premio.value = n.costo_premio ? String(n.costo_premio / 100) : '';
     f.elements.mostrar_numeros.checked = !!n.mostrar_numeros;
+    f.elements.gestion.checked = !!n.gestion;
+    f.elements.clave_dueno.value = '';
     f.elements.sello_regalo.checked = !!n.sello_regalo;
     f.elements.editar.value = n.slug;
     f.elements.clave.value = '';
@@ -471,6 +474,7 @@
         : 'Cambios guardados.' + (r.datos.conservan ? ' ' + r.datos.conservan + (r.datos.conservan === 1 ? ' cliente conserva' : ' clientes conservan') + ' su promoción anterior hasta canjearla; las tarjetas nuevas ya usan la nueva.' : ''));
       f.elements.editar.value = datos.slug;
       f.elements.clave.value = '';
+      f.elements.clave_dueno.value = '';
       pintarMedios();
       cargar();
     } else Sellos.mostrar($('form-msg'), r.datos.error || 'No se pudo guardar.');

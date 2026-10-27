@@ -4,7 +4,7 @@ import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './
 import { leerPrograma, leerServicios, estado, lema, soles, TIPOS, conTarjeta, premiosSellos } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-11-12';
+const V = '2026-11-20';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -19,19 +19,32 @@ const ICONOS = {
   web: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z',
   camara: 'M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   persona: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5c.8-3.6 3.9-5.5 7.5-5.5s6.7 1.9 7.5 5.5',
+  inicio: 'M4 10.5 12 4l8 6.5V20h-5.5v-5.5h-5V20H4z',
+  agenda: 'M5 6h14v14H5zM5 10h14M9 3.5V7M15 3.5V7',
+  caja: 'M3.5 7h17v11h-17zM12 15a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM6.5 10v.01M17.5 15v.01',
+  clientes: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20c.6-3.2 3.2-5 6.5-5s5.9 1.8 6.5 5M16 4.3a3.5 3.5 0 0 1 0 6.4M18 15.2c1.8.6 3 2.2 3.5 4.8',
+  gastos: 'M6 3.5h12v17l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6',
+  finanzas: 'M4 20V4M4 20h16M8 16v-4M12 16V8M16 16v-6',
+  equipo: 'M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM5 20c.7-3.4 3.5-5.5 7-5.5s6.3 2.1 7 5.5',
+  catalogo: 'M3.5 12.5 11.5 4.5H19.5v8l-8 8zM15.5 8.5v.01',
+  ajustes: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7 7 0 0 1-2.1 1.2L14.7 21h-4l-.3-2.4a7 7 0 0 1-2.1-1.2l-1.9.7-2-3.4 1.6-1.2a7 7 0 0 1 0-3l-1.6-1.2 2-3.4 1.9.7a7 7 0 0 1 2.1-1.2L10.7 3h4l.3 2.4a7 7 0 0 1 2.1 1.2l1.9-.7 2 3.4-1.6 1.2a7 7 0 0 1 0 3z',
+  mas: 'M12 5v14M5 12h14',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+  tarjeta: 'M3.5 6h17v12h-17zM3.5 10h17M7 14.5h4',
   wallet: 'M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3M4 7.5V17a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H6.5A2.5 2.5 0 0 1 4 7.5zM16 13.5h.01',
 };
 export const icono = (n) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${ICONOS[n]}"/></svg>`;
 
-function base({ titulo, negocio, cuerpo, scripts = [], clase = '', decorar = false, neutro = false }) {
+function base({ titulo, negocio, cuerpo, scripts = [], clase = '', decorar = false, neutro = false, oficina = false, estilos = [] }) {
   // neutro: paneles (administración y negocio) siempre en negro y blanco, sin los colores de la marca.
-  if (neutro) negocio = null;
+  // oficina: la gestión del negocio, en claro y sin los colores de la marca.
+  if (neutro || oficina) negocio = null;
   const d = negocio && negocio.d;
-  const claro = d ? colores(d).claro : false;
+  const claro = d ? colores(d).claro : oficina;
   const tema = claro ? 'claro' : 'oscuro';
   const css = negocio ? `<link rel="stylesheet" href="${e(negocio.temaUrl || `/${negocio.slug}/tema.css`)}">` : '';
   return `<!doctype html>
-<html lang="es-PE" ${d ? atributos(d) : 'data-tema="oscuro"'}${decorar ? ' data-decor="1"' : ''}>
+<html lang="es-PE" ${d ? atributos(d) : `data-tema="${oficina ? 'claro' : 'oscuro'}"`}${decorar ? ' data-decor="1"' : ''}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -40,6 +53,7 @@ function base({ titulo, negocio, cuerpo, scripts = [], clase = '', decorar = fal
 <title>${e(titulo)}</title>
 <link rel="icon" href="/static/icono.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/app.css?v=${V}">
+${estilos.map((x) => `<link rel="stylesheet" href="/static/${x}?v=${V}">`).join('\n')}
 ${css}
 </head>
 <body class="${clase}">
@@ -257,6 +271,7 @@ export function tarjeta(n, c, qrSvg, url) {
   </section>
 
   <section class="acciones">
+    ${n.reserva ? `<a class="boton primario" href="/${e(n.slug)}/reservar">${icono('agenda')}Reservar una cita</a>` : ''}
     ${n.wallet ? `<a class="boton wallet" href="/${e(n.slug)}/t/${e(c.token)}/wallet" rel="nofollow">${icono('wallet')}Agregar a Google Wallet</a>` : ''}
     <a class="boton" href="https://wa.me/${e(c.celular)}?text=${encodeURIComponent(mensaje)}" target="_blank" rel="noopener">${icono('wa')}Guardar mi tarjeta por WhatsApp</a>
     <p class="nota">Te llega tu enlace a tu WhatsApp para abrirla cuando quieras. No lo compartas.</p>
@@ -344,12 +359,14 @@ export function privacidad(n, env) {
     <li>Tu nombre y tu número de celular.</li>
     <li>Tu cumpleaños (día y mes, sin el año), solo si lo das: es opcional.</li>
     <li>Tus visitas registradas, sellos y premios canjeados (fecha y hora).</li>
+    <li>Si reservas o agendas una cita: el servicio, el día y la hora, y lo que pagaste en el local.</li>
   </ul>
   <p>No pedimos DNI, correo, dirección ni datos de pago.</p>
 
   <h2>¿Para qué?</h2>
   <ul>
     <li><strong>Administrar tu tarjeta de sellos</strong>: registrar tus visitas, mostrar tu avance y entregarte tus premios. Es necesario para participar.</li>
+    <li><strong>Agendar tus citas</strong> y confirmarlas o recordártelas por WhatsApp, si reservaste una.</li>
     <li><strong>Saludo de cumpleaños</strong>: si nos diste tu cumpleaños, te escribimos por WhatsApp ese día (con un regalo, si el negocio lo ofrece). Puedes pedir que lo borremos cuando quieras.</li>
     <li><strong>Recordatorios por WhatsApp</strong> sobre tus sellos, premios y promociones del negocio, <strong>solo si marcaste la casilla opcional</strong>. Puedes darte de baja cuando quieras respondiendo «BAJA» o pidiéndolo en caja.</li>
   </ul>
@@ -422,7 +439,7 @@ export function panel(n) {
 <main id="principal" class="contenedor ancho" data-slug="${e(n.slug)}" data-meta="${n.meta}" data-premio="${e(n.premio)}" data-negocio="${e(n.nombre)}" data-programa="${e(n.programa)}" data-tipo="${leerPrograma(n).tipo}" data-reglas="${e(JSON.stringify(leerPrograma(n)))}" data-servicios="${e(JSON.stringify(leerServicios(n)))}" data-productos="${e(JSON.stringify(leerServicios(n, 'productos')))}" data-regalo-cumple="${e(n.regalo_cumple || '')}" data-pedir="${n.pedir_servicio ? 1 : 0}">
   <header class="cabeza compacta fila cabeza-panel">
     <div><p class="antetitulo">Panel</p><h1>${e(n.nombre)}</h1></div>
-    <button class="salir-discreto" type="button" id="salir" hidden>Salir</button>
+    <div class="cabeza-botones">${n.gestion ? `<a class="salir-discreto" href="/${e(n.slug)}/gestion">Gestión</a>` : ''}<button class="salir-discreto" type="button" id="salir" hidden>Salir</button></div>
   </header>
 
   <noscript><p class="aviso-error">El panel necesita JavaScript activado.</p></noscript>
@@ -749,6 +766,9 @@ export function admin() {
             <div class="campo"><label for="f-cuota">Cuota mensual (S/)</label><input id="f-cuota" name="cuota" type="text" inputmode="decimal" maxlength="7" placeholder="69" aria-describedby="f-cuota-ayuda"><p class="ayuda" id="f-cuota-ayuda">De S/ 59 a S/ 79 según la zona y el tamaño del local. Solo la ves tú, en «Rendimiento».</p></div>
             <div class="campo"><label for="f-vence">Vence el</label><input id="f-vence" name="vence" type="date" aria-describedby="f-vence-ayuda"><p class="ayuda" id="f-vence-ayuda">Si lo dejas vacío en un negocio nuevo, vence en 1 mes (primer mes gratis).</p></div>
             <div class="campo"><label for="f-clave">Clave del panel del negocio</label><input id="f-clave" name="clave" type="password" minlength="8" autocomplete="new-password" aria-describedby="f-clave-ayuda"><p class="ayuda" id="f-clave-ayuda">Mínimo 8 caracteres. Cámbiala si un empleado se va.</p></div>
+            <div class="check ancho-total"><input id="f-gestion" name="gestion" type="checkbox" value="1" aria-describedby="f-gestion-ayuda"><label for="f-gestion">Gestión del negocio: agenda, reservas, caja, gastos y finanzas</label></div>
+            <p class="ayuda ancho-total" id="f-gestion-ayuda">Servicio aparte. El negocio entra en /su-negocio/gestion con su clave. Con la clave del panel ve agenda y caja; con la clave del dueño, además, finanzas, gastos y equipo.</p>
+            <div class="campo"><label for="f-clave-dueno">Clave del dueño <span class="opcional">(gestión)</span></label><input id="f-clave-dueno" name="clave_dueno" type="password" minlength="8" autocomplete="new-password" aria-describedby="f-clave-dueno-ayuda"><p class="ayuda" id="f-clave-dueno-ayuda">Mínimo 8 caracteres y distinta a la del panel. Mientras no tenga, la clave del panel lo ve todo. El dueño también puede crearla en su gestión.</p></div>
           </div>
         </fieldset>
       </form>
@@ -799,3 +819,339 @@ export function noEncontrado() {
 }
 
 export { celularVisible };
+
+// ---------- gestión del negocio (/slug/gestion): la pinta public/static/gestion.js ----------
+const VISTAS_GESTION = [
+  ['inicio', 'Inicio', 'inicio', false], ['agenda', 'Agenda', 'agenda', false], ['caja', 'Caja', 'caja', false], ['clientes', 'Clientes', 'clientes', false],
+  ['gastos', 'Gastos', 'gastos', true], ['finanzas', 'Finanzas', 'finanzas', true], ['equipo', 'Equipo', 'equipo', true],
+  ['catalogo', 'Servicios y productos', 'catalogo', true], ['ajustes', 'Ajustes', 'ajustes', true],
+];
+const cabVista = (titulo, sub, acciones = '') => `<header class="g-cab"><div><h1>${titulo}</h1>${sub ? `<p class="g-sub">${sub}</p>` : ''}</div>${acciones ? `<div class="g-acciones">${acciones}</div>` : ''}</header>`;
+const dlg = (id, titulo, cuerpo, pie) => `
+<dialog class="g-dialogo" id="${id}" aria-labelledby="${id}-t">
+  <form method="dialog" class="g-dlg-form" novalidate>
+    <header class="g-dlg-cab"><h2 id="${id}-t">${titulo}</h2><button class="g-x" value="cancelar" formnovalidate aria-label="Cerrar">×</button></header>
+    <div class="g-dlg-cuerpo">${cuerpo}</div>
+    <p class="g-error" role="alert" hidden></p>
+    <footer class="g-dlg-pie">${pie}</footer>
+  </form>
+</dialog>`;
+const campo = (id, etiqueta, control, attrs = '') => `<div class="g-campo"${attrs}><label for="${id}">${etiqueta}</label>${control}</div>`;
+
+export function gestion(n) {
+  const nav = VISTAS_GESTION.map(([v, t, ic, dueno]) => `<a class="g-nav-item" href="#${v}" data-v="${v}"${dueno ? ' data-dueno' : ''}>${icono(ic)}<span>${t}</span></a>`).join('');
+  return base({
+    titulo: `Gestión · ${n.nombre}`,
+    oficina: true,
+    clase: 'es-gestion',
+    estilos: ['gestion.css'],
+    scripts: ['comun.js', 'gestion.js'],
+    cuerpo: `
+<div class="g" id="g" data-slug="${e(n.slug)}" data-negocio="${e(n.nombre)}">
+  <aside class="g-lado" id="g-lado" aria-label="Menú">
+    <div class="g-marca"><span class="g-logo" aria-hidden="true">${e(n.nombre.trim().charAt(0).toUpperCase())}</span><div><strong>${e(n.nombre)}</strong><small>Gestión del negocio</small></div></div>
+    <nav class="g-nav" aria-label="Secciones">${nav}</nav>
+    <div class="g-lado-pie">
+      <a class="g-nav-item" href="/${e(n.slug)}/panel">${icono('tarjeta')}<span>Tarjetas de clientes</span></a>
+      <p class="g-rol" id="g-rol"></p>
+      <button class="g-nav-item" type="button" id="salir">${icono('salir')}<span>Salir</span></button>
+    </div>
+  </aside>
+
+  <main id="principal" class="g-main" tabindex="-1">
+    <noscript><p class="g-error">La gestión necesita JavaScript activado.</p></noscript>
+    <section class="g-login" id="login" hidden>
+      <form class="g-card g-login-caja" id="login-form">
+        <p class="g-sobre">${e(n.nombre)}</p>
+        <h1>Gestión del negocio</h1>
+        <p class="g-sub">Agenda, caja y finanzas en un solo lugar.</p>
+        ${campo('clave', 'Clave', '<input id="clave" type="password" autocomplete="current-password" required>')}
+        <p class="g-error" id="login-error" role="alert" hidden></p>
+        <button class="g-btn primario ancho" type="submit">Entrar</button>
+        <p class="g-nota">Con la clave del panel entras a la agenda y la caja. Con la clave del dueño ves también finanzas, gastos y equipo.</p>
+      </form>
+    </section>
+    <section class="g-aviso" id="no-activa" hidden><h1>La gestión no está activa</h1><p>Pídele a tu proveedor que active la gestión del negocio: agenda, reservas en línea, caja, gastos y finanzas.</p><p><a class="g-btn" href="/${e(n.slug)}/panel">Ir al panel de tarjetas</a></p></section>
+
+    <!-- Inicio -->
+    <section class="g-vista" id="v-inicio" hidden>
+      <header class="g-hero">
+        <div class="g-hero-texto">
+          <p class="g-fecha" id="i-fecha"></p>
+          <h1 id="i-saludo">Hola</h1>
+          <p class="g-sub" id="i-resumen"></p>
+        </div>
+        <div class="g-acciones">
+          <button class="g-btn primario" type="button" data-accion="cobrar">${icono('caja')}Cobrar</button>
+          <button class="g-btn" type="button" data-accion="cita">${icono('agenda')}Nueva cita</button>
+          <button class="g-btn" type="button" data-accion="gasto">${icono('gastos')}Anotar gasto</button>
+        </div>
+      </header>
+      <div class="g-kpis" id="i-kpis"></div>
+      <div class="g-col2">
+        <section class="g-card">
+          <div class="g-card-cab"><h2>Citas de hoy</h2><a href="#agenda">Ver agenda</a></div>
+          <ul class="g-lista" id="i-citas"></ul>
+        </section>
+        <div class="g-pila">
+          <section class="g-card" id="i-mes" hidden>
+            <div class="g-card-cab"><h2>Este mes</h2><a href="#finanzas">Ver finanzas</a></div>
+            <div id="i-mes-datos"></div>
+          </section>
+          <section class="g-card">
+            <div class="g-card-cab"><h2>Pendientes</h2></div>
+            <ul class="g-lista" id="i-avisos"></ul>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- Agenda -->
+    <section class="g-vista" id="v-agenda" hidden>
+      ${cabVista('Agenda', '', `<button class="g-btn" type="button" id="a-bloquear">Bloquear horario</button><button class="g-btn primario" type="button" data-accion="cita">${icono('mas')}Nueva cita</button>`)}
+      <div class="g-barra">
+        <div class="g-grupo-btn">
+          <button class="g-btn chico" type="button" id="a-prev" aria-label="Día anterior">‹</button>
+          <button class="g-btn chico" type="button" id="a-hoy">Hoy</button>
+          <button class="g-btn chico" type="button" id="a-next" aria-label="Día siguiente">›</button>
+        </div>
+        <label class="oculto-accesible" for="a-fecha">Ir a la fecha</label><input class="g-fecha-input" type="date" id="a-fecha">
+        <p class="g-titulo-dia" id="a-titulo" aria-live="polite"></p>
+        <div class="g-segmento" role="group" aria-label="Vista">
+          <button type="button" data-modo="dia" aria-pressed="true">Día</button><button type="button" data-modo="semana" aria-pressed="false">Semana</button>
+        </div>
+      </div>
+      <p class="g-nota" id="a-reservas" hidden></p>
+      <div class="g-card g-sin-relleno" id="a-dia"><div class="ag" id="a-rejilla"></div></div>
+      <div class="g-semana" id="a-semana" hidden></div>
+    </section>
+
+    <!-- Caja -->
+    <section class="g-vista" id="v-caja" hidden>
+      ${cabVista('Caja', 'Lo que entra y sale cada día. Al cerrar, compara el efectivo con lo que tienes en la gaveta.', `<button class="g-btn" type="button" data-accion="gasto">Anotar gasto</button><button class="g-btn primario" type="button" data-accion="cobrar">${icono('mas')}Nueva venta</button>`)}
+      <div class="g-barra" data-dueno><label for="c-dia">Día</label><input class="g-fecha-input" type="date" id="c-dia"></div>
+      <div class="g-kpis" id="c-kpis"></div>
+      <div class="g-col2">
+        <section class="g-card"><div class="g-card-cab"><h2>Ventas del día</h2></div><div class="g-tabla-caja"><table class="g-tabla" id="c-ventas"></table></div></section>
+        <div class="g-pila">
+          <section class="g-card"><div class="g-card-cab"><h2>Por medio de pago</h2></div><div id="c-metodos"></div></section>
+          <section class="g-card"><div class="g-card-cab"><h2>Gastos del día</h2></div><ul class="g-lista" id="c-gastos"></ul></section>
+        </div>
+      </div>
+    </section>
+
+    <!-- Clientes -->
+    <section class="g-vista" id="v-clientes" hidden>
+      ${cabVista('Clientes', 'Su historial, lo que compran y sus notas (alergias, preferencias, fórmula del tinte…).', `<button class="g-btn primario" type="button" id="cl-nuevo">${icono('mas')}Nuevo cliente</button>`)}
+      <div class="g-col2 g-col-ficha">
+        <section class="g-card">
+          <label class="oculto-accesible" for="cl-q">Buscar cliente</label>
+          <input class="g-buscar" id="cl-q" type="search" placeholder="Buscar por nombre o celular" autocomplete="off">
+          <ul class="g-lista g-lista-clic" id="cl-lista"></ul>
+        </section>
+        <section class="g-card" id="cl-ficha" hidden tabindex="-1"></section>
+      </div>
+    </section>
+
+    <!-- Gastos -->
+    <section class="g-vista" id="v-gastos" hidden>
+      ${cabVista('Gastos', 'Anota todo lo que sale: así sabes cuánto ganas de verdad.', `<button class="g-btn primario" type="button" data-accion="gasto">${icono('mas')}Anotar gasto</button>`)}
+      <div class="g-barra"><label for="ga-mes">Mes</label><input class="g-fecha-input" type="month" id="ga-mes"></div>
+      <section class="g-card g-pendientes" id="ga-pendientes" hidden><div class="g-card-cab"><h2>Gastos fijos por anotar este mes</h2></div><ul class="g-lista" id="ga-pend-lista"></ul></section>
+      <div class="g-col2">
+        <section class="g-card"><div class="g-card-cab"><h2>Movimientos</h2><span class="g-total" id="ga-total"></span></div><div class="g-tabla-caja"><table class="g-tabla" id="ga-tabla"></table></div></section>
+        <section class="g-card"><div class="g-card-cab"><h2>Por categoría</h2></div><div id="ga-categorias"></div></section>
+      </div>
+    </section>
+
+    <!-- Finanzas -->
+    <section class="g-vista" id="v-finanzas" hidden>
+      ${cabVista('Finanzas', 'Ingresos, gastos y ganancia del mes.', '<a class="g-btn" id="f-csv" download>Descargar Excel</a>')}
+      <div class="g-barra"><label for="f-mes">Mes</label><input class="g-fecha-input" type="month" id="f-mes"><p class="g-nota" id="f-comparacion"></p></div>
+      <div class="g-kpis" id="f-kpis"></div>
+      <section class="g-card"><div class="g-card-cab"><h2>Ingresos por día</h2><span class="g-nota" id="f-mejor"></span></div><div class="g-grafico" id="f-dias"></div>
+        <details class="g-ver-tabla"><summary>Ver en tabla</summary><div class="g-tabla-caja"><table class="g-tabla" id="f-dias-tabla"></table></div></details></section>
+      <div class="g-col2">
+        <section class="g-card"><div class="g-card-cab"><h2>Servicios más vendidos</h2></div><div id="f-servicios"></div></section>
+        <section class="g-card"><div class="g-card-cab"><h2>Gastos por categoría</h2></div><div id="f-categorias"></div></section>
+        <section class="g-card"><div class="g-card-cab"><h2>Por medio de pago</h2></div><div id="f-metodos"></div></section>
+        <section class="g-card"><div class="g-card-cab"><h2>Productos más vendidos</h2></div><div id="f-productos"></div></section>
+        <section class="g-card"><div class="g-card-cab"><h2>Equipo</h2><a href="#equipo">Ver equipo</a></div><div class="g-tabla-caja"><table class="g-tabla" id="f-equipo"></table></div></section>
+        <section class="g-card"><div class="g-card-cab"><h2>Citas y clientes</h2></div><dl class="g-mini" id="f-citas"></dl></section>
+      </div>
+    </section>
+
+    <!-- Equipo -->
+    <section class="g-vista" id="v-equipo" hidden>
+      ${cabVista('Equipo', 'Quién atiende, su comisión y cuánto le toca este mes.', `<button class="g-btn primario" type="button" id="e-nuevo">${icono('mas')}Agregar persona</button>`)}
+      <div class="g-barra"><label for="e-mes">Mes</label><input class="g-fecha-input" type="month" id="e-mes"></div>
+      <section class="g-card"><div class="g-tabla-caja"><table class="g-tabla" id="e-tabla"></table></div>
+        <p class="g-nota">La comisión se calcula sobre lo cobrado (después del descuento). Cuando le pagues, anótalo en Gastos → Comisiones o Sueldos, eligiendo a la persona: así sale en «Pagado».</p></section>
+    </section>
+
+    <!-- Catálogo -->
+    <section class="g-vista" id="v-catalogo" hidden>
+      ${cabVista('Servicios y productos', 'Precios, duración de cada servicio y stock de lo que vendes.', '<button class="g-btn primario" type="button" id="k-guardar">Guardar cambios</button>')}
+      <p class="g-estado" id="k-msg" role="status"></p>
+      <section class="g-card"><div class="g-card-cab"><h2>Servicios</h2><button class="g-btn chico" type="button" id="k-mas-s">${icono('mas')}Agregar servicio</button></div>
+        <div class="g-tabla-caja"><table class="g-tabla g-editable"><thead><tr><th>Servicio</th><th>Precio (S/)</th><th>Dura (min)</th><th><span class="oculto-accesible">Quitar</span></th></tr></thead><tbody id="k-servicios"></tbody></table></div>
+        <p class="g-nota">La duración se usa en la agenda y en las reservas en línea.</p></section>
+      <section class="g-card"><div class="g-card-cab"><h2>Productos</h2><button class="g-btn chico" type="button" id="k-mas-p">${icono('mas')}Agregar producto</button></div>
+        <div class="g-tabla-caja"><table class="g-tabla g-editable"><thead><tr><th>Producto</th><th>Precio (S/)</th><th>Stock</th><th>Avisar con</th><th><span class="oculto-accesible">Quitar</span></th></tr></thead><tbody id="k-productos"></tbody></table></div>
+        <p class="g-nota">Deja el stock vacío si no quieres controlarlo. Cada venta lo descuenta y te avisamos en Inicio cuando quede poco.</p></section>
+    </section>
+
+    <!-- Ajustes -->
+    <section class="g-vista" id="v-ajustes" hidden>
+      ${cabVista('Ajustes', '', '<button class="g-btn primario" type="button" id="aj-guardar">Guardar ajustes</button>')}
+      <p class="g-estado" id="aj-msg" role="status"></p>
+      <div class="g-col2">
+        <section class="g-card"><div class="g-card-cab"><h2>Horario de atención</h2></div><div class="g-horario" id="aj-horario"></div>
+          ${campo('aj-intervalo', 'Agenda cada', `<select id="aj-intervalo">${[10, 15, 20, 30, 45, 60].map((m) => `<option value="${m}">${m} minutos</option>`).join('')}</select>`)}</section>
+        <div class="g-pila">
+          <section class="g-card"><div class="g-card-cab"><h2>Reservas en línea</h2></div>
+            <label class="g-interruptor"><input type="checkbox" id="aj-reservas"> Tus clientes reservan solos desde un enlace</label>
+            <p class="g-nota" id="aj-enlace"></p>
+            <div class="g-fila2">
+              ${campo('aj-anticipacion', 'Con anticipación de', `<select id="aj-anticipacion">${[[0, 'Sin mínimo'], [30, '30 minutos'], [60, '1 hora'], [120, '2 horas'], [240, '4 horas'], [720, '12 horas'], [1440, '1 día']].map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>`)}
+              ${campo('aj-dias', 'Hasta', `<select id="aj-dias">${[7, 14, 21, 30, 60].map((d) => `<option value="${d}">${d} días antes</option>`).join('')}</select>`)}
+            </div>
+            ${campo('aj-nota', 'Mensaje en la reserva <span class="g-opcional">(opcional)</span>', '<input id="aj-nota" maxlength="200" placeholder="Llega 5 minutos antes. Tolerancia: 10 minutos.">')}
+          </section>
+          <section class="g-card"><div class="g-card-cab"><h2>Caja</h2></div>
+            ${campo('aj-meta', 'Meta de ventas del mes (S/) <span class="g-opcional">(opcional)</span>', '<input id="aj-meta" inputmode="decimal" maxlength="9" placeholder="8000">')}
+            <fieldset class="g-campo"><legend>Medios de pago que aceptas</legend><div class="g-checks" id="aj-metodos"></div></fieldset>
+          </section>
+          <section class="g-card"><div class="g-card-cab"><h2>Clave del dueño</h2></div>
+            <p class="g-nota" id="aj-clave-nota"></p>
+            <div class="g-fila-input"><label class="oculto-accesible" for="aj-clave">Nueva clave del dueño</label><input id="aj-clave" type="password" minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres"><button class="g-btn" type="button" id="aj-clave-btn">Guardar clave</button></div>
+            <p class="g-estado" id="aj-clave-msg" role="status"></p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="g-abajo" id="g-abajo" aria-label="Accesos rápidos">
+    <a href="#inicio" data-v="inicio">${icono('inicio')}<span>Inicio</span></a>
+    <a href="#agenda" data-v="agenda">${icono('agenda')}<span>Agenda</span></a>
+    <button type="button" class="g-abajo-cobrar" data-accion="cobrar">${icono('mas')}<span>Cobrar</span></button>
+    <a href="#caja" data-v="caja">${icono('caja')}<span>Caja</span></a>
+    <button type="button" id="g-menu-btn" aria-controls="g-lado" aria-expanded="false">${icono('menu')}<span>Más</span></button>
+  </nav>
+</div>
+
+${dlg('d-venta', 'Nueva venta', `
+  <div class="g-campo"><span class="g-etiqueta" id="v-cli-t">Cliente</span><div class="g-cliente" data-selector="v-cli" aria-labelledby="v-cli-t"></div></div>
+  <div class="g-campo"><span class="g-etiqueta">Servicios y productos</span><div class="g-chips" id="v-chips"></div></div>
+  <ul class="g-items" id="v-items" aria-label="Detalle de la venta"></ul>
+  <button class="g-enlace" type="button" id="v-otro">${icono('mas')}Otro concepto</button>
+  <div class="g-fila2">
+    ${campo('v-personal', 'Atendió', '<select id="v-personal"></select>')}
+    ${campo('v-descuento', 'Descuento (S/)', '<input id="v-descuento" inputmode="decimal" maxlength="9" placeholder="0">')}
+  </div>
+  <div class="g-campo"><span class="g-etiqueta">Medio de pago</span><div class="g-segmento g-metodos" id="v-metodos" role="group" aria-label="Medio de pago"></div></div>
+  <label class="g-interruptor" id="v-sello-caja"><input type="checkbox" id="v-sello" checked> <span id="v-sello-t">Sumar la visita a su tarjeta</span></label>
+  <div class="g-campo g-dueno-solo" id="v-dia-caja" hidden>${campo('v-dia', 'Fecha de la venta', '<input type="date" id="v-dia">')}</div>`,
+  '<p class="g-total-grande"><span>Total</span><strong id="v-total">S/ 0.00</strong></p><button class="g-btn primario" type="submit" value="ok" id="v-cobrar">Cobrar</button>')}
+
+${dlg('d-cita', 'Nueva cita', `
+  <div class="g-campo" data-solo-cita><span class="g-etiqueta" id="ci-cli-t">Cliente</span><div class="g-cliente" data-selector="ci-cli" aria-labelledby="ci-cli-t"></div></div>
+  ${campo('ci-servicio', 'Servicio', '<input id="ci-servicio" list="ci-servicios" maxlength="120" autocomplete="off" placeholder="Elige o escribe"><datalist id="ci-servicios"></datalist>', ' data-solo-cita')}
+  ${campo('ci-motivo', 'Motivo', '<input id="ci-motivo" maxlength="60" placeholder="Almuerzo, permiso, capacitación…">', ' data-solo-bloqueo')}
+  ${campo('ci-personal', 'Con', '<select id="ci-personal"></select>')}
+  <div class="g-fila3">
+    ${campo('ci-dia', 'Día', '<input type="date" id="ci-dia" required>')}
+    ${campo('ci-hora', 'Hora', '<input type="time" id="ci-hora" step="300" required>')}
+    ${campo('ci-dur', 'Dura (min)', '<input id="ci-dur" type="number" min="5" max="720" step="5" inputmode="numeric">')}
+  </div>
+  <div class="g-fila2" data-solo-cita>
+    ${campo('ci-precio', 'Precio (S/)', '<input id="ci-precio" inputmode="decimal" maxlength="9">')}
+    <label class="g-interruptor g-abajo-campo"><input type="checkbox" id="ci-confirmada"> Ya está confirmada</label>
+  </div>
+  ${campo('ci-nota', 'Nota <span class="g-opcional">(opcional)</span>', '<input id="ci-nota" maxlength="300">', ' data-solo-cita')}`,
+  '<button class="g-btn" value="cancelar" formnovalidate>Cancelar</button><button class="g-btn primario" type="submit" value="ok" id="ci-guardar">Guardar</button>')}
+
+${dlg('d-ver-cita', 'Cita', '<div id="vc-cuerpo"></div>', '<div class="g-acciones-cita" id="vc-acciones"></div>')}
+
+${dlg('d-gasto', 'Anotar gasto', `
+  <div class="g-fila2">
+    ${campo('ga-categoria', 'Categoría', '<select id="ga-categoria"></select>')}
+    ${campo('ga-monto', 'Monto (S/)', '<input id="ga-monto" inputmode="decimal" maxlength="9" required>')}
+  </div>
+  ${campo('ga-detalle', 'Detalle <span class="g-opcional">(opcional)</span>', '<input id="ga-detalle" maxlength="120" placeholder="Alquiler de octubre, tintes L’Oréal…">')}
+  <div class="g-campo"><span class="g-etiqueta">Pagado con</span><div class="g-segmento g-metodos" id="ga-metodos" role="group" aria-label="Pagado con"></div></div>
+  <div class="g-fila2 g-dueno-solo">
+    ${campo('ga-dia', 'Fecha', '<input type="date" id="ga-dia">')}
+    ${campo('ga-personal', 'De alguien del equipo <span class="g-opcional">(sueldo, comisión, adelanto)</span>', '<select id="ga-personal"></select>')}
+  </div>
+  <label class="g-interruptor g-dueno-solo"><input type="checkbox" id="ga-fijo"> Es un gasto fijo de cada mes (te lo recordamos el mes que viene)</label>`,
+  '<button class="g-btn" value="cancelar" formnovalidate>Cancelar</button><button class="g-btn primario" type="submit" value="ok">Guardar gasto</button>')}
+
+${dlg('d-persona', 'Persona del equipo', `
+  <div class="g-fila2">
+    ${campo('pe-nombre', 'Nombre', '<input id="pe-nombre" maxlength="40" required>')}
+    ${campo('pe-cargo', 'Cargo', '<input id="pe-cargo" maxlength="40" list="pe-cargos" placeholder="Barbero, estilista, masajista…"><datalist id="pe-cargos"><option value="Barbero"><option value="Estilista"><option value="Manicurista"><option value="Masajista"><option value="Cosmetóloga"><option value="Recepción"></datalist>')}
+  </div>
+  <div class="g-fila3">
+    ${campo('pe-celular', 'Celular <span class="g-opcional">(opcional)</span>', '<input id="pe-celular" type="tel" inputmode="numeric" maxlength="11">')}
+    ${campo('pe-comision', 'Comisión servicios (%)', '<input id="pe-comision" type="number" min="0" max="100" inputmode="numeric">')}
+    ${campo('pe-comision-prod', 'Comisión productos (%)', '<input id="pe-comision-prod" type="number" min="0" max="100" inputmode="numeric">')}
+  </div>
+  <div class="g-campo"><span class="g-etiqueta">Color en la agenda</span><div class="g-colores" id="pe-colores" role="radiogroup" aria-label="Color en la agenda"></div></div>
+  <fieldset class="g-campo"><legend>Servicios que hace <span class="g-opcional">(ninguno marcado = todos)</span></legend><div class="g-checks" id="pe-servicios"></div></fieldset>
+  <label class="g-interruptor"><input type="checkbox" id="pe-agenda" checked> Tiene agenda (se le pueden reservar citas)</label>
+  <label class="g-interruptor"><input type="checkbox" id="pe-activo" checked> Trabaja aquí actualmente</label>`,
+  '<button class="g-btn" value="cancelar" formnovalidate>Cancelar</button><button class="g-btn primario" type="submit" value="ok">Guardar</button>')}
+
+${dlg('d-cliente', 'Nuevo cliente', `
+  ${campo('nc-nombre', 'Nombre y apellido', '<input id="nc-nombre" maxlength="60" required autocomplete="off">')}
+  ${campo('nc-celular', 'Celular', '<input id="nc-celular" type="tel" inputmode="numeric" maxlength="11" required autocomplete="off">')}
+  ${campo('nc-notas', 'Notas <span class="g-opcional">(opcional)</span>', '<textarea id="nc-notas" rows="3" maxlength="1000" placeholder="Alergias, tipo de piel, cómo le gusta el corte…"></textarea>')}
+  <label class="g-interruptor"><input type="checkbox" id="nc-recordatorios"> Acepta recibir recordatorios por WhatsApp</label>
+  <p class="g-nota">Se crea también su tarjeta de cliente frecuente. Avísale que sus datos se usan según el <a href="/${e(n.slug)}/privacidad" target="_blank" rel="noopener">aviso de privacidad</a>.</p>`,
+  '<button class="g-btn" value="cancelar" formnovalidate>Cancelar</button><button class="g-btn primario" type="submit" value="ok">Crear cliente</button>')}
+<div class="g-toast" id="g-toast" role="status" aria-live="polite" hidden></div>`,
+  });
+}
+
+// ---------- reserva en línea (/slug/reservar): con la marca del negocio. La maneja public/static/reservar.js ----------
+export function reservar(n) {
+  return base({
+    titulo: `Reserva tu cita · ${n.nombre}`,
+    negocio: n,
+    scripts: ['comun.js', 'reservar.js'],
+    decorar: true,
+    cuerpo: `
+<main id="principal" class="contenedor reserva" data-slug="${e(n.slug)}" data-negocio="${e(n.nombre)}">
+  <header class="cabeza compacta">
+    ${n.d.logo ? `${logoHtml(n.d, n.nombre)}<h1>Reserva tu cita</h1>` : `<p class="antetitulo">${e(n.nombre)}</p><h1>Reserva tu cita</h1>`}
+    <p class="bajada">Elige el servicio, el día y la hora. Te confirmamos por WhatsApp.</p>
+  </header>
+  <form class="tarjeta-form" id="form-reserva" novalidate>
+    <fieldset class="r-paso"><legend><span class="num">1</span> Servicio</legend><div class="r-opciones" id="r-servicios" role="radiogroup" aria-label="Servicio"></div></fieldset>
+    <fieldset class="r-paso" id="r-paso-equipo" hidden><legend><span class="num">2</span> ¿Con quién?</legend><div class="r-opciones" id="r-equipo" role="radiogroup" aria-label="Con quién"></div></fieldset>
+    <fieldset class="r-paso" id="r-paso-dia" hidden><legend><span class="num" id="r-n-dia">3</span> Día</legend><div class="r-dias" id="r-dias" role="radiogroup" aria-label="Día"></div></fieldset>
+    <fieldset class="r-paso" id="r-paso-hora" hidden><legend><span class="num" id="r-n-hora">4</span> Hora</legend><div class="r-horas" id="r-horas" role="radiogroup" aria-label="Hora" aria-live="polite"></div></fieldset>
+    <fieldset class="r-paso" id="r-paso-datos" hidden><legend><span class="num" id="r-n-datos">5</span> Tus datos</legend>
+      <p class="r-resumen" id="r-resumen" aria-live="polite"></p>
+      <div class="campo"><label for="r-nombre">Tu nombre</label><input id="r-nombre" type="text" autocomplete="name" maxlength="60" required></div>
+      <div class="campo"><label for="r-celular">Tu celular (WhatsApp)</label><div class="prefijo"><span aria-hidden="true">+51</span><input id="r-celular" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="16" placeholder="9XX XXX XXX" required></div></div>
+      <div class="check"><input id="r-acepta" type="checkbox" value="1" required><label for="r-acepta">Acepto el <a href="/${e(n.slug)}/privacidad" target="_blank" rel="noopener">aviso de privacidad</a>.</label></div>
+      <p class="nota" id="r-nota" hidden></p>
+      <p class="aviso-error" id="r-error" role="alert" hidden></p>
+      <button class="boton primario ancho grande" type="submit" id="r-enviar">Reservar</button>
+    </fieldset>
+  </form>
+  <section class="tarjeta-form r-listo" id="r-listo" hidden tabindex="-1" aria-labelledby="r-listo-t">
+    <h2 id="r-listo-t">¡Listo! Tu cita quedó reservada</h2>
+    <p class="r-resumen" id="r-listo-texto"></p>
+    <p class="nota">Te escribiremos por WhatsApp para confirmarla. Si no puedes venir, avísanos.</p>
+    <p id="r-listo-wa"></p>
+    <button class="boton ancho" type="button" id="r-otra">Reservar otra cita</button>
+  </section>
+  ${redes(n, 'Síguenos')}
+</main>
+${pie(n)}`,
+  });
+}

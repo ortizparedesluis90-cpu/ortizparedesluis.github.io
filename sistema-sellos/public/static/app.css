@@ -625,3 +625,28 @@ html[data-forma="diamante"] .sello>.hito-marca{transform:none}
 .l-hitos{display:flex;flex-wrap:wrap;justify-content:center;gap:.6cqw 2.4cqw;margin:1cqw 0 0;font-size:3cqw;line-height:1.25;color:var(--suave);max-width:86cqw}
 .l-hitos strong{color:var(--acento)}
 .lamina:is([data-f=a5h],[data-f=a4h]) .l-hitos{font-size:2.1cqw;max-width:52cqw}
+/* Reserva en línea (/slug/reservar) */
+.r-paso{border:0;padding:0;margin:0 0 22px;min-width:0}
+.r-paso legend{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;margin-bottom:10px;padding:0}
+.r-paso .num{width:26px;height:26px;font-size:.85rem}
+.r-opciones{display:grid;gap:8px}
+.r-op{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;color:var(--texto);background:var(--superficie-2);border:1.5px solid var(--borde);border-radius:14px;padding:12px 14px;min-height:52px;cursor:pointer}
+.r-op strong{display:block}
+.r-op small{color:var(--suave)}
+.r-op .r-precio{font-weight:700;white-space:nowrap}
+.r-op[aria-checked=true]{border-color:var(--acento);box-shadow:0 0 0 2px var(--acento) inset}
+.r-dias{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x mandatory}
+.r-dia{flex:none;scroll-snap-align:start;width:66px;display:flex;flex-direction:column;align-items:center;gap:2px;font:inherit;color:var(--texto);background:var(--superficie-2);border:1.5px solid var(--borde);border-radius:14px;padding:9px 4px;cursor:pointer}
+.r-dia small{font-size:.75rem;color:var(--suave);text-transform:capitalize}
+.r-dia strong{font-size:1.25rem;line-height:1.1}
+.r-dia[aria-checked=true]{background:var(--acento);color:var(--sobre-acento);border-color:var(--acento)}
+.r-dia[aria-checked=true] small{color:var(--sobre-acento)}
+.r-dia[disabled]{opacity:.35;cursor:not-allowed}
+.r-horas{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.r-hora{font:inherit;font-weight:700;color:var(--texto);background:var(--superficie-2);border:1.5px solid var(--borde);border-radius:12px;min-height:46px;cursor:pointer}
+.r-hora[aria-checked=true]{background:var(--acento);color:var(--sobre-acento);border-color:var(--acento)}
+.r-horas .nota{grid-column:1/-1;margin:0}
+.r-resumen{background:var(--superficie-2);border-radius:12px;padding:10px 12px;margin:0 0 6px}
+.r-listo h2{margin-bottom:8px}
+.cabeza-botones{display:flex;gap:8px;align-items:center;flex:none}
+a.salir-discreto{display:inline-flex;align-items:center;text-decoration:none;color:var(--texto)}

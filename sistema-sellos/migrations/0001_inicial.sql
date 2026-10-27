@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS negocios (
   sello_regalo  INTEGER NOT NULL DEFAULT 0,       -- 1 = la tarjeta nueva empieza con 1 sello de regalo (solo sellos)
   clave_hash    TEXT NOT NULL DEFAULT '',         -- clave del panel (PBKDF2)
   clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar la clave: cierra sesiones viejas
+  gestion       INTEGER NOT NULL DEFAULT 0,       -- 1 = tiene la gestión del negocio (/slug/gestion: agenda, caja, gastos, finanzas)
+  ajustes       TEXT NOT NULL DEFAULT '{}',       -- JSON de la gestión: horario, reservas en línea, meta del mes, medios de pago (src/gestion.js)
+  clave_dueno   TEXT NOT NULL DEFAULT '',         -- clave del dueño (PBKDF2): ve finanzas, gastos y personal. Vacía = la clave del panel lo ve todo
+  clave_dueno_ver INTEGER NOT NULL DEFAULT 1,     -- cambia al cambiar la clave del dueño
   activo        INTEGER NOT NULL DEFAULT 1,
   creado        TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -53,13 +57,14 @@ CREATE TABLE IF NOT EXISTS clientes (
   premios        INTEGER NOT NULL DEFAULT 0,
   ultima_visita  TEXT,
   consentimiento TEXT NOT NULL,                   -- fecha y versión del aviso aceptado
-  origen         TEXT NOT NULL DEFAULT 'enlace',  -- qr (cartel del mostrador) | enlace (bio, WhatsApp...)
+  origen         TEXT NOT NULL DEFAULT 'enlace',  -- qr (cartel del mostrador) | enlace (bio, WhatsApp...) | caja (lo registró el negocio al cobrar o agendar)
   wallet         INTEGER NOT NULL DEFAULT 0,      -- 1 = guardó su tarjeta en Google Wallet
   meta_t         INTEGER,                         -- promoción que conserva su tarjeta (sellos) si el negocio la cambió; NULL = la actual
   premio_t       TEXT,                            -- premio de esa promoción; se borran al canjear
   hitos_t        TEXT,                            -- JSON: premios en el camino de esa promoción
   hito           INTEGER NOT NULL DEFAULT 0,      -- sellos del último premio del camino ya canjeado en esta tarjeta (0 al canjear el final)
   cumple         TEXT,                            -- cumpleaños «MM-DD» (sin año), opcional
+  notas          TEXT NOT NULL DEFAULT '',        -- ficha del cliente en la gestión: alergias, preferencias, fórmula del tinte...
   creado         TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (negocio_id, celular),
   UNIQUE (negocio_id, codigo)
@@ -108,3 +113,82 @@ CREATE TABLE IF NOT EXISTS medios (
   creado      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS medios_negocio ON medios (negocio_id);
+
+-- ===== Gestión del negocio (src/gestion.js). Montos en céntimos; días y horas en hora de Lima. =====
+
+-- Equipo: quién atiende (barberos, estilistas, masajistas...) y su comisión.
+CREATE TABLE IF NOT EXISTS personal (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  nombre        TEXT NOT NULL,
+  cargo         TEXT NOT NULL DEFAULT '',         -- «Barbero», «Manicurista»...
+  celular       TEXT NOT NULL DEFAULT '',
+  color         TEXT NOT NULL DEFAULT '#8AB4F8',  -- color de sus citas en la agenda
+  comision      INTEGER NOT NULL DEFAULT 0,       -- % de lo que cobra en servicios
+  comision_prod INTEGER NOT NULL DEFAULT 0,       -- % de lo que vende en productos
+  servicios     TEXT NOT NULL DEFAULT '[]',       -- JSON: nombres de los servicios que hace (vacío = todos). Para la reserva en línea
+  agenda        INTEGER NOT NULL DEFAULT 1,       -- 1 = tiene agenda (se le pueden reservar citas)
+  activo        INTEGER NOT NULL DEFAULT 1,       -- 0 = ya no trabaja aquí (sus ventas se conservan)
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_personal_negocio ON personal (negocio_id);
+
+-- Agenda: citas y horarios bloqueados.
+CREATE TABLE IF NOT EXISTS citas (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  dia           TEXT NOT NULL,                    -- AAAA-MM-DD
+  hora          TEXT NOT NULL,                    -- HH:MM
+  dur           INTEGER NOT NULL DEFAULT 30,      -- minutos
+  personal_id   INTEGER,                          -- quién atiende (NULL = el negocio, si no hay equipo cargado)
+  cliente_id    INTEGER,                          -- NULL si no tiene tarjeta (o se eliminó)
+  nombre        TEXT NOT NULL DEFAULT '',
+  celular       TEXT NOT NULL DEFAULT '',         -- 51XXXXXXXXX
+  servicio      TEXT NOT NULL DEFAULT '',
+  precio        INTEGER NOT NULL DEFAULT 0,
+  estado        TEXT NOT NULL DEFAULT 'pendiente',-- pendiente | confirmada | atendida | no_vino | cancelada | bloqueo (horario cerrado)
+  origen        TEXT NOT NULL DEFAULT 'panel',    -- panel | web (la reservó el cliente en /slug/reservar)
+  nota          TEXT NOT NULL DEFAULT '',
+  venta_id      INTEGER,
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_citas_dia ON citas (negocio_id, dia, hora);
+CREATE INDEX IF NOT EXISTS idx_citas_cliente ON citas (cliente_id);
+
+-- Caja: cada cobro.
+CREATE TABLE IF NOT EXISTS ventas (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  dia           TEXT NOT NULL,                    -- AAAA-MM-DD
+  hora          TEXT NOT NULL,                    -- HH:MM
+  cliente_id    INTEGER,
+  nombre        TEXT NOT NULL DEFAULT '',
+  personal_id   INTEGER,                          -- quién atendió (para su comisión)
+  items         TEXT NOT NULL DEFAULT '[]',       -- JSON: [{n: nombre, t: s (servicio) | p (producto), p: precio, c: cantidad}]
+  servicios     INTEGER NOT NULL DEFAULT 0,       -- suma de los servicios (antes del descuento)
+  productos     INTEGER NOT NULL DEFAULT 0,       -- suma de los productos (antes del descuento)
+  descuento     INTEGER NOT NULL DEFAULT 0,
+  total         INTEGER NOT NULL DEFAULT 0,
+  metodo        TEXT NOT NULL DEFAULT 'Efectivo', -- Efectivo | Yape | Plin | Tarjeta | Transferencia
+  cita_id       INTEGER,
+  nota          TEXT NOT NULL DEFAULT '',
+  anulada       INTEGER NOT NULL DEFAULT 0,
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ventas_dia ON ventas (negocio_id, dia);
+CREATE INDEX IF NOT EXISTS idx_ventas_cliente ON ventas (cliente_id);
+
+-- Gastos del negocio.
+CREATE TABLE IF NOT EXISTS gastos (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  dia           TEXT NOT NULL,                    -- AAAA-MM-DD
+  categoria     TEXT NOT NULL,
+  detalle       TEXT NOT NULL DEFAULT '',
+  monto         INTEGER NOT NULL,
+  metodo        TEXT NOT NULL DEFAULT 'Efectivo',
+  personal_id   INTEGER,                          -- sueldo, comisión o adelanto de alguien del equipo
+  fijo          INTEGER NOT NULL DEFAULT 0,       -- 1 = se repite cada mes (alquiler, luz...): el mes siguiente sale como pendiente
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_gastos_dia ON gastos (negocio_id, dia);

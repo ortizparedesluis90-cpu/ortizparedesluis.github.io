@@ -186,6 +186,37 @@ La sección **Escríbeles hoy** del panel lista, en «Cerca de su premio», a lo
 - Cada mensaje incluye «responde BAJA». Si el cliente lo pide, el negocio desmarca **Acepta recordatorios** en su ficha.
 - Tú también ves en `/admin` cuántos clientes de cada negocio están cerca del premio.
 
+## Gestión del negocio (servicio aparte)
+
+Para barberías, salones, spas, centros de uñas y de estética: agenda, reservas en línea, caja, gastos y finanzas en un solo lugar, en `/slug/gestion`. Se activa por negocio en `/admin` con la casilla **Gestión del negocio**. Usa los mismos clientes, servicios y productos que las tarjetas, y la misma clave.
+
+**Dos roles**
+- **Caja** (la clave del panel): ve la agenda, cobra, anota los gastos del día y ve a los clientes. No ve finanzas, gastos del mes ni el equipo.
+- **Dueño** (la clave del dueño): lo ve todo. Se crea en `/admin` o en la gestión, en Ajustes. Mientras el negocio no tenga clave del dueño, la clave del panel lo ve todo.
+
+**Secciones**
+- **Inicio**: lo vendido hoy, el efectivo que debería haber en la gaveta, los gastos del día y la ganancia del mes (con la meta). También las citas de hoy y los pendientes: reservas por confirmar, recordatorios de mañana por WhatsApp, cumpleaños y productos por acabarse.
+- **Agenda**: una columna por persona del equipo, vista por día o por semana. Avisa si una cita choca con otra. Se puede bloquear un horario (almuerzo, permiso). Cada cita se confirma o recuerda por WhatsApp y se cobra con un toque.
+- **Caja**: cada venta lleva servicios y productos del catálogo (o un concepto libre), quién atendió, descuento y medio de pago (efectivo, Yape, Plin, tarjeta o transferencia). Si el cliente tiene tarjeta, la venta le suma su sello, sus puntos o su saldo. Muestra el cierre del día por medio de pago. Una venta se puede anular, y sus productos vuelven al stock.
+- **Clientes**: ficha con lo que gastó, su historial de compras, sus próximas citas y notas (alergias, fórmula del tinte…).
+- **Gastos**: por categoría. Un gasto marcado como **fijo** (alquiler, luz) aparece el mes siguiente como pendiente, para anotarlo con un toque.
+- **Finanzas**: ingresos, gastos, ganancia y ticket promedio, comparados con el mes pasado a la misma fecha. Incluye ingresos por día, servicios y productos más vendidos, medios de pago, comisiones del equipo y citas (no vinieron, reservas en línea). Se descarga en Excel (CSV) para el contador.
+- **Equipo**: cada persona con su color, su comisión (de servicios y de productos), los servicios que hace y si tiene agenda. Muestra cuánto le toca y cuánto se le pagó: los pagos se anotan como gasto eligiendo a la persona.
+- **Servicios y productos**: precio, duración de cada servicio (para la agenda y las reservas), y stock y aviso de stock bajo de cada producto. Si guardas el catálogo desde `/admin`, la duración y el stock se conservan.
+- **Ajustes**: horario por día, cada cuántos minutos va la agenda, reservas en línea, meta del mes, medios de pago y clave del dueño.
+
+**Reservas en línea** (`/slug/reservar`, con la marca del negocio)
+- El cliente elige servicio, persona (o «Cualquiera»), día y hora. Solo ve las horas que de verdad están libres, según el horario, la duración del servicio, las citas y los bloqueos.
+- La cita llega a la gestión **por confirmar**. Con «Cualquiera», se asigna a quien tenga menos citas ese día.
+- Si dos personas eligen la misma hora a la vez, solo entra la primera.
+- Límites: 10 reservas por hora desde una misma conexión, y 3 reservas pendientes por celular.
+- Con las reservas activas, la tarjeta del cliente muestra el botón **Reservar una cita**.
+
+**Privacidad**
+- Si un cliente borra su tarjeta, sus ventas se quedan en la caja (son contabilidad) pero sin su nombre, y sus citas pasadas pierden nombre y celular.
+- Las citas de más de 24 meses se borran solas.
+- Un cliente que compró o tuvo una cita en los últimos 24 meses no se borra, aunque no haya sumado sellos.
+
 ## Instalación (una sola vez, desde una computadora)
 
 Necesitas una cuenta gratis en <https://dash.cloudflare.com> y Node.js 20 o superior.
@@ -270,6 +301,7 @@ El plan gratuito de Workers y D1 incluye un número diario de solicitudes y lect
 
 - `src/index.js`: rutas, API y la tarea diaria.
 - `src/paginas.js`: el HTML de las páginas.
+- `src/gestion.js`: la gestión del negocio (agenda, caja, gastos, finanzas, equipo, catálogo) y la reserva en línea.
 - `src/auth.js`: claves (PBKDF2), sesiones firmadas y límite de intentos.
 - `src/util.js`: utilidades.
 - `migrations/0001_inicial.sql`: las tablas. El Worker también las crea solo.
