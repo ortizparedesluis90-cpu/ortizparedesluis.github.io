@@ -256,6 +256,7 @@
     f.elements.costo_premio.value = n.costo_premio ? String(n.costo_premio / 100) : '';
     f.elements.mostrar_numeros.checked = !!n.mostrar_numeros;
     f.elements.gestion.checked = !!n.gestion;
+    f.elements.rubro.value = n.rubro || '';
     f.elements.clave_dueno.value = '';
     f.elements.sello_regalo.checked = !!n.sello_regalo;
     f.elements.editar.value = n.slug;

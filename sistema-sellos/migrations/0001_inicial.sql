@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS negocios (
   sello_regalo  INTEGER NOT NULL DEFAULT 0,       -- 1 = la tarjeta nueva empieza con 1 sello de regalo (solo sellos)
   clave_hash    TEXT NOT NULL DEFAULT '',         -- clave del panel (PBKDF2)
   clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar la clave: cierra sesiones viejas
+  rubro         TEXT NOT NULL DEFAULT '',         -- bodega, ferreteria, ropa, barberia, spa... (src/gestion.js RUBROS). Define si es comercio o servicios
   gestion       INTEGER NOT NULL DEFAULT 0,       -- 1 = tiene la gestión del negocio (/slug/gestion: agenda, caja, gastos, finanzas)
   ajustes       TEXT NOT NULL DEFAULT '{}',       -- JSON de la gestión: horario, reservas en línea, meta del mes, medios de pago (src/gestion.js)
   clave_dueno   TEXT NOT NULL DEFAULT '',         -- clave del dueño (PBKDF2): ve finanzas, gastos y personal. Vacía = la clave del panel lo ve todo
@@ -128,6 +129,8 @@ CREATE TABLE IF NOT EXISTS personal (
   comision_prod INTEGER NOT NULL DEFAULT 0,       -- % de lo que vende en productos
   servicios     TEXT NOT NULL DEFAULT '[]',       -- JSON: nombres de los servicios que hace (vacío = todos). Para la reserva en línea
   agenda        INTEGER NOT NULL DEFAULT 1,       -- 1 = tiene agenda (se le pueden reservar citas)
+  clave_hash    TEXT NOT NULL DEFAULT '',         -- su propia clave para entrar (con su celular) como caja. Vacía = no entra
+  clave_ver     INTEGER NOT NULL DEFAULT 1,       -- cambia al cambiar su clave o al quitarle el acceso
   activo        INTEGER NOT NULL DEFAULT 1,       -- 0 = ya no trabaja aquí (sus ventas se conservan)
   creado        TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -164,12 +167,14 @@ CREATE TABLE IF NOT EXISTS ventas (
   cliente_id    INTEGER,
   nombre        TEXT NOT NULL DEFAULT '',
   personal_id   INTEGER,                          -- quién atendió (para su comisión)
-  items         TEXT NOT NULL DEFAULT '[]',       -- JSON: [{n: nombre, t: s (servicio) | p (producto), p: precio, c: cantidad}]
+  items         TEXT NOT NULL DEFAULT '[]',       -- JSON: [{n: nombre, t: s (servicio) | p (producto), p: precio, c: cantidad, a: artículo, k: costo}]
   servicios     INTEGER NOT NULL DEFAULT 0,       -- suma de los servicios (antes del descuento)
   productos     INTEGER NOT NULL DEFAULT 0,       -- suma de los productos (antes del descuento)
   descuento     INTEGER NOT NULL DEFAULT 0,
   total         INTEGER NOT NULL DEFAULT 0,
-  metodo        TEXT NOT NULL DEFAULT 'Efectivo', -- Efectivo | Yape | Plin | Tarjeta | Transferencia
+  costo         INTEGER NOT NULL DEFAULT 0,       -- comercio: lo que costó lo vendido (para la ganancia real)
+  token         TEXT,                             -- enlace privado del comprobante (/slug/v/TOKEN)
+  metodo        TEXT NOT NULL DEFAULT 'Efectivo', -- Efectivo | Yape | Plin | Tarjeta | Transferencia | Fiado (se lo debe el cliente)
   cita_id       INTEGER,
   nota          TEXT NOT NULL DEFAULT '',
   anulada       INTEGER NOT NULL DEFAULT 0,
@@ -192,3 +197,80 @@ CREATE TABLE IF NOT EXISTS gastos (
   creado        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_gastos_dia ON gastos (negocio_id, dia);
+
+-- ===== Comercio (src/comercio.js): bodegas, ferreterías, tiendas de ropa, florerías... =====
+
+-- Inventario. Un producto con variantes (talla, color) es una fila «padre» y una fila por variante (padre = id del padre),
+-- cada una con su código y su stock. Un producto con receta (un jugo, un arreglo floral) descuenta sus insumos al venderse.
+CREATE TABLE IF NOT EXISTS articulos (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  padre         INTEGER,                          -- variante de este producto (NULL = producto)
+  nombre        TEXT NOT NULL,
+  variante      TEXT NOT NULL DEFAULT '',         -- «M / Negro», «Talla 38»
+  codigo        TEXT NOT NULL DEFAULT '',         -- código de barras o interno
+  categoria     TEXT NOT NULL DEFAULT '',
+  unidad        TEXT NOT NULL DEFAULT 'unidad',   -- unidad | kg | litro | metro | paquete | caja | servicio
+  precio        INTEGER NOT NULL DEFAULT 0,       -- en una variante, 0 = el del producto
+  costo         INTEGER NOT NULL DEFAULT 0,       -- costo promedio (se actualiza con cada compra)
+  stock         REAL NOT NULL DEFAULT 0,
+  minimo        REAL NOT NULL DEFAULT 0,          -- avisa cuando el stock llega aquí
+  controla      INTEGER NOT NULL DEFAULT 1,       -- 0 = no lleva stock (un servicio, o un producto con variantes o receta)
+  receta        TEXT NOT NULL DEFAULT '[]',       -- JSON: [{a: insumo, c: cantidad}]
+  activo        INTEGER NOT NULL DEFAULT 1,
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_articulos_negocio ON articulos (negocio_id, activo, nombre);
+CREATE INDEX IF NOT EXISTS idx_articulos_codigo ON articulos (negocio_id, codigo);
+
+CREATE TABLE IF NOT EXISTS proveedores (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  nombre        TEXT NOT NULL,
+  ruc           TEXT NOT NULL DEFAULT '',
+  celular       TEXT NOT NULL DEFAULT '',
+  contacto      TEXT NOT NULL DEFAULT '',
+  nota          TEXT NOT NULL DEFAULT '',
+  activo        INTEGER NOT NULL DEFAULT 1,
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Compras de mercadería: suben el stock. Lo pagado se anota también como gasto («Compra de mercadería»);
+-- lo que falta pagar es deuda con el proveedor.
+CREATE TABLE IF NOT EXISTS compras (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  proveedor_id  INTEGER,
+  dia           TEXT NOT NULL,
+  items         TEXT NOT NULL DEFAULT '[]',       -- JSON: [{a: artículo, n: nombre, c: cantidad, k: costo unitario}]
+  total         INTEGER NOT NULL DEFAULT 0,
+  pagado        INTEGER NOT NULL DEFAULT 0,
+  nota          TEXT NOT NULL DEFAULT '',
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_compras_negocio ON compras (negocio_id, dia);
+
+-- Pagos de los clientes a cuenta de lo que se llevaron fiado.
+CREATE TABLE IF NOT EXISTS abonos (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  cliente_id    INTEGER,
+  dia           TEXT NOT NULL,
+  hora          TEXT NOT NULL,
+  monto         INTEGER NOT NULL,
+  metodo        TEXT NOT NULL DEFAULT 'Efectivo',
+  nota          TEXT NOT NULL DEFAULT '',
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_abonos_negocio ON abonos (negocio_id, dia);
+CREATE INDEX IF NOT EXISTS idx_abonos_cliente ON abonos (cliente_id);
+
+-- Cuentas creadas por el propio negocio en /crear: entran con su correo y su clave (la clave del dueño del negocio).
+CREATE TABLE IF NOT EXISTS cuentas (
+  id            INTEGER PRIMARY KEY,
+  correo        TEXT NOT NULL UNIQUE,
+  nombre        TEXT NOT NULL,
+  celular       TEXT NOT NULL DEFAULT '',
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);

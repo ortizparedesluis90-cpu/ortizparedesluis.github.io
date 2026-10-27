@@ -123,7 +123,7 @@ export function limpiarTexto(v, max) {
 }
 
 export const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,28}[a-z0-9])?$/;
-export const RESERVADOS = new Set(['admin', 'api', 'static', 'm', 'favicon.ico', 'robots.txt']);
+export const RESERVADOS = new Set(['admin', 'api', 'static', 'm', 'favicon.ico', 'robots.txt', 'crear', 'entrar', 'terminos', 'precios', 'ayuda', 'soporte', 'demo', 'www', 'app', 'tappe']);
 export const COLOR = /^#[0-9a-fA-F]{6}$/;
 
 export function primerNombre(n) {

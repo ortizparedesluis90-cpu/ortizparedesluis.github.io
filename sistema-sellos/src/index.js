@@ -3,9 +3,10 @@
 import qrcode from 'qrcode-generator';
 import ESQUEMA from '../migrations/0001_inicial.sql';
 import * as P from './paginas.js';
-import { leerDiseno, temaCss, catalogo, mediosDe, colores } from './diseno.js';
+import { leerDiseno, temaCss, catalogo, mediosDe, colores, ESTILOS } from './diseno.js';
 import { walletActivo, enlaceGuardar, actualizar as actualizarWallet } from './wallet.js';
-import { apiGestion, apiReserva, esDueno, reservasActivas, conservarExtras, ahoraLima } from './gestion.js';
+import { apiGestion, apiReserva, esDueno, reservasActivas, conservarExtras, ahoraLima, modoDe, RUBROS, PREMIO_INICIAL } from './gestion.js';
+import { apiComercio, ventaPorToken } from './comercio.js';
 import { TIPOS, leerPrograma, leerCatalogo, textoAServicios, textoAPremios, textoAHitos, ganar, estado, conTarjeta } from './programa.js';
 import {
   AVISO_VERSION, EN_MARCO, html, json, error, texto, redirigir, cookies, cookie, cuerpo, nuevoToken, nuevoCodigo, aleatorio,
@@ -51,6 +52,11 @@ const COLUMNAS_NUEVAS = [
   ['negocios', 'clave_dueno', "TEXT NOT NULL DEFAULT ''"],
   ['negocios', 'clave_dueno_ver', 'INTEGER NOT NULL DEFAULT 1'],
   ['clientes', 'notas', "TEXT NOT NULL DEFAULT ''"],
+  ['negocios', 'rubro', "TEXT NOT NULL DEFAULT ''"],
+  ['personal', 'clave_hash', "TEXT NOT NULL DEFAULT ''"],
+  ['personal', 'clave_ver', 'INTEGER NOT NULL DEFAULT 1'],
+  ['ventas', 'costo', 'INTEGER NOT NULL DEFAULT 0'],
+  ['ventas', 'token', 'TEXT'],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
@@ -63,6 +69,8 @@ async function asegurarEsquema(env) {
     const col = await env.DB.prepare(`SELECT COUNT(*) AS n FROM pragma_table_info('${tabla}') WHERE name = ?`).bind(columna).first();
     if (!col.n) await env.DB.prepare(`ALTER TABLE ${tabla} ADD COLUMN ${columna} ${def}`).run();
   }
+  // Índices sobre columnas nuevas: van después de agregarlas.
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_ventas_token ON ventas (token)').run();
   esquemaListo = true;
 }
 
@@ -191,7 +199,15 @@ async function puedeEntrar(req, env, n) {
   const s = await leerSesion(req, env);
   if (!s) return false;
   if (s.r === 'admin') return true;
-  return s.r === 'staff' && s.n === n.id && s.v === n.clave_ver;
+  if (!(s.r === 'staff' && s.n === n.id && s.v === n.clave_ver)) return false;
+  return s.emp ? !!(await empleadoDe(env, n, s)) : true;
+}
+
+/** La persona del equipo que entró con su celular y su clave (si sigue activa y con la misma clave). */
+async function empleadoDe(env, n, s) {
+  if (!s || !s.emp) return null;
+  const p = await env.DB.prepare('SELECT id, nombre, clave_ver, activo, clave_hash FROM personal WHERE id = ? AND negocio_id = ?').bind(s.emp, n.id).first();
+  return p && p.activo && p.clave_hash && p.clave_ver === s.empv ? { id: p.id, nombre: p.nombre } : null;
 }
 
 const esAdmin = async (req, env) => (await leerSesion(req, env))?.r === 'admin';
@@ -304,6 +320,15 @@ async function apiPanel(req, env, n, partes, url, ctx) {
     let datos;
     try { datos = await cuerpo(req); } catch { return error('Solicitud no válida.'); }
     const clave = String(datos.clave || '');
+    // Alguien del equipo: entra con su celular y su propia clave (como caja), y sus ventas salen a su nombre.
+    if (String(datos.celular || '').trim()) {
+      const cel = celularPeru(datos.celular);
+      const p = cel ? await env.DB.prepare(`SELECT id, clave_hash, clave_ver FROM personal WHERE negocio_id = ? AND celular = ? AND activo = 1 AND clave_hash != ''`).bind(n.id, cel).first() : null;
+      if (!p || !(await verificarClave(clave, p.clave_hash))) { await registrarFallo(env, llave, 900); return error('Celular o clave incorrectos.', 401); }
+      await limpiarFallos(env, llave);
+      const se = await crearSesion(env, { r: 'staff', n: n.id, v: n.clave_ver, emp: p.id, empv: p.clave_ver });
+      return json({ ok: true }, 200, { 'Set-Cookie': cookie('sesion', se, { maxAge: DURACION_SESION }) });
+    }
     // Solo la clave del negocio: el administrador entra por /admin y su sesión abre todos los paneles.
     // La clave del dueño (si la tiene) también abre el panel, y además la gestión completa (finanzas, gastos, equipo).
     const dueno = Boolean(n.clave_dueno) && (await verificarClave(clave, n.clave_dueno));
@@ -325,8 +350,10 @@ async function apiPanel(req, env, n, partes, url, ctx) {
   // Gestión del negocio: agenda, caja, gastos, finanzas, equipo y catálogo (src/gestion.js).
   if (accion === 'g') {
     const sesion = await leerSesion(req, env);
-    return apiGestion(req, env, n, partes.slice(1), url, {
-      sesion, dueno: esDueno(sesion, n), CAMPOS_CLIENTE,
+    if (!n.gestion && sesion.r !== 'admin') return error('La gestión del negocio no está activa. Pídele a tu proveedor que la active.', 403);
+    const h = {
+      sesion, dueno: esDueno(sesion, n), empleado: await empleadoDe(env, n, sesion), CAMPOS_CLIENTE, soporte: env.SOPORTE_WHATSAPP || '',
+      guardarTarjeta: (d) => guardarTarjeta(env, n, d),
       clientePanel: (c) => clientePanel(c, n, url.origin),
       visita: async (c, monto, servicio) => {
         const aviso = await sumarVisita(env, n, c, monto, servicio);
@@ -336,7 +363,13 @@ async function apiPanel(req, env, n, partes, url, ctx) {
         }
         return aviso;
       },
-    }, datos);
+    };
+    // Los comercios (bodegas, tiendas...) tienen su inventario, sus ventas con costo y sus deudas; lo demás es común.
+    if (modoDe(n) === 'comercio') {
+      const r = await apiComercio(req, env, n, partes.slice(1), url, h, datos);
+      if (r) return r;
+    }
+    return apiGestion(req, env, n, partes.slice(1), url, h, datos);
   }
 
   if (accion === 'buscar' && metodo === 'GET') {
@@ -789,11 +822,18 @@ async function rendimiento(env) {
 /** Tipo de programa, reglas y servicios del formulario de /admin. En puntos y cashback, el campo
  *  «premio» se completa solo (lo usan el cartel, Google Wallet y los mensajes). */
 function programaDe(d, v) {
-  const tipo = Object.prototype.hasOwnProperty.call(TIPOS, d.tipo) ? d.tipo : 'sellos';
   const sv = textoAServicios(d.servicios_texto);
   if (sv.error) return sv;
   const pd = textoAServicios(d.productos_texto, 'Productos');
   if (pd.error) return pd;
+  const r = reglasDe(d, v);
+  if (r.error) return r;
+  return { ...r, servicios: JSON.stringify(sv.lista), productos: JSON.stringify(pd.lista) };
+}
+
+/** Tipo de programa y sus reglas (sellos, puntos o cashback). En puntos y cashback también fija v.premio. */
+function reglasDe(d, v) {
+  const tipo = Object.prototype.hasOwnProperty.call(TIPOS, d.tipo) ? d.tipo : 'sellos';
   const reglas = {};
   if (tipo === 'puntos') {
     const pm = textoAPremios(d.premios_texto);
@@ -816,7 +856,104 @@ function programaDe(d, v) {
     if (hs.error) return hs;
     reglas.hitos = hs.lista;
   }
-  return { tipo, reglas: JSON.stringify(reglas), servicios: JSON.stringify(sv.lista), productos: JSON.stringify(pd.lista) };
+  return { tipo, reglas: JSON.stringify(reglas) };
+}
+
+/** Cada tarjeta respeta su promoción: si cambian los sellos, el premio o los premios en el camino, las tarjetas que ya
+ *  tienen sellos se quedan con la promoción con la que empezaron hasta canjearla. Las que vuelven a coincidir, se liberan.
+ *  Devuelve cuántas tarjetas conservan una promoción anterior. */
+async function congelarPromos(env, id, antes, v) {
+  const hitosAntes = JSON.stringify(leerPrograma(antes).hitos), hitosNuevos = JSON.stringify(leerPrograma(v).hitos);
+  if (!(antes.tipo === 'sellos' && v.tipo === 'sellos' && (antes.meta !== v.meta || antes.premio !== v.premio || hitosAntes !== hitosNuevos))) return 0;
+  const [, , cuenta] = await env.DB.batch([
+    env.DB.prepare('UPDATE clientes SET meta_t = ?, premio_t = ?, hitos_t = ? WHERE negocio_id = ? AND sellos > 0 AND meta_t IS NULL AND premio_t IS NULL').bind(antes.meta, antes.premio, hitosAntes, id),
+    env.DB.prepare(`UPDATE clientes SET meta_t = NULL, premio_t = NULL, hitos_t = NULL WHERE negocio_id = ? AND meta_t = ? AND premio_t = ? AND COALESCE(hitos_t, '[]') = ?`).bind(id, v.meta, v.premio, hitosNuevos),
+    env.DB.prepare('SELECT COUNT(*) AS n FROM clientes WHERE negocio_id = ? AND (meta_t IS NOT NULL OR premio_t IS NOT NULL)').bind(id),
+  ]);
+  return cuenta.results[0].n;
+}
+
+/** «Tu tarjeta» en la gestión: el dueño cambia el programa, el premio y el estilo sin pasar por /admin. */
+async function guardarTarjeta(env, n, d) {
+  const v = { programa: limpiarTexto(d.programa, 40), premio: limpiarTexto(d.premio, 60), meta: Math.round(Number(d.meta)) || n.meta };
+  if (!v.programa) return { error: 'Ponle un nombre a tu programa, por ejemplo «Club ' + n.nombre.slice(0, 30) + '».' };
+  const r = reglasDe(d, v);
+  if (r.error) return r;
+  v.tipo = r.tipo; v.reglas = r.reglas;
+  if (v.tipo === 'sellos' && !v.premio) return { error: 'Escribe el premio al completar la tarjeta.' };
+  if (!(v.meta >= 3 && v.meta <= 20)) return { error: 'Los sellos para el premio deben estar entre 3 y 20.' };
+  const regalo = limpiarTexto(d.regalo_cumple, 60);
+  // Estilo: uno de los estilos listos (con su paleta), y si quiere, su propio color de acento. Se conservan logo y fotos.
+  const actual = leerDiseno(n, n.diseno);
+  let diseno = actual;
+  if (d.estilo && ESTILOS[d.estilo]) diseno = leerDiseno(null, { ...ESTILOS[d.estilo].d, estilo: d.estilo, logo: actual.logo, portada: actual.portada, imagen: actual.imagen, video: actual.video });
+  if (/^#[0-9a-fA-F]{6}$/.test(d.acento || '')) diseno = { ...diseno, acento: d.acento.toUpperCase(), paleta: 'propia' };
+  const color = diseno.acento, tema = colores(diseno).claro ? 'claro' : 'oscuro';
+  const conservan = await congelarPromos(env, n.id, n, v);
+  await env.DB.prepare('UPDATE negocios SET programa = ?, premio = ?, meta = ?, tipo = ?, reglas = ?, regalo_cumple = ?, diseno = ?, color = ?, tema = ?, sello_regalo = ? WHERE id = ?')
+    .bind(v.programa, v.premio, v.meta, v.tipo, v.reglas, regalo, JSON.stringify(diseno), color, tema, d.sello_regalo ? 1 : 0, n.id).run();
+  return { ok: true, conservan };
+}
+
+// ---------- cuentas creadas por el propio negocio (/crear y /entrar) ----------
+const CORREO = /^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$/;
+/** «Bodega Don Pepe» → «bodega-don-pepe». */
+function slugDe(nombre) {
+  return String(nombre).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24).replace(/-+$/, '') || 'negocio';
+}
+async function apiCuenta(req, env, accion) {
+  let d;
+  try { d = await cuerpo(req); } catch { return error('Solicitud no válida.'); }
+  const correo = String(d.correo || '').trim().toLowerCase().slice(0, 100);
+  const clave = String(d.clave || '');
+
+  if (accion === 'entrar') {
+    const llave = `entrar:${ip(req)}`;
+    if (await bloqueado(env, llave, 8, 900)) return error('Demasiados intentos fallidos. Espera 15 minutos.', 429);
+    const c = await env.DB.prepare('SELECT n.id, n.slug, n.clave_ver, n.clave_dueno, n.clave_dueno_ver FROM cuentas c JOIN negocios n ON n.id = c.negocio_id AND n.activo = 1 WHERE c.correo = ?').bind(correo).first();
+    if (!c || !c.clave_dueno || !(await verificarClave(clave, c.clave_dueno))) { await registrarFallo(env, llave, 900); return error('Correo o clave incorrectos.', 401); }
+    await limpiarFallos(env, llave);
+    const s = await crearSesion(env, { r: 'staff', n: c.id, v: c.clave_ver, d: c.clave_dueno_ver });
+    return json({ ok: true, url: `/${c.slug}/gestion` }, 200, { 'Set-Cookie': cookie('sesion', s, { maxAge: DURACION_SESION }) });
+  }
+
+  if (accion === 'crear') {
+    const negocio = limpiarTexto(d.negocio, 60), nombre = limpiarTexto(d.nombre, 60), celular = celularPeru(d.celular);
+    const rubro = Object.prototype.hasOwnProperty.call(RUBROS, d.rubro) ? d.rubro : null;
+    if (negocio.length < 2) return error('Escribe el nombre de tu negocio.');
+    if (!rubro) return error('Elige el tipo de negocio.');
+    if (nombre.length < 2) return error('Escribe tu nombre.');
+    if (!celular) return error('Revisa tu celular: 9 dígitos que empiezan con 9.');
+    if (!CORREO.test(correo)) return error('Revisa tu correo.');
+    if (clave.length < 8) return error('Tu clave debe tener al menos 8 caracteres.');
+    if (!(d.acepta === true || d.acepta === '1')) return error('Para crear tu cuenta debes aceptar los términos y el aviso de privacidad.');
+    if (!(await limitar(env, `crear:${ip(req)}`, 5, 3600))) return error('Demasiadas cuentas creadas desde esta conexión. Intenta más tarde.', 429);
+    if (await env.DB.prepare('SELECT 1 FROM cuentas WHERE correo = ?').bind(correo).first()) return error('Ya hay una cuenta con ese correo. Entra con tu clave.', 409);
+    // Dirección del negocio: el nombre en minúsculas y con guiones; si ya existe, se le agrega un número.
+    const base = slugDe(negocio);
+    let slug = null;
+    for (let i = 1; i <= 50 && !slug; i++) {
+      const s = i === 1 ? base : `${base.slice(0, 21)}-${i}`;
+      if (SLUG.test(s) && !RESERVADOS.has(s) && !(await env.DB.prepare('SELECT 1 FROM negocios WHERE slug = ?').bind(s).first())) slug = s;
+    }
+    if (!slug) slug = `${base.slice(0, 16)}-${aleatorio(6, 'abcdefghijkmnpqrstuvwxyz23456789')}`;
+    const diseno = leerDiseno(null, { ...ESTILOS.moderno.d, estilo: 'moderno' });
+    const fila = await env.DB.prepare(
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, correo, color, tema, redes, diseno, plan, vence, clave_hash, clave_dueno, tipo, reglas, gestion, rubro)
+       VALUES (?, ?, ?, ?, 8, 60, ?, ?, ?, ?, ?, 'prueba', ?, '', ?, 'sellos', '{}', 1, ?) RETURNING id, clave_ver, clave_dueno_ver`
+    ).bind(slug, negocio, `Club ${negocio}`.slice(0, 40), PREMIO_INICIAL, correo, diseno.acento, colores(diseno).claro ? 'claro' : 'oscuro',
+      JSON.stringify({ whatsapp: celular }), JSON.stringify(diseno), sumarMeses(hoyLima(), 1), await hashClave(clave), rubro).first();
+    try {
+      await env.DB.prepare('INSERT INTO cuentas (correo, nombre, celular, negocio_id) VALUES (?, ?, ?, ?)').bind(correo, nombre, celular, fila.id).run();
+    } catch (err) {
+      await env.DB.prepare('DELETE FROM negocios WHERE id = ?').bind(fila.id).run();
+      if (/UNIQUE/i.test(String(err))) return error('Ya hay una cuenta con ese correo. Entra con tu clave.', 409);
+      throw err;
+    }
+    const s = await crearSesion(env, { r: 'staff', n: fila.id, v: fila.clave_ver, d: fila.clave_dueno_ver });
+    return json({ ok: true, url: `/${slug}/gestion` }, 201, { 'Set-Cookie': cookie('sesion', s, { maxAge: DURACION_SESION }) });
+  }
+  return error('No encontrado.', 404);
 }
 
 // ---------- API de administración ----------
@@ -838,7 +975,7 @@ async function apiAdmin(req, env, partes, url) {
   if (accion === 'negocios' && req.method === 'GET') {
     const filas = await env.DB.prepare(
       `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
-         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio, n.costo_premio, n.mostrar_numeros, n.sello_regalo, n.productos, n.regalo_cumple, n.gestion,
+         n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio, n.costo_premio, n.mostrar_numeros, n.sello_regalo, n.productos, n.regalo_cumple, n.gestion, n.rubro,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
          (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
@@ -926,6 +1063,7 @@ async function apiAdmin(req, env, partes, url) {
     if (claveDueno && claveDueno === clave) return error('La clave del dueño debe ser distinta a la del panel.');
     const hashDueno = claveDueno ? await hashClave(claveDueno) : null;
     const gestion = d.gestion === undefined ? null : (d.gestion === '1' ? 1 : 0);
+    const rubro = d.rubro === undefined ? null : Object.prototype.hasOwnProperty.call(RUBROS, d.rubro) ? d.rubro : '';
 
     const existe = await env.DB.prepare('SELECT id FROM negocios WHERE slug = ?').bind(slug).first();
     if (existe && d.editar !== slug) return error(`Ya existe un negocio con el identificador «${slug}». Usa otro o toca «Editar» en ese negocio.`, 409);
@@ -951,20 +1089,12 @@ async function apiAdmin(req, env, partes, url) {
       v.servicios = conservarExtras(v.servicios, antes.servicios);
       v.productos = conservarExtras(v.productos, antes.productos);
       if (hashDueno && !hash && (await verificarClave(claveDueno, antes.clave_hash))) return error('La clave del dueño debe ser distinta a la del panel.');
-      const hitosAntes = JSON.stringify(leerPrograma(antes).hitos), hitosNuevos = JSON.stringify(leerPrograma(v).hitos);
-      if (antes.tipo === 'sellos' && v.tipo === 'sellos' && (antes.meta !== v.meta || antes.premio !== v.premio || hitosAntes !== hitosNuevos)) {
-        const [, , cuenta] = await env.DB.batch([
-          env.DB.prepare('UPDATE clientes SET meta_t = ?, premio_t = ?, hitos_t = ? WHERE negocio_id = ? AND sellos > 0 AND meta_t IS NULL AND premio_t IS NULL').bind(antes.meta, antes.premio, hitosAntes, existe.id),
-          env.DB.prepare(`UPDATE clientes SET meta_t = NULL, premio_t = NULL, hitos_t = NULL WHERE negocio_id = ? AND meta_t = ? AND premio_t = ? AND COALESCE(hitos_t, '[]') = ?`).bind(existe.id, v.meta, v.premio, hitosNuevos),
-          env.DB.prepare('SELECT COUNT(*) AS n FROM clientes WHERE negocio_id = ? AND (meta_t IS NOT NULL OR premio_t IS NOT NULL)').bind(existe.id),
-        ]);
-        conservan = cuenta.results[0].n;
-      }
+      conservan = await congelarPromos(env, existe.id, antes, v);
       await env.DB.prepare(
         `UPDATE negocios SET nombre=?, programa=?, premio=?, meta=?, espera_min=?, razon_social=?, ruc=?, direccion=?, correo=?, color=?, tema=?, redes=?, diseno=?, plan=?, vence=?, activo=1, inversion_mes=COALESCE(?, inversion_mes), precio_visita=COALESCE(?, precio_visita), tipo=?, reglas=?, servicios=?, productos=?, regalo_cumple=?, pedir_servicio=COALESCE(?, pedir_servicio),
          costo_premio=COALESCE(?, costo_premio), mostrar_numeros=COALESCE(?, mostrar_numeros), sello_regalo=COALESCE(?, sello_regalo)
-         , gestion=COALESCE(?, gestion)${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''}${hashDueno ? ', clave_dueno=?, clave_dueno_ver=clave_dueno_ver+1' : ''} WHERE id = ?`
-      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, v.productos, v.regalo_cumple, pedir, d.costo_premio === undefined ? null : costoPremio || 0, mostrar, regalo, gestion, ...(hash ? [hash] : []), ...(hashDueno ? [hashDueno] : []), existe.id).run();
+         , gestion=COALESCE(?, gestion), rubro=COALESCE(?, rubro)${hash ? ', clave_hash=?, clave_ver=clave_ver+1' : ''}${hashDueno ? ', clave_dueno=?, clave_dueno_ver=clave_dueno_ver+1' : ''} WHERE id = ?`
+      ).bind(v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, cuota, precio, v.tipo, v.reglas, v.servicios, v.productos, v.regalo_cumple, pedir, d.costo_premio === undefined ? null : costoPremio || 0, mostrar, regalo, gestion, rubro, ...(hash ? [hash] : []), ...(hashDueno ? [hashDueno] : []), existe.id).run();
       return json({ ok: true, creado: false, conservan });
     }
     if (!hash) return error('Define una clave para el panel del nuevo negocio.');
@@ -972,9 +1102,9 @@ async function apiAdmin(req, env, partes, url) {
     if (!v.vence) v.vence = sumarMeses(hoyLima(), 1);
     if (!v.plan) v.plan = 'prueba';
     await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, productos, regalo_cumple, pedir_servicio, costo_premio, mostrar_numeros, sello_regalo, gestion, clave_dueno)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, v.productos, v.regalo_cumple, pedir === null ? 1 : pedir, costoPremio || 0, mostrar || 0, regalo || 0, gestion || 0, hashDueno || '').run();
+      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, razon_social, ruc, direccion, correo, color, tema, redes, diseno, plan, vence, clave_hash, inversion_mes, precio_visita, tipo, reglas, servicios, productos, regalo_cumple, pedir_servicio, costo_premio, mostrar_numeros, sello_regalo, gestion, clave_dueno, rubro)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(slug, v.nombre, v.programa, v.premio, v.meta, v.espera_min, v.razon_social, v.ruc, v.direccion, v.correo, v.color, v.tema, v.redes, v.diseno, v.plan, v.vence, hash, cuota || 0, precio || 0, v.tipo, v.reglas, v.servicios, v.productos, v.regalo_cumple, pedir === null ? 1 : pedir, costoPremio || 0, mostrar || 0, regalo || 0, gestion || 0, hashDueno || '', rubro || '').run();
     return json({ ok: true, creado: true }, 201);
   }
   return error('No encontrado.', 404);
@@ -1078,6 +1208,7 @@ async function manejar(req, env, ctx) {
   if (partes[0] === 'api') {
     if (partes[1] === 'salir' && req.method === 'POST') return json({ ok: true }, 200, { 'Set-Cookie': cookie('sesion', '', { maxAge: 0 }) });
     if (partes[1] === 'admin') return apiAdmin(req, env, partes.slice(2), url);
+    if (partes[1] === 'cuenta' && req.method === 'POST') return apiCuenta(req, env, partes[2]);
     if (partes[1] === 'n' && partes[2]) {
       const n = await negocioPorSlug(env, partes[2]);
       if (!n) return error('Negocio no encontrado.', 404);
@@ -1111,7 +1242,10 @@ async function manejar(req, env, ctx) {
     return error('Método no permitido.', 405);
   }
 
-  if (partes.length === 0) return html(P.inicio());
+  if (partes.length === 0) return html(P.inicio(env));
+  if (partes.length === 1 && partes[0] === 'crear') return html(P.crearCuenta(RUBROS, env));
+  if (partes.length === 1 && partes[0] === 'entrar') return html(P.entrar(env));
+  if (partes.length === 1 && partes[0] === 'terminos') return html(P.terminos(env));
   if (partes[0] === 'admin' && partes.length === 1) return html(P.admin());
   if (partes[0] === 'admin' && partes[1] === 'reporte' && partes.length === 2) return html(P.reporte());
   if (partes[0] === 'admin' && partes[1] === 'vista' && partes.length === 3) return vistaPrevia(req, env, partes[2], url);
@@ -1147,7 +1281,12 @@ async function manejar(req, env, ctx) {
     case 'panel':
       return html(P.panel(n));
     case 'gestion':
-      return html(P.gestion(n));
+      return html(P.gestion(n, { modo: modoDe(n), soporte: env.SOPORTE_WHATSAPP || '' }));
+    case 'v': {
+      // Comprobante de una venta (nota de venta), con su enlace privado: para imprimir, guardar en PDF o mandar por WhatsApp.
+      const v = await ventaPorToken(env, n, partes[2]);
+      return v ? html(P.comprobante(n, v)) : html(P.noEncontrado(), 404);
+    }
     case 'reservar':
       return reservasActivas(n) ? html(P.reservar(n)) : html(P.noEncontrado(), 404);
     case 'cartel': {

@@ -217,6 +217,44 @@ Para barberías, salones, spas, centros de uñas y de estética: agenda, reserva
 - Las citas de más de 24 meses se borran solas.
 - Un cliente que compró o tuvo una cita en los últimos 24 meses no se borra, aunque no haya sumado sellos.
 
+## Comercios: bodegas, tiendas, ferreterías… (servicio aparte)
+
+Si el **tipo de negocio** es un comercio (bodega, minimarket, kiosko, ferretería, ropa, zapatería, librería, florería, licorería, regalos, vivero, restaurante, botica, car wash), la gestión cambia: no hay agenda (se puede activar en Ajustes) y aparecen estas secciones:
+
+**Secciones del comercio**
+- **Vender**: punto de venta.
+  - Busca el producto o escanea su código de barras. Un lector USB escribe el código y da Enter; en el celular, la cámara lo lee con el botón «Escanear».
+  - Vende por unidad o por kilo, litro o metro.
+  - Elige la variante (talla, color), aplica un descuento, calcula el vuelto y cobra, o fía al cliente.
+  - Cada venta suma a la tarjeta del cliente y deja un **comprobante** (nota de venta) para imprimir, guardar en PDF o mandar por WhatsApp.
+- **Inventario**:
+  - Cada producto tiene precio, costo, ganancia, stock y aviso de stock bajo.
+  - **Variantes**: cada talla o color con su código y su stock.
+  - **Recetas**: un jugo o un arreglo floral descuenta sus insumos al venderse.
+  - Se importa pegando la lista desde Excel (nombre, precio, costo, stock, código, categoría) y se descarga en Excel.
+- **Comprar mercadería**: sube el stock y recalcula el costo promedio. Lo pagado se anota como gasto; lo que falta pagar queda como deuda con el proveedor.
+- **Deudas**: lo que te deben tus clientes (fiados, con recordatorio por WhatsApp y registro de pagos) y lo que debes a tus proveedores.
+- **Proveedores**: sus datos, sus compras y los pagos.
+- **Finanzas**: ventas − costo de lo vendido = ganancia bruta; − gastos del negocio = ganancia.
+
+**Para todos los negocios**
+- **Tu tarjeta de clientes**: el dueño elige sellos o puntos, el premio, los premios en el camino, el regalo de cumpleaños y el estilo, sin pasar por `/admin`.
+- **Equipo con acceso propio**: a cada persona se le puede dar una clave. Entra con su celular, como caja, y sus ventas salen a su nombre. Si se va, se le quita el acceso.
+- **Ajustes**: datos del negocio (salen en el comprobante), clave de caja, fiado y agenda.
+
+## Cuentas creadas por el propio negocio
+
+- **Página de inicio** (`/`): presenta Tappe.
+- **Crear cuenta** (`/crear`): con el nombre del negocio, el tipo, el nombre del dueño, su celular, su correo y una clave, el negocio queda funcionando al instante, con 30 días de prueba y la gestión activada.
+- **Entrar** (`/entrar`): el dueño entra con su correo y su clave.
+- **Términos** (`/terminos`).
+- **Primeros pasos**: en Inicio, el negocio ve lo que le falta configurar.
+- **Límite**: 5 cuentas por hora desde la misma conexión.
+- **En `/admin`**: los negocios nuevos aparecen como cualquier otro, con plan «Mes gratis», para que les cobres o los suspendas.
+- **Soporte por WhatsApp**: pon tu número en `SOPORTE_WHATSAPP` (en `wrangler.toml`). Sale en la gestión, en el pie del sitio y en «¿Olvidaste tu clave?».
+
+**La nota de venta no es una boleta ni una factura electrónica de SUNAT.** Para la facturación electrónica hay que conectarse con un proveedor autorizado (PSE/OSE). Queda pendiente.
+
 ## Instalación (una sola vez, desde una computadora)
 
 Necesitas una cuenta gratis en <https://dash.cloudflare.com> y Node.js 20 o superior.
@@ -302,6 +340,7 @@ El plan gratuito de Workers y D1 incluye un número diario de solicitudes y lect
 - `src/index.js`: rutas, API y la tarea diaria.
 - `src/paginas.js`: el HTML de las páginas.
 - `src/gestion.js`: la gestión del negocio (agenda, caja, gastos, finanzas, equipo, catálogo) y la reserva en línea.
+- `src/comercio.js`: lo propio de los comercios (inventario, ventas con costo, deudas, proveedores y compras).
 - `src/auth.js`: claves (PBKDF2), sesiones firmadas y límite de intentos.
 - `src/util.js`: utilidades.
 - `migrations/0001_inicial.sql`: las tablas. El Worker también las crea solo.

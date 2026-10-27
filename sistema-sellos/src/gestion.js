@@ -7,21 +7,35 @@
 //   caja:  agenda, cobrar, clientes y gastos del día. Entra con la clave del panel de tarjetas.
 import { json, error, texto, limpiarTexto, celularPeru, celularVisible, nuevoToken, nuevoCodigo, AVISO_VERSION, COLOR, cookie } from './util.js';
 import { hashClave, verificarClave, crearSesion, limitar, ip, DURACION_SESION } from './auth.js';
-import { leerServicios } from './programa.js';
+import { leerServicios, leerPrograma } from './programa.js';
+import { leerDiseno, ESTILOS, PALETAS } from './diseno.js';
 
 export const METODOS = ['Efectivo', 'Yape', 'Plin', 'Tarjeta', 'Transferencia'];
-export const CATEGORIAS = ['Alquiler', 'Luz, agua e internet', 'Productos e insumos', 'Sueldos', 'Comisiones', 'Publicidad', 'Mantenimiento', 'Impuestos', 'Otros'];
+export const CATEGORIAS = ['Compra de mercadería', 'Alquiler', 'Luz, agua e internet', 'Productos e insumos', 'Sueldos', 'Comisiones', 'Publicidad', 'Mantenimiento', 'Impuestos', 'Otros'];
+/** Rubros: [nombre, modo]. «comercio» vende productos con inventario (src/comercio.js); «servicios» trabaja con agenda y citas. */
+export const RUBROS = {
+  bodega: ['Bodega o minimarket', 'comercio'], kiosko: ['Kiosko', 'comercio'], ferreteria: ['Ferretería', 'comercio'],
+  ropa: ['Tienda de ropa', 'comercio'], zapateria: ['Zapatería', 'comercio'], libreria: ['Librería o papelería', 'comercio'],
+  floreria: ['Florería', 'comercio'], licoreria: ['Licorería', 'comercio'], regalos: ['Tienda de regalos', 'comercio'],
+  jardineria: ['Jardinería o vivero', 'comercio'], restaurante: ['Restaurante, cafetería o juguería', 'comercio'],
+  carwash: ['Car wash', 'comercio'], botica: ['Botica o farmacia', 'comercio'], otro_comercio: ['Otro comercio', 'comercio'],
+  barberia: ['Barbería', 'servicios'], salon: ['Salón de belleza', 'servicios'], spa: ['Spa o masajes', 'servicios'],
+  unas: ['Centro de uñas', 'servicios'], estetica: ['Centro de estética', 'servicios'], otro_servicio: ['Otro negocio de servicios', 'servicios'],
+};
+export const modoDe = (n) => (RUBROS[n.rubro] ? RUBROS[n.rubro][1] : 'servicios');
+/** Premio con el que nace un negocio creado en /crear, hasta que el dueño elija el suyo. */
+export const PREMIO_INICIAL = 'Un regalo de la casa';
 const ESTADOS = ['pendiente', 'confirmada', 'atendida', 'no_vino', 'cancelada'];
 // Estados que ocupan un horario de la agenda.
 const OCUPAN = "('pendiente', 'confirmada', 'atendida', 'bloqueo')";
 const MIN_SQL = '(CAST(substr(hora, 1, 2) AS INTEGER) * 60 + CAST(substr(hora, 4, 2) AS INTEGER))';
-const DIA = /^\d{4}-\d{2}-\d{2}$/;
-const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
-const MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+export const DIA = /^\d{4}-\d{2}-\d{2}$/;
+export const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const MES = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-const leerJson = (t, def) => { try { const v = JSON.parse(t || ''); return v ?? def; } catch { return def; } };
-const entero = (v, min, max, def) => { const x = Math.round(Number(v)); return v !== '' && v !== null && Number.isFinite(x) && x >= min && x <= max ? x : def; };
-function centimos(v) {
+export const leerJson = (t, def) => { try { const v = JSON.parse(t || ''); return v ?? def; } catch { return def; } };
+export const entero = (v, min, max, def) => { const x = Math.round(Number(v)); return v !== '' && v !== null && Number.isFinite(x) && x >= min && x <= max ? x : def; };
+export function centimos(v) {
   if (v === undefined || v === null || String(v).trim() === '') return null;
   const x = Math.round(Number(String(v).trim().replace(',', '.')) * 100);
   return Number.isFinite(x) && x >= 0 && x <= 10000000 ? x : NaN;
@@ -34,14 +48,14 @@ export function ahoraLima() {
 }
 const aMin = (h) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
 const aHora = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-const sumarDias = (dia, n) => new Date(Date.parse(dia) + n * 86400000).toISOString().slice(0, 10);
+export const sumarDias = (dia, n) => new Date(Date.parse(dia) + n * 86400000).toISOString().slice(0, 10);
 const diaSemana = (dia) => new Date(Date.parse(dia)).getUTCDay();
-const diasEntre = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-function limitesMes(mes) {
+export const diasEntre = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+export function limitesMes(mes) {
   const [y, m] = mes.split('-').map(Number);
   return { desde: `${mes}-01`, hasta: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10), anterior: new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7) };
 }
-const diaValido = (d) => DIA.test(d || '') && !Number.isNaN(Date.parse(d)) && new Date(Date.parse(d)).toISOString().slice(0, 10) === d;
+export const diaValido = (d) => DIA.test(d || '') && !Number.isNaN(Date.parse(d)) && new Date(Date.parse(d)).toISOString().slice(0, 10) === d;
 
 // ---------- ajustes ----------
 /** Ajustes de la gestión del negocio, siempre válidos. horario[0] = domingo … horario[6] = sábado; null = cerrado. */
@@ -63,17 +77,21 @@ export function leerAjustes(n) {
     notaReserva: limpiarTexto(a.notaReserva, 200),
     meta: entero(a.meta, 0, 1e9, 0),
     metodos: metodos.length ? metodos : METODOS,
+    // La agenda viene prendida en los negocios de servicios; un comercio (un car wash, por ejemplo) puede activarla.
+    agenda: a.agenda === undefined ? modoDe(n) === 'servicios' : !!a.agenda,
+    fiado: a.fiado === undefined ? modoDe(n) === 'comercio' : !!a.fiado,
   };
 }
 
 // ---------- equipo ----------
-function persona(p) {
+export function persona(p) {
   return {
     id: p.id, nombre: p.nombre, cargo: p.cargo, celular: celularVisible(p.celular), celularWa: p.celular, color: p.color,
     comision: p.comision, comisionProd: p.comision_prod, servicios: leerJson(p.servicios, []), agenda: !!p.agenda, activo: !!p.activo,
+    acceso: !!p.clave_hash,
   };
 }
-async function equipo(env, n, todos = false) {
+export async function equipo(env, n, todos = false) {
   const filas = await env.DB.prepare(`SELECT * FROM personal WHERE negocio_id = ? ${todos ? '' : 'AND activo = 1'} ORDER BY activo DESC, nombre`).bind(n.id).all();
   return filas.results.map(persona);
 }
@@ -87,7 +105,7 @@ function citaJson(c, nombres) {
     origen: c.origen, nota: c.nota, ventaId: c.venta_id,
   };
 }
-const mapaNombres = async (env, n) => new Map((await env.DB.prepare('SELECT id, nombre FROM personal WHERE negocio_id = ?').bind(n.id).all()).results.map((p) => [p.id, p.nombre]));
+export const mapaNombres = async (env, n) => new Map((await env.DB.prepare('SELECT id, nombre FROM personal WHERE negocio_id = ?').bind(n.id).all()).results.map((p) => [p.id, p.nombre]));
 
 /** La cita (o bloqueo) que choca con ese horario, si hay. Sin equipo cargado (personal null) cualquier cita choca. */
 async function choque(env, n, { dia, hora, dur, personal, id }) {
@@ -142,7 +160,7 @@ async function clientePorCelular(env, n, nombre, celular, recordatorios) {
 }
 
 /** Cliente de la cita o la venta: el que ya existe (cliente_id), uno nuevo (nombre + celular) o solo un nombre. */
-async function clienteDe(env, n, d) {
+export async function clienteDe(env, n, d) {
   if (d.cliente_id) {
     const c = await env.DB.prepare('SELECT id, nombre, celular FROM clientes WHERE id = ? AND negocio_id = ?').bind(Number(d.cliente_id) || 0, n.id).first();
     if (!c) return { error: 'Ese cliente ya no existe. Búscalo de nuevo.' };
@@ -224,16 +242,16 @@ async function moverStock(env, n, items, signo) {
 }
 
 // ---------- ventas ----------
-function ventaJson(v, nombres) {
+export function ventaJson(v, nombres) {
   return {
     id: v.id, dia: v.dia, hora: v.hora, clienteId: v.cliente_id, nombre: v.nombre, personalId: v.personal_id,
     personal: v.personal_id ? nombres.get(v.personal_id) || '' : '', items: leerJson(v.items, []), servicios: v.servicios, productos: v.productos,
-    descuento: v.descuento, total: v.total, metodo: v.metodo, citaId: v.cita_id, nota: v.nota, anulada: !!v.anulada,
+    descuento: v.descuento, total: v.total, metodo: v.metodo, citaId: v.cita_id, nota: v.nota, anulada: !!v.anulada, token: v.token || null,
   };
 }
 
 /** Comisión de una venta para quien la atendió: sus % sobre servicios y productos, después del descuento. */
-function comisionDe(v, p) {
+export function comisionDe(v, p) {
   const bruto = v.servicios + v.productos;
   if (!p || !bruto) return 0;
   const factor = v.total / bruto;
@@ -242,7 +260,7 @@ function comisionDe(v, p) {
 
 // ---------- reportes ----------
 /** Totales de ventas y gastos entre dos días (incluidos). */
-async function totales(env, n, desde, hasta) {
+export async function totales(env, n, desde, hasta) {
   const [v, g] = await env.DB.batch([
     env.DB.prepare('SELECT COUNT(*) AS ventas, COALESCE(SUM(total), 0) AS ingresos FROM ventas WHERE negocio_id = ? AND anulada = 0 AND dia BETWEEN ? AND ?').bind(n.id, desde, hasta),
     env.DB.prepare('SELECT COALESCE(SUM(monto), 0) AS gastos FROM gastos WHERE negocio_id = ? AND dia BETWEEN ? AND ?').bind(n.id, desde, hasta),
@@ -252,7 +270,7 @@ async function totales(env, n, desde, hasta) {
   return r;
 }
 
-async function finanzas(env, n, mes) {
+export async function finanzas(env, n, mes) {
   const ahora = ahoraLima();
   const { desde, hasta, anterior } = limitesMes(mes);
   const enCurso = mes === ahora.dia.slice(0, 7);
@@ -323,7 +341,7 @@ async function finanzas(env, n, mes) {
   };
 }
 
-const celdaCsv = (v) => {
+export const celdaCsv = (v) => {
   let s = String(v ?? '');
   if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // evita fórmulas al abrir en Excel
   return `"${s.replace(/"/g, '""')}"`;
@@ -344,8 +362,11 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
     let wa = '';
     try { wa = JSON.parse(n.redes || '{}').whatsapp || ''; } catch { wa = ''; }
     return json({
-      rol: h.dueno ? 'dueno' : 'caja', hoy: ahora.dia, hora: ahora.hora, claveDueno: !!n.clave_dueno,
-      negocio: { nombre: n.nombre, slug: n.slug, tipo: n.tipo || 'sellos', whatsapp: wa },
+      rol: h.dueno ? 'dueno' : 'caja', hoy: ahora.dia, hora: ahora.hora, claveDueno: !!n.clave_dueno, claveEquipo: !!n.clave_hash,
+      modo: modoDe(n), rubro: n.rubro || '', rubros: Object.fromEntries(Object.entries(RUBROS).map(([k, v]) => [k, v[0]])),
+      yo: h.empleado ? { id: h.empleado.id, nombre: h.empleado.nombre } : null, soporte: h.soporte || '',
+      negocio: { nombre: n.nombre, slug: n.slug, tipo: n.tipo || 'sellos', whatsapp: wa, ruc: n.ruc, direccion: n.direccion, razon: n.razon_social, correo: n.correo },
+      tarjeta: h.dueno ? tarjetaDe(n) : null,
       ajustes: aj, equipo: await equipo(env, n, h.dueno), ...catalogoDe(n), metodos: aj.metodos, todosMetodos: METODOS, categorias: CATEGORIAS,
     });
   }
@@ -372,6 +393,7 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
       manana: mananaT.results.map((c) => citaJson(c, nombres)),
       cumpleanos: cumple.results.map((c) => ({ id: c.id, nombre: c.nombre, celularWa: c.celular })),
       stockBajo: leerServicios(n, 'productos').filter((p) => p.s !== undefined && p.s <= (p.m || 0)).map((p) => ({ n: p.n, s: p.s, m: p.m || 0 })),
+      pasos: h.dueno ? await primerosPasos(env, n) : null,
     };
     if (h.dueno) {
       const mes = ahora.dia.slice(0, 7), lm = limitesMes(mes);
@@ -498,7 +520,7 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
     const metodoPago = aj.metodos.includes(datos.metodo) ? datos.metodo : METODOS.includes(datos.metodo) ? datos.metodo : null;
     if (!metodoPago) return error('Elige cómo pagó.');
     const eq = await equipo(env, n, true);
-    const personal = datos.personal_id ? Number(datos.personal_id) : null;
+    const personal = datos.personal_id ? Number(datos.personal_id) : h.empleado ? h.empleado.id : null;
     if (personal && !eq.some((p) => p.id === personal)) return error('Elige quién atendió.');
     // El dueño puede anotar ventas de días anteriores (hasta 60 días); la caja, solo las de hoy.
     let dia = ahora.dia, hora = ahora.hora;
@@ -516,9 +538,9 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
     }
     const nota = limpiarTexto(datos.nota, 200);
     const fila = await env.DB.prepare(
-      `INSERT INTO ventas (negocio_id, dia, hora, cliente_id, nombre, personal_id, items, servicios, productos, descuento, total, metodo, cita_id, nota)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
-    ).bind(n.id, dia, hora, cli.id, cli.nombre || '', personal, JSON.stringify(items), servicios, productos, descuento, total, metodoPago, cita ? cita.id : null, nota).first();
+      `INSERT INTO ventas (negocio_id, dia, hora, cliente_id, nombre, personal_id, items, servicios, productos, descuento, total, metodo, cita_id, nota, token)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, token`
+    ).bind(n.id, dia, hora, cli.id, cli.nombre || '', personal, JSON.stringify(items), servicios, productos, descuento, total, metodoPago, cita ? cita.id : null, nota, nuevoToken()).first();
     if (cita) await env.DB.prepare(`UPDATE citas SET estado = 'atendida', venta_id = ? WHERE id = ?`).bind(fila.id, cita.id).run();
     await moverStock(env, n, items, 1);
     // Si tiene tarjeta, la venta suma su visita (sello, puntos o saldo) con lo cobrado.
@@ -529,7 +551,7 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
       const nuevo = await env.DB.prepare(`SELECT ${h.CAMPOS_CLIENTE} FROM clientes WHERE id = ?`).bind(cli.id).first();
       tarjeta = { aviso, cliente: h.clientePanel(nuevo) };
     }
-    return json({ ok: true, id: fila.id, total, tarjeta }, 201);
+    return json({ ok: true, id: fila.id, total, tarjeta, token: fila.token }, 201);
   }
 
   if (recurso === 'ventas' && id && sub === 'anular' && metodo === 'POST') {
@@ -656,14 +678,18 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
     }
     if (!sub && metodo === 'GET') {
       const nombres = await mapaNombres(env, n);
-      const [citas, ventas, suma] = await env.DB.batch([
+      const [citas, ventas, suma, fiado, abonos] = await env.DB.batch([
         env.DB.prepare('SELECT * FROM citas WHERE cliente_id = ? AND negocio_id = ? ORDER BY dia DESC, hora DESC LIMIT 20').bind(c.id, n.id),
         env.DB.prepare('SELECT * FROM ventas WHERE cliente_id = ? AND negocio_id = ? AND anulada = 0 ORDER BY dia DESC, hora DESC LIMIT 20').bind(c.id, n.id),
         env.DB.prepare('SELECT COUNT(*) AS compras, COALESCE(SUM(total), 0) AS total, MIN(dia) AS desde, MAX(dia) AS ultima FROM ventas WHERE cliente_id = ? AND negocio_id = ? AND anulada = 0').bind(c.id, n.id),
+        env.DB.prepare(`SELECT COALESCE(SUM(total), 0) AS n FROM ventas WHERE cliente_id = ? AND negocio_id = ? AND anulada = 0 AND metodo = 'Fiado'`).bind(c.id, n.id),
+        env.DB.prepare('SELECT dia, hora, monto, metodo FROM abonos WHERE cliente_id = ? AND negocio_id = ? ORDER BY id DESC LIMIT 20').bind(c.id, n.id),
       ]);
+      const abonado = abonos.results.length ? (await env.DB.prepare('SELECT COALESCE(SUM(monto), 0) AS n FROM abonos WHERE cliente_id = ? AND negocio_id = ?').bind(c.id, n.id).first()).n : 0;
       return json({
         cliente: { ...h.clientePanel(c), notas: c.notas },
-        citas: citas.results.map((x) => citaJson(x, nombres)), ventas: ventas.results.map((x) => ventaJson(x, nombres)), resumen: suma.results[0],
+        citas: citas.results.map((x) => citaJson(x, nombres)), ventas: ventas.results.map((x) => ({ ...ventaJson(x, nombres), token: x.token })),
+        resumen: { ...suma.results[0], deuda: fiado.results[0].n - abonado }, abonos: abonos.results,
       });
     }
   }
@@ -700,15 +726,25 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
     const nombresServ = new Set(leerServicios(n).map((s) => s.n));
     const servicios = JSON.stringify((Array.isArray(datos.servicios) ? datos.servicios : []).map(String).filter((s) => nombresServ.has(s)).slice(0, 60));
     const vals = [nombre, limpiarTexto(datos.cargo, 40), celular, color, comision, comisionProd, servicios, datos.agenda === false ? 0 : 1, datos.activo === false ? 0 : 1];
+    // Acceso al sistema: entra con su celular y su clave, como caja (vende, cobra y agenda; no ve finanzas).
+    const clave = String(datos.clave || '');
+    if (clave && clave.length < 6) return error('La clave de acceso debe tener al menos 6 caracteres.');
+    if (clave && !celular) return error('Para darle acceso, escribe su celular: con él entra al sistema.');
+    if (celular) {
+      const repetido = await env.DB.prepare('SELECT id FROM personal WHERE negocio_id = ? AND celular = ? AND id != ?').bind(n.id, celular, Number(id) || 0).first();
+      if (repetido) return error('Ya hay otra persona del equipo con ese celular.');
+    }
+    const hash = clave ? await hashClave(clave) : null;
+    const acceso = hash ? ', clave_hash = ?, clave_ver = clave_ver + 1' : datos.quitar_acceso || datos.activo === false ? ", clave_hash = '', clave_ver = clave_ver + 1" : '';
     if (id) {
-      const r = await env.DB.prepare('UPDATE personal SET nombre=?, cargo=?, celular=?, color=?, comision=?, comision_prod=?, servicios=?, agenda=?, activo=? WHERE id = ? AND negocio_id = ?')
-        .bind(...vals, Number(id) || 0, n.id).run();
+      const r = await env.DB.prepare(`UPDATE personal SET nombre=?, cargo=?, celular=?, color=?, comision=?, comision_prod=?, servicios=?, agenda=?, activo=?${acceso} WHERE id = ? AND negocio_id = ?`)
+        .bind(...vals, ...(hash ? [hash] : []), Number(id) || 0, n.id).run();
       if (!r.meta.changes) return error('No encontrado.', 404);
       return json({ ok: true, id: Number(id) });
     }
     if ((await env.DB.prepare('SELECT COUNT(*) AS n FROM personal WHERE negocio_id = ?').bind(n.id).first()).n >= 40) return error('Máximo 40 personas en el equipo.');
-    const fila = await env.DB.prepare('INSERT INTO personal (nombre, cargo, celular, color, comision, comision_prod, servicios, agenda, activo, negocio_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
-      .bind(...vals, n.id).first();
+    const fila = await env.DB.prepare('INSERT INTO personal (nombre, cargo, celular, color, comision, comision_prod, servicios, agenda, activo, negocio_id, clave_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+      .bind(...vals, n.id, hash || '').first();
     return json({ ok: true, id: fila.id }, 201);
   }
 
@@ -740,10 +776,50 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
     const nuevo = {
       horario, intervalo: Number(datos.intervalo), reservas: !!datos.reservas, anticipacion: Number(datos.anticipacion), diasReserva: Number(datos.diasReserva),
       notaReserva: limpiarTexto(datos.notaReserva, 200), meta: meta || 0, metodos,
+      // Si no vienen (una versión anterior de la página), se quedan como estaban.
+      agenda: datos.agenda === undefined ? aj.agenda : !!datos.agenda, fiado: datos.fiado === undefined ? aj.fiado : !!datos.fiado,
     };
-    const valido = leerAjustes({ ajustes: JSON.stringify(nuevo) });
+    const valido = leerAjustes({ ...n, ajustes: JSON.stringify(nuevo) });
     await env.DB.prepare('UPDATE negocios SET ajustes = ? WHERE id = ?').bind(JSON.stringify(valido), n.id).run();
     return json({ ok: true, ajustes: valido });
+  }
+
+  // ----- datos del negocio (salen en el comprobante y en el aviso de privacidad) -----
+  if (recurso === 'negocio' && metodo === 'POST') {
+    const no = soloDueno(); if (no) return no;
+    const nombre = limpiarTexto(datos.nombre, 60);
+    if (nombre.length < 2) return error('Escribe el nombre de tu negocio.');
+    const ruc = String(datos.ruc || '').replace(/\D/g, '');
+    if (ruc && ruc.length !== 11) return error('El RUC debe tener 11 dígitos.');
+    const crudo = String(datos.whatsapp || '').trim(), wa = crudo ? celularPeru(crudo) : '';
+    if (crudo && !wa) return error('Revisa el WhatsApp del negocio: 9 dígitos que empiezan con 9.');
+    const correo = limpiarTexto(datos.correo, 100);
+    if (correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) return error('Revisa el correo.');
+    const redes = { ...leerJson(n.redes, {}), whatsapp: wa };
+    if (!wa) delete redes.whatsapp;
+    await env.DB.prepare('UPDATE negocios SET nombre = ?, ruc = ?, razon_social = ?, direccion = ?, correo = ?, redes = ? WHERE id = ?')
+      .bind(nombre, ruc, limpiarTexto(datos.razon, 100), limpiarTexto(datos.direccion, 140), correo, JSON.stringify(redes), n.id).run();
+    return json({ ok: true });
+  }
+
+  // ----- tu tarjeta de clientes (programa de fidelización) -----
+  if (recurso === 'tarjeta' && metodo === 'POST') {
+    const no = soloDueno(); if (no) return no;
+    const r = await h.guardarTarjeta(datos);
+    return r.error ? error(r.error) : json(r);
+  }
+
+  // Clave de caja para el equipo (la misma del panel de tarjetas). Quien la cambia sigue adentro.
+  if (recurso === 'clave-equipo' && metodo === 'POST') {
+    const no = soloDueno(); if (no) return no;
+    const clave = String(datos.clave || '');
+    if (clave.length < 8) return error('La clave de caja debe tener al menos 8 caracteres.');
+    if (n.clave_dueno && (await verificarClave(clave, n.clave_dueno))) return error('Usa una clave distinta a la tuya de dueño.');
+    const fila = await env.DB.prepare('UPDATE negocios SET clave_hash = ?, clave_ver = clave_ver + 1 WHERE id = ? RETURNING clave_ver, clave_dueno_ver')
+      .bind(await hashClave(clave), n.id).first();
+    if (h.sesion.r === 'admin') return json({ ok: true });
+    const s = await crearSesion(env, { r: 'staff', n: n.id, v: fila.clave_ver, ...(n.clave_dueno ? { d: fila.clave_dueno_ver } : {}) });
+    return json({ ok: true }, 200, { 'Set-Cookie': cookie('sesion', s, { maxAge: DURACION_SESION }) });
   }
 
   if (recurso === 'clave' && metodo === 'POST') {
@@ -762,11 +838,39 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
   return error('No encontrado.', 404);
 }
 
+/** Programa de fidelización del negocio, para el formulario «Tu tarjeta». */
+function tarjetaDe(n) {
+  const pr = leerPrograma(n), d = leerDiseno(n, n.diseno);
+  return {
+    programa: n.programa, tipo: pr.tipo, meta: n.meta, premio: n.premio, regalo: n.regalo_cumple || '', selloRegalo: !!n.sello_regalo,
+    porSol: pr.porSol, premios: pr.premios, pct: pr.pct, minimo: pr.minimo, hitos: pr.hitos,
+    estilo: d.estilo, acento: d.acento,
+    estilos: Object.entries(ESTILOS).map(([k, v]) => ({ k, nombre: v.nombre, fondo: PALETAS[v.d.paleta][1], acento: PALETAS[v.d.paleta][2] })),
+  };
+}
+
+/** Lo que le falta configurar a un negocio nuevo. Se muestra en Inicio hasta completarlo. */
+export async function primerosPasos(env, n) {
+  const comercio = modoDe(n) === 'comercio';
+  const [art, eq, vt] = await env.DB.batch([
+    env.DB.prepare('SELECT COUNT(*) AS n FROM articulos WHERE negocio_id = ? AND activo = 1').bind(n.id),
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM personal WHERE negocio_id = ? AND activo = 1`).bind(n.id),
+    env.DB.prepare('SELECT COUNT(*) AS n FROM ventas WHERE negocio_id = ?').bind(n.id),
+  ]);
+  const pasos = [
+    { k: 'catalogo', hecho: comercio ? art.results[0].n > 0 : leerServicios(n).length > 0, t: comercio ? 'Carga tus productos con su precio y stock' : 'Carga tus servicios con su precio y duración', ir: comercio ? 'inventario' : 'catalogo' },
+    { k: 'tarjeta', hecho: n.premio !== PREMIO_INICIAL, t: 'Elige el premio de tu tarjeta de clientes', ir: 'tarjeta' },
+    { k: 'equipo', hecho: eq.results[0].n > 0 || !!n.clave_hash, t: 'Agrega a tu equipo (o salta este paso si trabajas solo)', ir: 'equipo' },
+    { k: 'venta', hecho: vt.results[0].n > 0, t: 'Registra tu primera venta', ir: comercio ? 'vender' : 'caja' },
+  ];
+  return pasos.every((x) => x.hecho) ? null : pasos;
+}
+
 /** El dueño: el administrador, quien entró con la clave del dueño o, si el negocio no tiene clave del dueño, la del panel. */
 export function esDueno(s, n) {
   if (!s) return false;
   if (s.r === 'admin') return true;
-  if (s.r !== 'staff' || s.n !== n.id || s.v !== n.clave_ver) return false;
+  if (s.r !== 'staff' || s.n !== n.id || s.v !== n.clave_ver || s.emp) return false;
   return n.clave_dueno ? s.d === n.clave_dueno_ver : true;
 }
 

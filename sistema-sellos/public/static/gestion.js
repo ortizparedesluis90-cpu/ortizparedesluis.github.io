@@ -4,7 +4,7 @@
   'use strict';
   var raiz = document.getElementById('g');
   if (!raiz) return;
-  var SLUG = raiz.getAttribute('data-slug'), NEGOCIO = raiz.getAttribute('data-negocio');
+  var SLUG = raiz.getAttribute('data-slug'), NEGOCIO = raiz.getAttribute('data-negocio'), MODO = raiz.getAttribute('data-giro') || 'servicios';
   var API = '/api/n/' + encodeURIComponent(SLUG) + '/g/';
   var $ = function (id) { return document.getElementById(id); };
   var el = Sellos.el;
@@ -15,7 +15,7 @@
   var MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   var DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
   var DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-  function S(c) { return 'S/ ' + (Number(c || 0) / 100).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function S(c) { c = Number(c || 0); return (c < 0 ? '− ' : '') + 'S/ ' + (Math.abs(c) / 100).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function Scorto(c) { var v = Number(c || 0) / 100; return 'S/ ' + (v >= 1000 ? (v / 1000).toLocaleString('es-PE', { maximumFractionDigits: 1 }) + ' mil' : v.toLocaleString('es-PE', { maximumFractionDigits: 0 })); }
   function aCentimos(t) { t = String(t || '').trim().replace(',', '.'); if (!t) return 0; var x = Math.round(Number(t) * 100); return isFinite(x) && x >= 0 ? x : NaN; }
   function fecha(d) { return new Date(d + 'T12:00:00Z'); }
@@ -101,7 +101,7 @@
   }
   $('login-form').addEventListener('submit', async function (ev) {
     ev.preventDefault();
-    var r = await Sellos.api('/api/n/' + encodeURIComponent(SLUG) + '/login', { body: { clave: $('clave').value } });
+    var r = await Sellos.api('/api/n/' + encodeURIComponent(SLUG) + '/login', { body: { clave: $('clave').value, celular: $('login-celular').value } });
     if (!r.ok) { Sellos.mostrar($('login-error'), r.datos.error || 'No se pudo entrar.'); return; }
     $('clave').value = ''; $('login-error').hidden = true;
     arrancar();
@@ -119,23 +119,32 @@
     raiz.classList.remove('g-sin-sesion');
     $('login').hidden = true;
     document.body.classList.toggle('es-caja', D.rol !== 'dueno');
-    $('g-rol').textContent = D.rol === 'dueno' ? 'Entraste como dueño' : 'Entraste como caja · sin finanzas';
+    $('g-rol').textContent = D.rol === 'dueno' ? 'Entraste como dueño' : D.yo ? 'Entraste como ' + D.yo.nombre + ' · sin finanzas' : 'Entraste como caja · sin finanzas';
+    // La agenda solo sale si el negocio la usa (Ajustes).
+    document.querySelectorAll('[data-agenda]').forEach(function (a) { a.hidden = !D.ajustes.agenda; });
     prepararDialogos();
     ir();
   }
 
   // ---------- navegación ----------
-  var VISTAS = ['inicio', 'agenda', 'caja', 'clientes', 'gastos', 'finanzas', 'equipo', 'catalogo', 'ajustes'];
-  var SOLO_DUENO = ['gastos', 'finanzas', 'equipo', 'catalogo', 'ajustes'];
+  var VISTAS = ['inicio', 'vender', 'agenda', 'caja', 'inventario', 'clientes', 'deudas', 'proveedores', 'gastos', 'finanzas', 'equipo', 'catalogo', 'tarjeta', 'ajustes'];
+  var SOLO_DUENO = ['proveedores', 'gastos', 'finanzas', 'equipo', 'catalogo', 'tarjeta', 'ajustes'];
+  var NOMBRES = { inicio: 'Inicio', vender: 'Vender', agenda: 'Agenda', caja: 'Caja', inventario: 'Inventario', clientes: 'Clientes', deudas: 'Deudas', proveedores: 'Proveedores', gastos: 'Gastos', finanzas: 'Finanzas', equipo: 'Equipo', catalogo: 'Servicios y productos', tarjeta: 'Tu tarjeta de clientes', ajustes: 'Ajustes' };
+  function disponible(v) {
+    if (!$('v-' + v) || !CARGAR[v]) return false;
+    if (SOLO_DUENO.indexOf(v) >= 0 && D.rol !== 'dueno') return false;
+    if (v === 'agenda' && !D.ajustes.agenda) return false;
+    return true;
+  }
   var CARGAR = {};
   function ir() {
     if (!D) return;
     var v = (location.hash || '#inicio').slice(1).split('?')[0];
-    if (VISTAS.indexOf(v) < 0 || (SOLO_DUENO.indexOf(v) >= 0 && D.rol !== 'dueno')) v = 'inicio';
-    VISTAS.forEach(function (x) { $('v-' + x).hidden = x !== v; });
+    if (VISTAS.indexOf(v) < 0 || !disponible(v)) v = 'inicio';
+    VISTAS.forEach(function (x) { if ($('v-' + x)) $('v-' + x).hidden = x !== v; });
     document.querySelectorAll('[data-v]').forEach(function (a) { if (a.getAttribute('data-v') === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     cerrarMenu();
-    document.title = ({ inicio: 'Inicio', agenda: 'Agenda', caja: 'Caja', clientes: 'Clientes', gastos: 'Gastos', finanzas: 'Finanzas', equipo: 'Equipo', catalogo: 'Servicios y productos', ajustes: 'Ajustes' })[v] + ' · ' + NEGOCIO;
+    document.title = NOMBRES[v] + ' · ' + NEGOCIO;
     CARGAR[v]();
     window.scrollTo(0, 0);
   }
@@ -155,7 +164,8 @@
     var b = ev.target.closest('[data-accion]');
     if (!b || !D) return;
     var a = b.getAttribute('data-accion');
-    if (a === 'cobrar') abrirVenta({});
+    if (a === 'cobrar') { if (MODO === 'comercio') location.hash = '#vender'; else abrirVenta({}); }
+    if (a === 'compra' && G.abrirCompra) G.abrirCompra();
     if (a === 'cita') abrirCita({ dia: diaAgenda || hoy });
     if (a === 'gasto') abrirGasto();
   });
@@ -168,6 +178,8 @@
     var d = r.datos, h = Number(d.hora.slice(0, 2));
     $('i-fecha').textContent = fechaLarga(d.hoy);
     $('i-saludo').textContent = (h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches');
+    pintarPasos(d.pasos);
+    if (MODO === 'comercio' && G.inicioComercio) { G.inicioComercio(d); return; }
     var pendientesHoy = d.citas.filter(function (c) { return c.estado === 'pendiente' || c.estado === 'confirmada'; }).length;
     $('i-resumen').textContent = d.citas.length
       ? d.citas.length + (d.citas.length === 1 ? ' cita hoy' : ' citas hoy') + (pendientesHoy ? ' · ' + pendientesHoy + ' por atender' : ' · todas atendidas')
@@ -227,6 +239,17 @@
     });
     if (!a.children.length) vacio(a, 'Todo al día. Aquí verás las reservas por confirmar, los recordatorios de mañana, los cumpleaños y los productos por acabarse.');
   };
+  /** «Primeros pasos» de un negocio nuevo: qué le falta configurar. */
+  function pintarPasos(pasos) {
+    $('i-pasos').hidden = !pasos;
+    if (!pasos) return;
+    var l = $('i-pasos-lista'); l.textContent = '';
+    var hechos = pasos.filter(function (p) { return p.hecho; }).length;
+    $('i-pasos-n').textContent = hechos + ' de ' + pasos.length + ' listos';
+    pasos.forEach(function (p) {
+      l.appendChild(el('li', { clase: p.hecho ? 'hecho' : '' }, [el('a', { href: '#' + p.ir }, [el('span', { clase: 'p-marca', 'aria-hidden': 'true', texto: p.hecho ? '✓' : '' }), el('span', { texto: p.t + (p.hecho ? ' (listo)' : '') })])]));
+    });
+  }
   function mensajeConfirmar(c) {
     return 'Hola ' + primer(c.nombre) + ', te escribimos de ' + NEGOCIO + '. Tienes una cita el ' + fechaLarga(c.dia) + ' a las ' + hora12(c.hora) + ' para ' + c.servicio + (c.personal ? ' con ' + c.personal : '') + '. ¿Nos confirmas? 😊';
   }
@@ -682,7 +705,13 @@
     k.append(kpi(dia === hoy ? 'Vendido hoy' : 'Vendido el ' + fechaCorta(dia), S(res.total), res.ventas + (res.ventas === 1 ? ' venta' : ' ventas'), 'principal'),
       kpi('Efectivo en caja', S(res.efectivoCaja), 'Lo que debería haber en la gaveta'),
       kpi('Gastos del día', S(res.gastos)),
-      kpi('Ticket promedio', S(res.ventas ? Math.round(res.total / res.ventas) : 0)));
+      res.ganancia !== undefined && D.rol === 'dueno' ? kpi('Ganancia del día', S(res.ganancia), 'Ventas menos lo que costó la mercadería')
+        : kpi('Ticket promedio', S(res.ventas ? Math.round(res.total / res.ventas) : 0)));
+    if ($('c-abonos')) {
+      var la = $('c-abonos'); la.textContent = '';
+      if (!d.abonos || !d.abonos.length) vacio(la, 'Nadie pagó fiados este día.');
+      (d.abonos || []).forEach(function (a) { la.appendChild(el('li', {}, [el('div', { clase: 'l-quien' }, [el('strong', { texto: a.nombre }), el('span', { texto: hora12(a.hora) + ' · ' + a.metodo })]), el('div', { clase: 'l-fin' }, [el('span', { clase: 'l-monto', texto: '+ ' + S(a.monto) })])])); });
+    }
     barras($('c-metodos'), res.metodos, { vacio: 'Aún no hay ventas.' });
     var t = $('c-ventas'); t.textContent = '';
     t.appendChild(el('thead', {}, [el('tr', {}, ['Hora', 'Cliente y detalle', 'Atendió', 'Pago', 'Total', ''].map(function (h, i) { return el('th', { clase: i === 4 ? 'g-num' : '', texto: h }); }))]));
@@ -691,6 +720,7 @@
     d.ventas.forEach(function (v) {
       var det = v.items.map(function (x) { return (x.c > 1 ? x.c + ' × ' : '') + x.n; }).join(' + ');
       var acc = el('td', { clase: 'g-num' });
+      if (v.token) acc.appendChild(el('a', { clase: 'g-btn chico', href: '/' + SLUG + '/v/' + v.token, target: '_blank', rel: 'noopener', texto: 'Comprobante' }));
       if (v.anulada) acc.appendChild(el('span', { clase: 'g-estado-chip', 'data-e': 'cancelada', texto: 'Anulada' }));
       else if (D.rol === 'dueno' || v.dia === hoy) acc.appendChild(btn('Anular', 'chico', async function () {
         if (!confirm('¿Anular esta venta de ' + S(v.total) + '? ' + (v.items.some(function (x) { return x.t === 'p'; }) ? 'Los productos vuelven al stock. ' : '') + 'Si sumó un sello, quítalo desde el panel de tarjetas.')) return;
@@ -754,6 +784,11 @@
       el('a', { clase: 'g-btn chico', href: '/' + SLUG + '/panel#c=' + c.codigo, texto: 'Ver su tarjeta' }),
     ]);
     f.appendChild(acc);
+    if (res.deuda > 0) {
+      f.appendChild(el('p', { clase: 'promo-aviso', texto: 'Debe ' + S(res.deuda) + ' por compras fiadas.' }));
+      if (G.abrirAbono) acc.appendChild(btn('Registrar pago', 'chico', function () { G.abrirAbono({ id: c.id, nombre: c.nombre, saldo: res.deuda }, function () { abrirFicha(c.id); }); }));
+      acc.appendChild(enlaceWa(c.celularWa, 'Hola ' + primer(c.nombre) + ', te saludamos de ' + NEGOCIO + '. Te recordamos que tienes un saldo pendiente de ' + S(res.deuda) + '. ¡Gracias!', 'Recordar deuda'));
+    }
     var mini = el('dl', { clase: 'g-mini' });
     [['Gastó en total', S(res.total)], ['Compras', String(res.compras)], ['Ticket promedio', S(res.compras ? Math.round(res.total / res.compras) : 0)], ['Última compra', res.ultima ? fechaCorta(res.ultima) : '—']]
       .forEach(function (x) { mini.append(el('div', {}, [el('dt', { texto: x[0] }), el('dd', { texto: x[1] })])); });
@@ -774,7 +809,9 @@
     var lv = el('ul', { clase: 'g-lista' });
     if (!r.datos.ventas.length) vacio(lv, 'Aún no tiene compras registradas en la caja.');
     r.datos.ventas.forEach(function (v) {
-      lv.appendChild(el('li', {}, [el('div', { clase: 'l-quien' }, [el('strong', { texto: v.items.map(function (x) { return x.n; }).join(' + ') }), el('span', { texto: fechaCorta(v.dia) + (v.personal ? ' · ' + v.personal : '') + ' · ' + v.metodo })]), el('div', { clase: 'l-fin' }, [el('span', { clase: 'l-monto', texto: S(v.total) })])]));
+      var finV = el('div', { clase: 'l-fin' }, [el('span', { clase: 'l-monto', texto: S(v.total) })]);
+      if (v.token) finV.appendChild(el('a', { clase: 'g-btn chico', href: '/' + SLUG + '/v/' + v.token, target: '_blank', rel: 'noopener', texto: 'Comprobante' }));
+      lv.appendChild(el('li', {}, [el('div', { clase: 'l-quien' }, [el('strong', { texto: v.items.map(function (x) { return x.n; }).join(' + ') }), el('span', { texto: fechaCorta(v.dia) + (v.personal ? ' · ' + v.personal : '') + ' · ' + v.metodo })]), finV]));
     });
     f.append(el('h3', { texto: 'Historial de compras' }), lv);
     if (window.matchMedia('(max-width: 900px)').matches) f.focus();
@@ -831,12 +868,17 @@
     var r = await api('finanzas?mes=' + mes);
     if (!r.ok) return;
     var d = r.datos, a = d.anterior;
+    if (MODO === 'comercio' && G.finanzasComercio) G.finanzasComercio(d);
     $('f-comparacion').textContent = 'Comparado con ' + nombreMes(d.hastaAnterior.slice(0, 7)) + (d.enCurso ? ' hasta el día ' + Number(d.hastaAnterior.slice(8)) : '') + '.';
     var k = $('f-kpis'); k.textContent = '';
-    k.append(kpi('Ingresos', S(d.ingresos), variacion(d.ingresos, a.ingresos, 'vs. mes pasado')),
-      kpi('Gastos', S(d.gastos), variacion(d.gastos, a.gastos, 'vs. mes pasado', true)),
-      kpi('Ganancia', S(d.ganancia), variacion(d.ganancia, a.ganancia, 'vs. mes pasado'), 'principal'),
-      kpi('Ticket promedio', S(d.ticket), d.ventas + (d.ventas === 1 ? ' venta' : ' ventas') + (d.meta ? ' · meta ' + Math.round(d.ingresos / d.meta * 100) + ' %' : '')));
+    if (MODO === 'comercio') k.append(kpi('Ventas', S(d.ingresos), variacion(d.ingresos, a.ingresos, 'vs. mes pasado')),
+      kpi('Costo de lo vendido', S(d.costoVendido), d.ingresos ? Math.round(d.gananciaBruta / d.ingresos * 100) + ' % de margen' : ''),
+      kpi('Gastos del negocio', S(d.gastosOperativos), 'Sin las compras de mercadería'));
+    else k.append(kpi('Ingresos', S(d.ingresos), variacion(d.ingresos, a.ingresos, 'vs. mes pasado')),
+      kpi('Gastos', S(d.gastos), variacion(d.gastos, a.gastos, 'vs. mes pasado', true)));
+    k.append(
+      kpi('Ganancia', S(d.ganancia), variacion(d.ganancia, a.ganancia, 'vs. mes pasado'), 'principal'));
+    if (MODO !== 'comercio') k.append(kpi('Ticket promedio', S(d.ticket), d.ventas + (d.ventas === 1 ? ' venta' : ' ventas') + (d.meta ? ' · meta ' + Math.round(d.ingresos / d.meta * 100) + ' %' : '')));
     $('f-mejor').textContent = d.mejorDia ? 'Tu día más fuerte: ' + d.mejorDia : '';
     graficoDias($('f-dias'), d.porDia);
     var tt = $('f-dias-tabla'); tt.textContent = '';
@@ -854,11 +896,15 @@
     d.equipo.forEach(function (p) { teb.appendChild(el('tr', {}, [el('td', { texto: p.nombre }), el('td', { clase: 'g-num', texto: String(p.ventas) }), el('td', { clase: 'g-num', texto: S(p.total) }), el('td', { clase: 'g-num', texto: S(p.comision) })])); });
     var c = $('f-citas'); c.textContent = '';
     var asistencia = d.citas.atendidas + d.citas.noVino ? Math.round(d.citas.noVino / (d.citas.atendidas + d.citas.noVino) * 100) + ' %' : '—';
-    [['Citas agendadas', d.citas.total], ['Reservadas en línea', d.citas.web], ['No vinieron', d.citas.noVino + ' (' + asistencia + ')'], ['Canceladas', d.citas.canceladas],
+    if (MODO === 'comercio') [['Ventas', d.ventas], ['Ticket promedio', S(d.ticket)], ['Clientes atendidos', d.clientesAtendidos], ['Clientes nuevos', d.clientesNuevos],
+      ['Te deben (fiados)', S(d.porCobrar)], ['Cobrado de fiados', S(d.cobradoFiados)], ['Le debes a proveedores', S(d.porPagar)], ['Descuentos dados', S(d.descuentos)]]
+      .forEach(function (x) { c.append(el('div', {}, [el('dt', { texto: x[0] }), el('dd', { texto: String(x[1]) })])); });
+    else [['Citas agendadas', d.citas.total], ['Reservadas en línea', d.citas.web], ['No vinieron', d.citas.noVino + ' (' + asistencia + ')'], ['Canceladas', d.citas.canceladas],
       ['Clientes atendidos', d.clientesAtendidos], ['Clientes nuevos', d.clientesNuevos], ['Descuentos dados', S(d.descuentos)], ['Productos vendidos', S(d.productos)]]
       .forEach(function (x) { c.append(el('div', {}, [el('dt', { texto: x[0] }), el('dd', { texto: String(x[1]) })])); });
   };
   $('f-mes').addEventListener('change', function () { CARGAR.finanzas(); });
+  $('f-imprimir').addEventListener('click', function () { window.print(); });
   /** Barras de ingresos por día (una serie: sin leyenda). Cada barra muestra su valor al pasar el mouse o con el teclado. */
   function graficoDias(cont, dias) {
     cont.textContent = '';
@@ -915,6 +961,7 @@
     r.datos.equipo.forEach(function (p) {
       var punto = el('span', { clase: 'g-punto' }); punto.style.background = p.color;
       var quien = el('td', {}, [el('div', { clase: 'l-quien' }, [el('strong', {}, [punto, document.createTextNode(' ' + p.nombre)]), el('span', { clase: 'tenue', texto: [p.cargo, p.activo ? '' : 'ya no trabaja aquí', p.agenda ? '' : 'sin agenda'].filter(Boolean).join(' · ') })])]);
+      if (p.acceso) quien.querySelector('.l-quien span').textContent += (quien.querySelector('.l-quien span').textContent ? ' · ' : '') + 'entra con su celular';
       tb.appendChild(el('tr', { clase: p.activo ? '' : 'tenue' }, [quien,
         el('td', { clase: 'tenue', texto: p.comision + ' % serv.' + (p.comisionProd ? ' · ' + p.comisionProd + ' % prod.' : '') }),
         el('td', { clase: 'g-num', texto: String(p.ventas) }), el('td', { clase: 'g-num', texto: S(p.total) }), el('td', { clase: 'g-num', texto: S(p.comisionMes) }),
@@ -931,6 +978,11 @@
     $('pe-celular').value = p && p.celularWa ? p.celularWa.slice(2) : '';
     $('pe-comision').value = p ? p.comision : ''; $('pe-comision-prod').value = p ? p.comisionProd : '';
     $('pe-agenda').checked = p ? p.agenda : true; $('pe-activo').checked = p ? p.activo : true;
+    $('pe-agenda').closest('label').hidden = !D.ajustes.agenda;
+    $('pe-clave').value = ''; $('pe-quitar').checked = false;
+    $('pe-quitar-caja').hidden = !(p && p.acceso);
+    $('pe-acceso-nota').textContent = p && p.acceso ? 'Ya tiene acceso con su celular. Escribe una clave nueva solo si quieres cambiarla.'
+      : 'Con su celular y esta clave entra a vender, cobrar y agendar, y sus ventas salen a su nombre. No ve finanzas ni gastos.';
     colorElegido = p ? p.color : COLORES[D.equipo.length % COLORES.length];
     var cc = $('pe-colores'); cc.textContent = '';
     COLORES.forEach(function (c, i) {
@@ -953,6 +1005,7 @@
     var datos = {
       nombre: $('pe-nombre').value, cargo: $('pe-cargo').value, celular: $('pe-celular').value, color: colorElegido,
       comision: $('pe-comision').value || 0, comision_prod: $('pe-comision-prod').value || 0, agenda: $('pe-agenda').checked, activo: $('pe-activo').checked,
+      clave: $('pe-clave').value, quitar_acceso: $('pe-quitar').checked,
       servicios: Array.prototype.map.call($('pe-servicios').querySelectorAll('input:checked'), function (x) { return x.value; }),
     };
     var r = await api('personal' + (personaEditando ? '/' + personaEditando.id : ''), { body: datos });
@@ -1025,6 +1078,11 @@
     D.todosMetodos.forEach(function (x) { var c = el('input', { type: 'checkbox', value: x }); c.checked = a.metodos.indexOf(x) >= 0; m.appendChild(el('label', {}, [c, document.createTextNode(' ' + x)])); });
     var en = $('aj-enlace'); en.textContent = '';
     en.append('Tu enlace de reservas (ponlo en tu Instagram y WhatsApp): ', el('a', { href: '/' + SLUG + '/reservar', target: '_blank', rel: 'noopener', texto: location.host + '/' + SLUG + '/reservar' }));
+    $('aj-fiado').checked = !!a.fiado; $('aj-agenda').checked = !!a.agenda;
+    $('aj-n-nombre').value = D.negocio.nombre; $('aj-n-ruc').value = D.negocio.ruc || ''; $('aj-n-razon').value = D.negocio.razon || '';
+    $('aj-n-dir').value = D.negocio.direccion || ''; $('aj-n-wa').value = (D.negocio.whatsapp || '').replace(/^51/, ''); $('aj-n-correo').value = D.negocio.correo || '';
+    $('aj-equipo-nota').textContent = D.claveEquipo ? 'Tu equipo entra con esta clave como caja: vende, cobra y agenda, sin ver finanzas. Cámbiala si alguien se va.'
+      : 'Aún no hay clave de caja. Créala para que tu equipo entre sin tu clave de dueño (o dale a cada persona su propio acceso en Equipo).';
     $('aj-clave-nota').textContent = D.claveDueno
       ? 'Ya tienes clave del dueño. Puedes cambiarla aquí; las demás sesiones de dueño se cierran.'
       : 'Aún no tienes clave del dueño: la clave del panel ve todo, incluidas las finanzas. Crea una clave solo para ti y la de caja ya no verá finanzas, gastos ni equipo.';
@@ -1038,11 +1096,20 @@
       horario: horario, intervalo: Number($('aj-intervalo').value), reservas: $('aj-reservas').checked, anticipacion: Number($('aj-anticipacion').value),
       diasReserva: Number($('aj-dias').value), notaReserva: $('aj-nota').value, meta: $('aj-meta').value,
       metodos: Array.prototype.map.call($('aj-metodos').querySelectorAll('input:checked'), function (x) { return x.value; }),
+      fiado: $('aj-fiado').checked, agenda: $('aj-agenda').checked,
     };
+    var neg = await api('negocio', { body: { nombre: $('aj-n-nombre').value, ruc: $('aj-n-ruc').value, razon: $('aj-n-razon').value, direccion: $('aj-n-dir').value, whatsapp: $('aj-n-wa').value, correo: $('aj-n-correo').value } });
+    if (!neg.ok) { var mm = $('aj-msg'); mm.className = 'g-estado mal'; mm.textContent = neg.datos.error || 'No se pudo guardar.'; return; }
     var r = await api('ajustes', { body: datos });
     var m = $('aj-msg'); m.className = 'g-estado ' + (r.ok ? 'ok' : 'mal');
     m.textContent = r.ok ? 'Ajustes guardados.' + (datos.reservas ? ' Tus clientes ya pueden reservar desde tu enlace.' : '') : r.datos.error || 'No se pudo guardar.';
-    if (r.ok) { await recargarDatos(); }
+    if (r.ok) { await recargarDatos(); document.querySelectorAll('[data-agenda]').forEach(function (x) { x.hidden = !D.ajustes.agenda; }); }
+  });
+  $('aj-equipo-btn').addEventListener('click', async function () {
+    var r = await api('clave-equipo', { body: { clave: $('aj-equipo').value } });
+    var m = $('aj-equipo-msg'); m.className = 'g-estado ' + (r.ok ? 'ok' : 'mal');
+    m.textContent = r.ok ? 'Clave de caja guardada. Compártela solo con tu equipo.' : r.datos.error || 'No se pudo guardar.';
+    if (r.ok) { $('aj-equipo').value = ''; await recargarDatos(); CARGAR.ajustes(); }
   });
   $('aj-clave-btn').addEventListener('click', async function () {
     var r = await api('clave', { body: { clave: $('aj-clave').value } });
@@ -1051,5 +1118,54 @@
     if (r.ok) { $('aj-clave').value = ''; await recargarDatos(); CARGAR.ajustes(); }
   });
 
-  arrancar();
+  // ---------- tu tarjeta de clientes ----------
+  var tipoTarjeta = 'sellos', estiloTarjeta = '';
+  CARGAR.tarjeta = function () {
+    var t = D.tarjeta; if (!t) return;
+    $('t-msg').textContent = '';
+    $('t-programa').value = t.programa; $('t-meta').value = String(t.meta); $('t-premio').value = t.premio === 'Un regalo de la casa' ? '' : t.premio;
+    $('t-hitos').value = (t.hitos || []).map(function (h) { return h.s + ' = ' + h.n; }).join('\n');
+    $('t-regalo').checked = t.selloRegalo; $('t-porsol').value = String(t.porSol);
+    $('t-premios').value = (t.premios || []).map(function (p) { return p.p + ' = ' + p.n; }).join('\n');
+    $('t-cumple').value = t.regalo;
+    $('t-acento').value = t.acento || '#2A4BD7'; $('t-usar-acento').checked = false;
+    tipoTarjeta = t.tipo === 'puntos' ? 'puntos' : 'sellos';
+    marcarTipo();
+    estiloTarjeta = t.estilo || '';
+    var c = $('t-estilos'); c.textContent = '';
+    t.estilos.forEach(function (x) {
+      var m = el('span', { clase: 'muestra', 'aria-hidden': 'true' }, [el('i')]); m.style.background = x.fondo; m.firstChild.style.background = x.acento;
+      var b = el('button', { type: 'button', role: 'radio', 'aria-checked': String(x.k === estiloTarjeta), 'data-k': x.k }, [m, document.createTextNode(x.nombre)]);
+      b.addEventListener('click', function () { estiloTarjeta = x.k; c.querySelectorAll('button').forEach(function (y) { y.setAttribute('aria-checked', String(y === b)); }); });
+      c.appendChild(b);
+    });
+    var enlace = location.origin + '/' + SLUG;
+    $('t-enlace').href = '/' + SLUG; $('t-enlace').textContent = enlace.replace(/^https?:\/\//, '');
+    $('t-ver').href = '/' + SLUG; $('t-cartel').href = '/' + SLUG + '/cartel';
+  };
+  function marcarTipo() {
+    $('t-tipo').querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-valor') === tipoTarjeta)); });
+    $('t-sellos').hidden = tipoTarjeta !== 'sellos'; $('t-puntos').hidden = tipoTarjeta !== 'puntos';
+  }
+  $('t-tipo').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { tipoTarjeta = b.getAttribute('data-valor'); marcarTipo(); }); });
+  $('t-guardar').addEventListener('click', async function () {
+    var d = { programa: $('t-programa').value, tipo: tipoTarjeta, meta: $('t-meta').value, premio: $('t-premio').value, hitos_texto: $('t-hitos').value,
+      sello_regalo: $('t-regalo').checked, por_sol: $('t-porsol').value, premios_texto: $('t-premios').value, regalo_cumple: $('t-cumple').value, estilo: estiloTarjeta };
+    if ($('t-usar-acento').checked) d.acento = $('t-acento').value;
+    var r = await api('tarjeta', { body: d });
+    var m = $('t-msg'); m.className = 'g-estado ' + (r.ok ? 'ok' : 'mal');
+    m.textContent = r.ok ? 'Tarjeta guardada.' + (r.datos.conservan ? ' ' + r.datos.conservan + ' clientes conservan su promoción anterior hasta canjearla.' : '') : r.datos.error || 'No se pudo guardar.';
+    if (r.ok) { await recargarDatos(); }
+  });
+
+  // Lo que usa public/static/gestion-comercio.js (vender, inventario, deudas y proveedores).
+  var G = window.Gestion = {
+    api: api, el: el, $: $, S: S, aCentimos: aCentimos, btn: btn, kpi: kpi, barras: barras, aviso: aviso, vacio: vacio, enlaceWa: enlaceWa, wa: wa,
+    dialogo: dialogo, segmento: segmento, selectorCliente: selectorCliente, opcionesEquipo: opcionesEquipo, primer: primer,
+    fechaCorta: fechaCorta, fechaLarga: fechaLarga, hora12: hora12, sumarDias: sumarDias, variacion: variacion,
+    CARGAR: CARGAR, recargar: recargar, recargarDatos: recargarDatos, abrirGasto: abrirGasto,
+    datos: function () { return D; }, hoy: function () { return hoy; }, slug: SLUG, negocio: NEGOCIO, modo: MODO,
+  };
+  // Se arranca cuando ya cargaron todos los scripts (gestion-comercio.js agrega sus vistas a CARGAR).
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar); else setTimeout(arrancar, 0);
 })();

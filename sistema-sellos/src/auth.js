@@ -60,7 +60,8 @@ async function llave(env) {
 
 const DURACION = 60 * 60 * 12; // 12 horas
 
-/** datos: { r: 'admin' } o { r: 'staff', n: negocio_id, v: clave_ver } */
+/** datos: { r: 'admin' } o { r: 'staff', n: negocio_id, v: clave_ver, d?: versión de la clave del dueño, emp?: persona del equipo, empv?: versión de su clave }.
+ *  «e» es el vencimiento: no lo uses para otra cosa. */
 export async function crearSesion(env, datos) {
   const cuerpo = b64url(JSON.stringify({ ...datos, e: Math.floor(Date.now() / 1000) + DURACION }));
   const firma = await crypto.subtle.sign('HMAC', await llave(env), enc.encode(cuerpo));
