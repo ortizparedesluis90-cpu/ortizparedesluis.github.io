@@ -431,3 +431,7 @@ fieldset.g-campo legend{font-weight:600;font-size:.86rem;margin-bottom:8px;paddi
 .g-funcion small{display:block;color:var(--suave);font-size:.82rem;font-weight:500}
 .g-funcion:has(input:checked){border-color:color-mix(in srgb,var(--acento) 45%,var(--borde));background:var(--acento-suave)}
 .pos-extras{display:flex;flex-wrap:wrap;gap:4px 18px}
+.g-segmento.g-envolver{flex-wrap:wrap;height:auto}
+.g-im-archivo{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-end}
+.g-im-archivo .g-campo{flex:1 1 260px;margin:0}
+.g-im-archivo input[type=file]{padding:7px}

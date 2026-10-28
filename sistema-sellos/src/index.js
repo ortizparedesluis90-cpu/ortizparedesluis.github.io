@@ -7,6 +7,7 @@ import { leerDiseno, temaCss, catalogo, mediosDe, colores, ESTILOS } from './dis
 import { walletActivo, enlaceGuardar, actualizar as actualizarWallet } from './wallet.js';
 import { apiGestion, apiReserva, esDueno, reservasActivas, conservarExtras, ahoraLima, modoDe, RUBROS, PREMIO_INICIAL, ajustesIniciales } from './gestion.js';
 import { apiComercio, ventaPorToken } from './comercio.js';
+import { analisisMes, textoWhatsApp, nombreMes } from './analisis.js';
 import { TIPOS, leerPrograma, leerCatalogo, textoAServicios, textoAPremios, textoAHitos, ganar, estado, conTarjeta } from './programa.js';
 import {
   AVISO_VERSION, EN_MARCO, html, json, error, texto, redirigir, cookies, cookie, cuerpo, nuevoToken, nuevoCodigo, aleatorio,
@@ -1348,6 +1349,25 @@ async function manejar(req, env, ctx) {
       return html(P.panel(n));
     case 'gestion':
       return html(P.gestion(n, { modo: modoDe(n), soporte: env.SOPORTE_WHATSAPP || '' }));
+    case 'analisis': {
+      // Análisis del mes: para el dueño (desde Reportes) y para ti desde /admin, para mandárselo por WhatsApp.
+      const sesion = await leerSesion(req, env);
+      if (!(await puedeEntrar(req, env, n)) || !esDueno(sesion, n) || (!n.gestion && sesion.r !== 'admin')) return html(P.analisisSinSesion(n), 401);
+      const hoy = ahoraLima().dia.slice(0, 7);
+      const pedido = url.searchParams.get('mes') || '';
+      const mes = /^\d{4}-(0[1-9]|1[0-2])$/.test(pedido) && pedido <= hoy ? pedido : hoy;
+      const a = await analisisMes(env, n, mes);
+      const [y, m] = mes.split('-').map(Number);
+      const otro = (d) => new Date(Date.UTC(y, m - 1 + d, 1)).toISOString().slice(0, 7);
+      let wa = '';
+      try { wa = JSON.parse(n.redes || '{}').whatsapp || ''; } catch { wa = ''; }
+      if (!wa) wa = (await env.DB.prepare('SELECT celular FROM cuentas WHERE negocio_id = ? LIMIT 1').bind(n.id).first())?.celular || '';
+      const titulo = nombreMes(mes);
+      const texto = textoWhatsApp(n, a, `${url.origin}/${n.slug}/analisis?mes=${mes}`, titulo);
+      // Tú (admin) se lo mandas al dueño; el dueño lo comparte con quien quiera.
+      const enlaceWa = `https://wa.me/${sesion.r === 'admin' && wa ? wa : ''}?text=${encodeURIComponent(texto)}`;
+      return html(P.analisis(n, a, { titulo, mesAnt: otro(-1), mesSig: otro(1) <= hoy ? otro(1) : '', enlaceWa, soporte: env.SOPORTE_WHATSAPP || '' }));
+    }
     case 'v': {
       // Comprobante de una venta (nota de venta), con su enlace privado: para imprimir, guardar en PDF o mandar por WhatsApp.
       const v = await ventaPorToken(env, n, partes[2]);

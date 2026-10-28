@@ -45,6 +45,7 @@
           Sellos.el('a', { href: '/' + n.slug, texto: 'Registro' }),
           Sellos.el('a', { href: '/' + n.slug + '/panel', texto: 'Panel' }),
           n.gestion ? Sellos.el('a', { href: '/' + n.slug + '/gestion', texto: 'Gestión' }) : null,
+          n.gestion ? Sellos.el('a', { href: '/' + n.slug + '/analisis', target: '_blank', rel: 'noopener', texto: 'Análisis del mes' }) : null,
           invitar,
           Sellos.el('a', { href: '/' + n.slug + '/cartel', texto: 'Cartel QR' }),
           Sellos.el('a', { href: '/' + n.slug + '/privacidad', texto: 'Privacidad' }),

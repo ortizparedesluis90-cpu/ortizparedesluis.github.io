@@ -276,3 +276,21 @@ CREATE TABLE IF NOT EXISTS cuentas (
   negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
   creado        TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Merma: mercadería que se pierde (vencida, rota, robada, consumo propio) y correcciones del conteo físico.
+-- cantidad > 0 es lo que salió del stock; < 0 es lo que sobró al contar. costo = cantidad × costo unitario de ese momento.
+CREATE TABLE IF NOT EXISTS mermas (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  articulo_id   INTEGER NOT NULL,
+  nombre        TEXT NOT NULL,
+  dia           TEXT NOT NULL,
+  hora          TEXT NOT NULL,
+  cantidad      REAL NOT NULL,
+  costo         INTEGER NOT NULL DEFAULT 0,
+  motivo        TEXT NOT NULL,
+  nota          TEXT NOT NULL DEFAULT '',
+  personal_id   INTEGER,
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_mermas_negocio ON mermas (negocio_id, dia);

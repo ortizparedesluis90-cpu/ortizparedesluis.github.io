@@ -9,6 +9,8 @@ import {
 } from './gestion.js';
 
 export const UNIDADES = ['unidad', 'kg', 'litro', 'metro', 'paquete', 'caja', 'docena', 'servicio'];
+// «Conteo» corrige el stock con lo que de verdad hay en el estante (la diferencia es faltante o sobrante).
+export const MOTIVOS_MERMA = ['Vencido', 'Dañado o roto', 'Robo o faltante', 'Consumo propio', 'Regalo o muestra', 'Conteo'];
 const cantidad = (v) => { const x = Math.round(Number(String(v ?? '').replace(',', '.')) * 1000) / 1000; return Number.isFinite(x) && x > 0 && x <= 99999 ? x : null; };
 const redondear = (x) => Math.round(x * 1000) / 1000;
 
@@ -69,7 +71,7 @@ const aplicarStock = (env, n, delta) => [...delta].filter(([, d]) => d).map(([id
   env.DB.prepare('UPDATE articulos SET stock = ROUND(stock + ?, 3) WHERE id = ? AND negocio_id = ? AND controla = 1').bind(redondear(d), id, n.id));
 
 /** Lo que cada cliente debe por lo que se llevó fiado, menos lo que ya abonó. */
-async function porCobrar(env, n) {
+export async function porCobrar(env, n) {
   const filas = (await env.DB.prepare(
     `SELECT c.id, c.nombre, c.celular,
        (SELECT COALESCE(SUM(total), 0) FROM ventas v WHERE v.cliente_id = c.id AND v.negocio_id = ?1 AND v.metodo = 'Fiado' AND v.anulada = 0) AS fiado,
@@ -253,6 +255,59 @@ export async function apiComercio(req, env, n, partes, url, h, datos) {
     const lineas = [['producto', 'variante', 'codigo', 'categoria', 'unidad', 'precio', 'costo', 'stock', 'stock_minimo', 'valor_al_costo'].map(celdaCsv).join(',')];
     for (const a of filas) lineas.push([a.nombre, a.variante, a.codigo, a.categoria, a.unidad, s2(a.precio), s2(a.costo), a.controla ? a.stock : '', a.controla ? a.minimo : '', a.controla ? s2(Math.max(0, a.stock) * a.costo) : ''].map(celdaCsv).join(','));
     return texto('﻿' + lineas.join('\r\n'), 'text/csv; charset=utf-8', { 'Content-Disposition': `attachment; filename="inventario-${n.slug}-${ahora.dia}.csv"` });
+  }
+
+  // ----- merma: lo que se pierde sin venderse, y el conteo físico -----
+  if (recurso === 'articulos' && id && sub === 'merma' && metodo === 'POST') {
+    const mapa = await cargarArticulos(env, n, [Number(id) || 0]);
+    const r = mapa.get(Number(id) || 0);
+    if (!r || !r.activo) return error('Ese producto ya no existe.', 404);
+    if ((await tieneVariantes(env, n, [r.id])).size) return error(`Elige la talla o variante de «${r.nombre}».`);
+    if (!r.controla) return error(`«${r.nombre}» no lleva stock${leerJson(r.receta, []).length ? ': registra la merma de sus insumos' : ''}.`);
+    const motivo = MOTIVOS_MERMA.includes(datos.motivo) ? datos.motivo : null;
+    if (!motivo) return error('Elige el motivo.');
+    let c;
+    if (motivo === 'Conteo') {
+      const real = Number(String(datos.real ?? '').replace(',', '.'));
+      if (datos.real === '' || datos.real === undefined || !Number.isFinite(real) || real < 0 || real > 1e6) return error('Escribe cuántos contaste en el estante.');
+      c = redondear(r.stock - real);
+      if (!c) return error('El stock ya coincide con lo que contaste.');
+    } else {
+      c = cantidad(datos.cantidad);
+      if (!c) return error('Escribe la cantidad que se perdió.');
+    }
+    const costo = Math.round(c * costoDe(r, mapa));
+    const personal = h.empleado ? h.empleado.id : null;
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO mermas (negocio_id, articulo_id, nombre, dia, hora, cantidad, costo, motivo, nota, personal_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(n.id, r.id, nombreArticulo(r, r.padre ? mapa.get(r.padre) : null), ahora.dia, ahora.hora, c, costo, motivo, limpiarTexto(datos.nota, 120), personal),
+      env.DB.prepare('UPDATE articulos SET stock = ROUND(stock - ?, 3) WHERE id = ?').bind(c, r.id),
+    ]);
+    return json({ ok: true, cantidad: c, costo, stock: redondear(r.stock - c) }, 201);
+  }
+
+  if (recurso === 'mermas' && !id && metodo === 'GET') {
+    const no = soloDueno(); if (no) return no;
+    const mes = MES.test(url.searchParams.get('mes') || '') ? url.searchParams.get('mes') : ahora.dia.slice(0, 7);
+    const { desde, hasta } = limitesMes(mes);
+    const nombres = await mapaNombres(env, n);
+    const filas = (await env.DB.prepare('SELECT * FROM mermas WHERE negocio_id = ? AND dia BETWEEN ? AND ? ORDER BY dia DESC, id DESC LIMIT 500').bind(n.id, desde, hasta).all()).results;
+    return json({
+      mes, total: filas.reduce((t, m) => t + m.costo, 0), ...agruparMermas(filas),
+      mermas: filas.slice(0, 200).map((m) => ({ id: m.id, dia: m.dia, hora: m.hora, nombre: m.nombre, cantidad: m.cantidad, costo: m.costo, motivo: m.motivo, nota: m.nota, quien: nombres.get(m.personal_id) || '' })),
+    });
+  }
+
+  if (recurso === 'mermas' && id && sub === 'borrar' && metodo === 'POST') {
+    const no = soloDueno(); if (no) return no;
+    // Deshacer (fue un error): el stock vuelve.
+    const m = await env.DB.prepare('SELECT * FROM mermas WHERE id = ? AND negocio_id = ?').bind(Number(id) || 0, n.id).first();
+    if (!m) return error('Ya no existe.', 404);
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM mermas WHERE id = ?').bind(m.id),
+      env.DB.prepare('UPDATE articulos SET stock = ROUND(stock + ?, 3) WHERE id = ? AND negocio_id = ? AND controla = 1').bind(m.cantidad, m.articulo_id, n.id),
+    ]);
+    return json({ ok: true });
   }
 
   // ----- vender -----
@@ -577,17 +632,35 @@ export async function apiComercio(req, env, n, partes, url, h, datos) {
   return null;
 }
 
+/** Merma por motivo y por producto (lo que más se pierde primero). */
+export function agruparMermas(filas) {
+  const motivo = new Map(), prod = new Map();
+  for (const m of filas) {
+    motivo.set(m.motivo, (motivo.get(m.motivo) || 0) + m.costo);
+    const a = prod.get(m.nombre) || { n: m.nombre, cantidad: 0, total: 0 };
+    a.cantidad = redondear(a.cantidad + m.cantidad); a.total += m.costo;
+    prod.set(m.nombre, a);
+  }
+  return {
+    porMotivo: [...motivo].map(([k, v]) => ({ n: k, total: v })).filter((x) => x.total > 0).sort((a, b) => b.total - a.total),
+    porProducto: [...prod.values()].filter((x) => x.total > 0).sort((a, b) => b.total - a.total).slice(0, 10),
+  };
+}
+
 /** Resultado de un periodo en comercio: ventas, costo de lo vendido, compras, gastos del negocio y ganancia. */
-async function resultadoMes(env, n, desde, hasta) {
-  const [v, g] = await env.DB.batch([
+export async function resultadoMes(env, n, desde, hasta) {
+  const [v, g, m] = await env.DB.batch([
     env.DB.prepare('SELECT COUNT(*) AS ventas, COALESCE(SUM(total), 0) AS ingresos, COALESCE(SUM(costo), 0) AS costo FROM ventas WHERE negocio_id = ? AND anulada = 0 AND dia BETWEEN ? AND ?').bind(n.id, desde, hasta),
     env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN categoria = 'Compra de mercadería' THEN monto ELSE 0 END), 0) AS compras,
       COALESCE(SUM(CASE WHEN categoria != 'Compra de mercadería' THEN monto ELSE 0 END), 0) AS operativos FROM gastos WHERE negocio_id = ? AND dia BETWEEN ? AND ?`).bind(n.id, desde, hasta),
+    env.DB.prepare('SELECT COALESCE(SUM(costo), 0) AS n FROM mermas WHERE negocio_id = ? AND dia BETWEEN ? AND ?').bind(n.id, desde, hasta),
   ]);
-  const x = v.results[0], y = g.results[0];
+  const x = v.results[0], y = g.results[0], merma = m.results[0].n;
+  // La merma es mercadería que se pagó y no se vendió: resta de la ganancia.
+  const neta = x.ingresos - x.costo - merma - y.operativos;
   return {
-    ventas: x.ventas, ingresos: x.ingresos, costoVendido: x.costo, gananciaBruta: x.ingresos - x.costo,
-    compras: y.compras, gastosOperativos: y.operativos, gastos: y.compras + y.operativos, gananciaNeta: x.ingresos - x.costo - y.operativos, ganancia: x.ingresos - x.costo - y.operativos,
+    ventas: x.ventas, ingresos: x.ingresos, costoVendido: x.costo, gananciaBruta: x.ingresos - x.costo, merma,
+    compras: y.compras, gastosOperativos: y.operativos, gastos: y.compras + y.operativos, gananciaNeta: neta, ganancia: neta,
   };
 }
 

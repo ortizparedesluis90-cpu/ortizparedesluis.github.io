@@ -2,10 +2,11 @@
 import { e, primerNombre, celularVisible, AVISO_VERSION } from './util.js';
 import { atributos, colores, decor, selloLleno, logoHtml, portadaHtml } from './diseno.js';
 import { RUBROS as RUBROS_ADMIN } from './gestion.js';
+import { soles as solesMiles } from './analisis.js';
 import { leerPrograma, leerServicios, estado, lema, soles, TIPOS, conTarjeta, premiosSellos } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-12-02';
+const V = '2026-12-03';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -999,14 +1000,15 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
 
     <!-- Finanzas -->
     <section class="g-vista" id="v-finanzas" hidden>
-      ${cabVista('Reportes', comercio ? 'Cuánto vendiste, cuánto gastaste y cuánto ganaste este mes.' : 'Ingresos, gastos y ganancia del mes.', '<button class="g-btn" type="button" id="f-imprimir">Imprimir reporte</button><a class="g-btn" id="f-csv" download>Descargar Excel</a>')}
+      ${cabVista('Reportes', comercio ? 'Cuánto vendiste, cuánto gastaste y cuánto ganaste este mes.' : 'Ingresos, gastos y ganancia del mes.', '<button class="g-btn" type="button" id="f-imprimir">Imprimir reporte</button><a class="g-btn" id="f-csv" download>Descargar Excel</a><a class="g-btn primario" id="f-analisis" href="/' + e(n.slug) + '/analisis" target="_blank" rel="noopener">Análisis del mes</a>')}
       <div class="g-barra"><label for="f-mes">Mes</label><input class="g-fecha-input" type="month" id="f-mes"><p class="g-nota" id="f-comparacion"></p></div>
       <div class="g-kpis" id="f-kpis"></div>
       <section class="g-card"><div class="g-card-cab"><h2>Ingresos por día</h2><span class="g-nota" id="f-mejor"></span></div><div class="g-grafico" id="f-dias"></div>
         <details class="g-ver-tabla"><summary>Ver en tabla</summary><div class="g-tabla-caja"><table class="g-tabla" id="f-dias-tabla"></table></div></details></section>
       <div class="g-col2">
         ${comercio ? `<section class="g-card"><div class="g-card-cab"><h2>Cómo se calcula tu ganancia</h2></div><div id="f-resultado"></div></section>
-        <section class="g-card"><div class="g-card-cab"><h2>Lo que más ganancia te deja</h2></div><div id="f-ganancia"></div></section>` : ''}
+        <section class="g-card"><div class="g-card-cab"><h2>Lo que más ganancia te deja</h2></div><div id="f-ganancia"></div></section>
+        <section class="g-card"><div class="g-card-cab"><h2>Merma del mes</h2><span class="g-total" id="f-merma-total"></span></div><ul class="g-lista" id="f-mermas"></ul></section>` : ''}
         <section class="g-card"${comercio ? ' hidden' : ''}><div class="g-card-cab"><h2>Servicios más vendidos</h2></div><div id="f-servicios"></div></section>
         <section class="g-card"><div class="g-card-cab"><h2>Gastos por categoría</h2></div><div id="f-categorias"></div></section>
         <section class="g-card"><div class="g-card-cab"><h2>Por medio de pago</h2></div><div id="f-metodos"></div></section>
@@ -1297,7 +1299,7 @@ function vistasComercio() {
 
     <!-- Inventario -->
     <section class="g-vista" id="v-inventario" hidden>
-      ${cabVista('Productos', 'Lo que vendes, con su precio y cuántos te quedan. Cada venta descuenta el stock.', `<button class="g-btn" type="button" id="in-importar" data-dueno>Importar desde Excel</button><a class="g-btn" id="in-csv" data-dueno download>Descargar Excel</a><button class="g-btn" type="button" data-accion="compra" data-dueno data-funcion="proveedores">Comprar mercadería</button><button class="g-btn primario" type="button" id="in-nuevo" data-dueno>${icono('mas')}Nuevo producto</button>`)}
+      ${cabVista('Productos', 'Lo que vendes, con su precio y cuántos te quedan. Cada venta descuenta el stock.', `<button class="g-btn" type="button" id="in-merma">Merma o conteo</button><button class="g-btn" type="button" id="in-importar" data-dueno>Importar desde Excel</button><a class="g-btn" id="in-csv" data-dueno download>Descargar Excel</a><button class="g-btn" type="button" data-accion="compra" data-dueno data-funcion="proveedores">Comprar mercadería</button><button class="g-btn primario" type="button" id="in-nuevo" data-dueno>${icono('mas')}Nuevo producto</button>`)}
       <div class="g-kpis" id="in-kpis"></div>
       <div class="g-barra">
         <label class="oculto-accesible" for="in-q">Buscar producto</label><input class="g-buscar-barra" id="in-q" type="search" placeholder="Buscar por nombre o código" autocomplete="off">
@@ -1377,8 +1379,20 @@ ${dlg('d-compra', 'Comprar mercadería', `
 
 ${dlg('d-importar', 'Importar productos', `
   <p class="g-nota">Copia las columnas desde Excel y pégalas aquí, una fila por producto, en este orden: <strong>nombre, precio, costo, stock, código, categoría</strong>. Solo el nombre y el precio son obligatorios. Si el producto ya existe (mismo código o nombre), se actualiza.</p>
-  ${campo('im-texto', 'Productos', '<textarea id="im-texto" rows="9" placeholder="Leche Gloria 400 g&#9;4.50&#9;3.80&#9;30&#9;7751271010010&#9;Lácteos&#10;Pan de molde&#9;7&#9;5.50&#9;10"></textarea>')}`,
+  ${campo('im-texto', 'Productos', '<textarea id="im-texto" rows="9" placeholder="Leche Gloria 400 g&#9;4.50&#9;3.80&#9;30&#9;7751271010010&#9;Lácteos&#10;Pan de molde&#9;7&#9;5.50&#9;10"></textarea>')}
+  <div class="g-im-archivo">${campo('im-archivo', 'O sube un archivo CSV <span class="g-opcional">(en Excel: Archivo → Guardar como → CSV)</span>', '<input type="file" id="im-archivo" accept=".csv,.txt,text/csv,text/plain">')}<a class="g-enlace" id="im-plantilla" download="plantilla-productos.csv">Descargar plantilla</a></div>
+  <p class="g-nota">Hasta 1000 productos por vez (y 5000 en total). ¿Tienes más de una lista? Impórtalas una tras otra.</p>`,
   '<button class="g-btn" value="cancelar" formnovalidate>Cancelar</button><button class="g-btn primario" type="submit" value="ok">Importar</button>')}
+
+${dlg('d-merma', 'Merma o conteo', `
+  <p class="g-nota">Anota lo que se pierde sin venderse: sale del stock y se resta de tu ganancia, para que sepas cuánto pierdes de verdad.</p>
+  ${campo('me-buscar', 'Producto', '<input id="me-buscar" list="me-productos" placeholder="Escribe o escanea el código" autocomplete="off" required><datalist id="me-productos"></datalist>')}
+  <p class="g-nota" id="me-stock"></p>
+  <div class="g-campo"><span class="g-etiqueta">Motivo</span><div class="g-segmento g-envolver" id="me-motivos" role="group" aria-label="Motivo"></div></div>
+  <div id="me-caja-cantidad">${campo('me-cantidad', 'Cantidad que se perdió', '<input id="me-cantidad" inputmode="decimal" maxlength="9">')}</div>
+  <div id="me-caja-real" hidden>${campo('me-real', '¿Cuántos hay de verdad en el estante?', '<input id="me-real" inputmode="decimal" maxlength="9">')}<p class="g-nota">Se corrige el stock; la diferencia queda como faltante (o sobrante).</p></div>
+  ${campo('me-nota', 'Nota <span class="g-opcional">(opcional)</span>', '<input id="me-nota" maxlength="120" placeholder="Ej.: se rompió al descargar">')}`,
+  '<p class="g-total-grande"><span>Pierdes</span><strong id="me-costo">S/ 0.00</strong></p><button class="g-btn primario" type="submit" value="ok">Registrar</button>')}
 
 ${dlg('d-abono', 'Registrar pago', `
   <p class="g-abono-quien" id="ab-quien"></p>
@@ -1422,6 +1436,8 @@ export function inicio(env = {}) {
     ['Fiados bajo control', 'Lo que te deben tus clientes y lo que debes a tus proveedores, con recordatorio por WhatsApp.'],
     ['Ganancia real', 'Ventas menos lo que te costó la mercadería y tus gastos: sabes cuánto ganas, día por día.'],
     ['Comprobantes y reportes', 'Nota de venta para imprimir o mandar por WhatsApp, y reportes del mes en Excel.'],
+    ['Merma y conteo', 'Anota lo vencido, roto o perdido y corrige el stock con lo que hay de verdad en el estante.'],
+    ['Análisis del mes', 'Lo que más se vende, lo que más te deja, la plata parada y consejos concretos para ganar más.'],
     ['Tu equipo, con su acceso', 'Cada vendedor entra con su celular y su clave; sus ventas salen a su nombre, con su comisión.'],
     ['Clientes que vuelven', 'Tarjeta de sellos o puntos en el celular de tu cliente: cada compra le suma sola.'],
   ];
@@ -1430,23 +1446,29 @@ export function inicio(env = {}) {
     oficina: true,
     clase: 'es-gestion es-sitio',
     estilos: ['gestion.css', 'sitio.css'],
+    scripts: ['sitio.js'],
     cuerpo: `
 ${cabSitio()}
 <main id="principal">
   <section class="s-heroe"><div class="s-ancho s-heroe-fila">
     <div class="s-heroe-texto">
-      <p class="g-fecha">Para bodegas, tiendas, ferreterías, salones y más</p>
-      <h1>Tu negocio ordenado. Tus clientes, de vuelta.</h1>
-      <p class="s-bajada">Vende, controla tu inventario, tus fiados y tu ganancia desde el celular o la computadora. Y con tu tarjeta de clientes frecuentes, haz que vuelvan.</p>
+      <p class="s-eyebrow"><span class="s-punto" aria-hidden="true"></span>Gestión simple para negocios del Perú</p>
+      <h1><span class="oculto-accesible">Tu negocio, ordenado. Tus clientes, de vuelta.</span><span aria-hidden="true">Tu <span class="s-rota" id="s-rota">bodega</span>, ordenada.<br>Tus clientes, de vuelta.</span></h1>
+      <p class="s-bajada">Vende, controla tu inventario, tu merma, tus fiados y tu ganancia desde el celular o la computadora. Cada mes recibes un análisis con lo que más vendes y cómo ganar más.</p>
       <div class="g-acciones"><a class="g-btn primario s-grande" href="/crear">Crear mi cuenta gratis</a><a class="g-btn s-grande" href="/entrar">Ya tengo cuenta</a></div>
-      <p class="g-nota">30 días gratis. Sin tarjeta de crédito. Listo en un minuto.</p>
+      <ul class="s-sellos"><li>30 días gratis</li><li>Sin tarjeta de crédito</li><li>Celular y computadora</li></ul>
     </div>
-    <div class="s-muestra" aria-label="Ejemplo del resumen del día">
-      <div class="g-kpi principal"><p class="k-t">Vendido hoy</p><strong class="k-v">S/ 1,284.50</strong><span class="k-n">47 ventas</span></div>
-      <div class="s-muestra-fila"><div class="g-kpi"><p class="k-t">Ganancia de hoy</p><strong class="k-v">S/ 356.20</strong></div><div class="g-kpi"><p class="k-t">Te deben</p><strong class="k-v">S/ 214.00</strong></div></div>
-      <ul class="g-lista s-muestra-lista"><li><div class="l-quien"><strong>Gaseosa 500 ml</strong><span>32 vendidas</span></div><span class="l-monto">S/ 80.00</span></li>
-        <li><div class="l-quien"><strong>Arroz Costeño (kg)</strong><span>18.5 kg</span></div><span class="l-monto">S/ 77.70</span></li>
-        <li><div class="l-quien"><strong>Queda poco: Aceite Primor 1 L</strong><span>Stock: 3</span></div><span class="g-estado-chip" data-e="pendiente">Reponer</span></li></ul>
+    <div class="s-escena">
+      <div class="s-muestra" id="s-muestra" aria-label="Ejemplo: así se ve el resumen del día de una bodega">
+        <div class="s-muestra-cab"><span class="s-vivo"><span aria-hidden="true"></span>En vivo</span><span>Bodega Don Pepe · Hoy</span></div>
+        <div class="g-kpi principal"><p class="k-t">Vendido hoy</p><strong class="k-v" id="s-vendido" data-valor="128450">S/ 1,284.50</strong><span class="k-n"><span id="s-ventas">47</span> ventas</span>
+          <svg class="s-mini" viewBox="0 0 129 36" preserveAspectRatio="none" aria-hidden="true">${[8, 12, 10, 16, 22, 18, 14, 20, 27, 31, 24, 29].map((h, i) => `<rect x="${i * 11}" y="${36 - h}" width="7" height="${h}" rx="2"/>`).join('')}</svg></div>
+        <div class="s-muestra-fila"><div class="g-kpi"><p class="k-t">Ganancia de hoy</p><strong class="k-v" id="s-ganancia" data-valor="35620">S/ 356.20</strong></div><div class="g-kpi"><p class="k-t">Te deben</p><strong class="k-v">S/ 214.00</strong></div></div>
+        <ul class="g-lista s-muestra-lista" id="s-feed" aria-hidden="true"><li><div class="l-quien"><strong>Gaseosa 500 ml × 2</strong><span>Yape · hace un momento</span></div><span class="l-monto">S/ 5.00</span></li>
+          <li><div class="l-quien"><strong>Arroz Costeño 1.5 kg</strong><span>Efectivo</span></div><span class="l-monto">S/ 6.30</span></li>
+          <li><div class="l-quien"><strong>Queda poco: Aceite Primor 1 L</strong><span>Stock: 3</span></div><span class="g-estado-chip s-latido" data-e="pendiente">Reponer</span></li></ul>
+      </div>
+      <div class="s-flotante" aria-hidden="true"><span class="s-flotante-ico">↗</span><div><strong>Análisis de octubre</strong><span>Podrías ganar S/ 420 más al mes</span></div></div>
     </div>
   </div></section>
 
@@ -1647,5 +1669,132 @@ export function comprobante(n, v) {
     <p class="c-legal">Documento interno, no es un comprobante de pago electrónico SUNAT.</p>
   </article>
 </main>`,
+  });
+}
+
+// ---------- análisis del mes (/slug/analisis?mes=AAAA-MM) ----------
+/** a: src/analisis.js analisisMes(). Se imprime o se guarda en PDF; los gráficos son SVG (sin estilos en línea). */
+export function analisis(n, a, { titulo, mesAnt, mesSig, enlaceWa, soporte = '' }) {
+  const S = solesMiles;
+  const pct = (c) => (c === null || c === undefined ? '' : `<span class="a-cambio ${c >= 0 ? 'sube' : 'baja'}">${c >= 0 ? '▲' : '▼'} ${Math.abs(c)} %</span>`);
+  const cant = (c) => (Number.isInteger(c) ? String(c) : String(Math.round(c * 100) / 100).replace('.', ','));
+  const barra = (v, max) => `<svg class="a-barra" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"><rect class="a-barra-fondo" width="100" height="8" rx="4"/><rect width="${max > 0 && v > 0 ? Math.max(2, (v / max) * 100).toFixed(1) : 0}" height="8" rx="4"/></svg>`;
+  const tabla = (filas, cols, vacio) => (filas.length
+    ? `<table class="a-tabla"><thead><tr>${cols.map((c, i) => `<th${i ? ' class="a-num"' : ''}>${c}</th>`).join('')}</tr></thead><tbody>${filas.join('')}</tbody></table>`
+    : `<p class="a-vacio">${vacio}</p>`);
+  const tarjeta = (t, cuerpo, extra = '') => `<section class="a-card${extra}"><h2>${t}</h2>${cuerpo}</section>`;
+  const r = a.resumen;
+  const [y, m, d] = a.hasta.split('-');
+  const periodo = a.enCurso ? `Del 1 al ${Number(d)} de ${titulo.split(' ')[0]} (mes en curso), comparado con los mismos días del mes anterior.` : `Mes completo (${d}/${m}/${y}), comparado con el mes anterior.`;
+  const TIPOS_C = { alerta: 'Atención', ahorro: 'Ahorra', venta: 'Vende más', info: 'Dato' };
+  const consejos = a.consejos.map((c, i) => `<li class="a-consejo" data-tipo="${c.tipo}"><span class="a-consejo-n">${i + 1}</span><div><p class="a-consejo-t"><span class="a-tag">${TIPOS_C[c.tipo]}</span>${e(c.titulo)}</p><p>${e(c.detalle)}</p></div>${c.monto ? `<strong class="a-consejo-m">+${S(c.monto)}<small>al mes</small></strong>` : ''}</li>`).join('');
+
+  const resultado = a.comercio
+    ? [['Ventas', S(r.ingresos)], ['Costo de lo vendido', '− ' + S(r.costoVendido)], ['Ganancia bruta', S(r.ingresos - r.costoVendido), 'sub'], ['Merma (pérdidas)', '− ' + S(r.merma)], ['Gastos del negocio', '− ' + S(r.gastos)], ['Ganancia del mes', S(r.ganancia), 'total']]
+    : [['Ingresos', S(r.ingresos)], ['Gastos', '− ' + S(r.gastos)], ['Ganancia del mes', S(r.ganancia), 'total']];
+  const resultadoHtml = `<dl class="a-resultado">${resultado.map(([k, v, c]) => `<div class="${c || ''}"><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+    ${a.comercio && r.compras ? `<p class="a-nota">Compraste mercadería por ${S(r.compras)}: no resta aquí, su costo cuenta cuando la vendes.</p>` : ''}`;
+
+  const maxV = Math.max(0, ...a.masVendidos.map((p) => p.total));
+  const vendidos = a.masVendidos.map((p) => `<tr><td>${e(p.n)}<small>${cant(p.unidades)} ${p.producto ? 'vendidos' : 'veces'}</small>${barra(p.total, maxV)}</td><td class="a-num">${S(p.total)}</td></tr>`);
+  const maxG = Math.max(0, ...a.masGanancia.map((p) => p.ganancia));
+  const ganancia = a.masGanancia.filter((p) => p.ganancia > 0).map((p) => `<tr><td>${e(p.n)}<small>margen ${p.margen} %</small>${barra(p.ganancia, maxG)}</td><td class="a-num">${S(p.ganancia)}</td></tr>`);
+
+  let comercio = '';
+  if (a.comercio) {
+    const mm = a.merma;
+    const maxM = Math.max(0, ...mm.porMotivo.map((x) => x.total));
+    comercio += `<div class="a-dos">
+      ${tarjeta(`Merma: ${S(mm.total)}`, mm.registros
+        ? tabla(mm.porMotivo.map((x) => `<tr><td>${x.n === 'Conteo' ? 'Faltantes al contar' : e(x.n)}${barra(x.total, maxM)}</td><td class="a-num">${S(x.total)}</td></tr>`), ['Motivo', 'Costo'], '')
+          + (mm.porProducto.length ? `<h3>Lo que más se pierde</h3>${tabla(mm.porProducto.slice(0, 5).map((x) => `<tr><td>${e(x.n)}<small>${cant(x.cantidad)} perdidos</small></td><td class="a-num">${S(x.total)}</td></tr>`), ['Producto', 'Costo'], '')}` : '')
+        : '<p class="a-vacio">No registraste merma este mes. Cuando algo se venza, se rompa o falte, anótalo en «Productos» → «Merma»: así sabes cuánto pierdes de verdad.</p>')}
+      ${tarjeta(`Plata parada: ${S(a.capitalDormido)}`, tabla(a.dormidos.map((x) => `<tr><td>${e(x.n)}<small>${cant(x.stock)} ${x.unidad === 'unidad' ? 'en stock' : x.unidad}</small></td><td class="a-num">${S(x.valor)}</td></tr>`), ['Sin ventas en 60 días', 'Al costo'], 'Todo lo que tienes en stock se vendió en los últimos 60 días. 👏'))}
+    </div>
+    <div class="a-dos">
+      ${tarjeta('Por agotarse', tabla(a.agotarse.map((x) => `<tr><td>${e(x.n)}<small>vendes ~${cant(x.porSemana)} por semana</small></td><td class="a-num">${x.dias ? `${x.dias} ${x.dias === 1 ? 'día' : 'días'}` : 'Agotado'}</td></tr>`), ['Producto', 'Te alcanza'], 'Nada se acaba esta semana.'))}
+      ${tarjeta('Inventario hoy', `<dl class="a-resultado"><div><dt>Valor al costo</dt><dd>${S(a.valorInventario)}</dd></div><div><dt>Te deben (fiados)</dt><dd>${S(a.porCobrar)}</dd></div><div><dt>Productos estrella</dt><dd>${a.estrella.length}</dd></div></dl>
+        ${a.estrella.length ? `<p class="a-nota">Estrella: ${a.estrella.slice(0, 8).map((p) => e(p.n)).join(', ')}. Hacen el 80 % de tu ganancia.</p>` : ''}`)}
+    </div>`;
+  }
+  const maxGasto = Math.max(0, ...a.gastos.map((g) => g.total));
+  const gastos = a.gastos.map((g) => `<tr><td>${e(g.n)}${barra(g.total, maxGasto)}</td><td class="a-num">${S(g.total)} ${g.antes ? pct(g.cambio) : ''}</td></tr>`);
+  const maxSem = Math.max(0, ...a.semana.map((x) => x.total));
+  const semana = a.semana.slice(1).concat(a.semana.slice(0, 1)).map((x) => `<tr><td>${x.n[0].toUpperCase() + x.n.slice(1)}${barra(x.total, maxSem)}</td><td class="a-num">${S(x.total)}</td></tr>`);
+  // Horas: de las 7 a las 21 como mínimo, para que se vea el día completo aunque haya pocas ventas.
+  const conVenta = a.horas.filter((x) => x.total > 0).map((x) => x.h);
+  const maxH = Math.max(0, ...a.horas.map((x) => x.total));
+  const rango = conVenta.length ? a.horas.slice(Math.min(7, ...conVenta), Math.max(21, ...conVenta) + 1) : [];
+  const horas = rango.length ? `<svg class="a-horas" viewBox="0 0 ${rango.length * 12} 64" role="img" aria-label="Ventas por hora">${rango.map((x, i) => {
+    const h = maxH && x.total ? Math.max(2, (x.total / maxH) * 50) : 0;
+    return `<rect x="${i * 12 + 2}" y="${(52 - h).toFixed(1)}" width="8" height="${h.toFixed(1)}" rx="2"><title>${String(x.h).padStart(2, '0')}:00 · ${S(x.total)}</title></rect>${x.h % 2 ? '' : `<text x="${i * 12 + 6}" y="62">${x.h}</text>`}`;
+  }).join('')}</svg>` : '<p class="a-vacio">Sin ventas.</p>';
+  const metodos = a.metodos.map((x) => `<tr><td>${e(x.n)}</td><td class="a-num">${S(x.total)}</td></tr>`);
+  const servicios = !a.comercio && a.citas && a.citas.total ? tarjeta('Citas', `<dl class="a-resultado"><div><dt>Citas del mes</dt><dd>${a.citas.total}</dd></div><div><dt>Atendidas</dt><dd>${a.citas.atendidas}</dd></div><div><dt>No vinieron</dt><dd>${a.citas.noVino}</dd></div><div><dt>Reservadas en línea</dt><dd>${a.citas.web}</dd></div></dl>`) : '';
+  const equipo = a.equipo.filter((p) => p.id).length ? tarjeta('Equipo', tabla(a.equipo.filter((p) => p.id).map((p) => `<tr><td>${e(p.nombre)}<small>${p.ventas} ${p.ventas === 1 ? 'venta' : 'ventas'}${p.comision ? ` · comisión ${S(p.comision)}` : ''}</small></td><td class="a-num">${S(p.total)}</td></tr>`), ['Persona', 'Vendió'], '')) : '';
+  const kpi = (t, v, extra = '') => `<div class="a-kpi"><span>${t}</span><strong>${v}</strong>${extra}</div>`;
+  const hoy = ahoraLimaTexto();
+
+  return base({
+    titulo: `Análisis de ${titulo} · ${n.nombre}`,
+    oficina: true,
+    clase: 'es-gestion es-analisis',
+    estilos: ['gestion.css', 'sitio.css'],
+    scripts: ['comprobante.js'],
+    cuerpo: `
+<main id="principal" class="a-pagina">
+  <div class="c-acciones no-imprimir">
+    <a class="g-btn" href="/${e(n.slug)}/analisis?mes=${mesAnt}">‹ Mes anterior</a>
+    ${mesSig ? `<a class="g-btn" href="/${e(n.slug)}/analisis?mes=${mesSig}">Mes siguiente ›</a>` : ''}
+    <button class="g-btn primario" type="button" id="c-imprimir">Imprimir o guardar PDF</button>
+    <a class="g-btn" href="${e(enlaceWa)}" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+    <a class="g-btn" href="/${e(n.slug)}/gestion#finanzas">Volver a la gestión</a>
+  </div>
+  <article class="a-hoja">
+    <header class="a-cab">
+      <div><p class="a-sobre">Análisis del mes</p><h1>${e(n.nombre)} · ${e(titulo[0].toUpperCase() + titulo.slice(1))}</h1><p class="a-periodo">${periodo}</p></div>
+    </header>
+    <div class="a-kpis">
+      ${kpi('Vendiste', S(r.ingresos), pct(r.cambioIngresos))}
+      ${kpi('Ganancia', S(r.ganancia), pct(r.cambioGanancia))}
+      ${kpi('Margen', `${r.margen} %`, '<small>de cada S/ 100 vendidos</small>')}
+      ${kpi('Ticket promedio', S(r.ticket), `<small>${r.ventas} ${r.ventas === 1 ? 'venta' : 'ventas'}</small>`)}
+      ${a.comercio ? kpi('Merma', S(r.merma), `<small>${r.ingresos ? Math.round((r.merma / r.ingresos) * 1000) / 10 : 0} % de las ventas</small>`) : kpi('Clientes', String(r.clientesAtendidos), `<small>${r.clientesNuevos} nuevos</small>`)}
+    </div>
+    ${a.oportunidad > 0 ? `<p class="a-oportunidad">Con estos consejos podrías ganar hasta <strong>${S(a.oportunidad)} más al mes</strong>.</p>` : ''}
+    <section class="a-card a-consejos"><h2>Qué hacer este mes</h2><ol>${consejos}</ol></section>
+    <div class="a-dos">
+      ${tarjeta('Cómo se calcula tu ganancia', resultadoHtml)}
+      ${tarjeta('Gastos por categoría', tabla(gastos, ['Categoría', 'Este mes'], 'No registraste gastos este mes.'))}
+    </div>
+    <div class="a-dos">
+      ${tarjeta(a.comercio ? 'Lo que más se vende' : 'Lo que más se vende', tabla(vendidos, ['Producto o servicio', 'Vendido'], 'Aún no hay ventas.'))}
+      ${a.comercio ? tarjeta('Lo que más ganancia te deja', tabla(ganancia, ['Producto', 'Ganancia'], 'Carga el costo de tus productos para ver cuánto te deja cada uno.')) : servicios || equipo}
+    </div>
+    ${comercio}
+    <div class="a-dos">
+      ${tarjeta('Venta promedio por día', tabla(semana, ['Día', 'Promedio'], ''))}
+      ${tarjeta('Horas de más venta', horas + (a.horaPico ? `<p class="a-nota">Tu hora fuerte: ${a.horaPico}.</p>` : ''))}
+    </div>
+    <div class="a-dos">
+      ${tarjeta('Cómo te pagan', tabla(metodos, ['Método', 'Total'], 'Sin ventas.'))}
+      ${a.comercio ? equipo : servicios ? equipo : ''}
+    </div>
+    <footer class="a-pie">Generado el ${hoy} con Tappe Gestión${soporte ? ` · Soporte por WhatsApp ${e(celularVisible(soporte))}` : ''}. Las cifras salen de lo que registras: mientras más completo, más exacto.</footer>
+  </article>
+</main>`,
+  });
+}
+function ahoraLimaTexto() {
+  const d = new Date(Date.now() - 5 * 3600000);
+  return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+}
+
+/** Para entrar al análisis hay que estar en la gestión como dueño. */
+export function analisisSinSesion(n) {
+  return base({
+    titulo: `Análisis del mes · ${n.nombre}`, oficina: true, clase: 'es-gestion es-analisis',
+    estilos: ['gestion.css', 'sitio.css'],
+    cuerpo: `<main id="principal" class="a-pagina"><article class="a-hoja a-entrar"><h1>Análisis del mes</h1><p>Para ver el análisis de ${e(n.nombre)}, entra a tu gestión con la clave del dueño y vuelve a abrir este enlace.</p><p><a class="g-btn primario" href="/${e(n.slug)}/gestion">Entrar a la gestión</a></p></article></main>`,
   });
 }

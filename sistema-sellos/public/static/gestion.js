@@ -180,7 +180,29 @@
   function recargar() { var v = (location.hash || '#inicio').slice(1); if (CARGAR[v]) CARGAR[v](); }
 
   // ---------- inicio ----------
+  // La primera vez que se abre el Inicio, los montos cuentan desde cero (sin movimiento si así lo pide el sistema).
+  var inicioContado = false;
+  function contarMontos(cont) {
+    if (inicioContado || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    inicioContado = true;
+    cont.querySelectorAll('.k-v').forEach(function (n) {
+      var t = n.textContent;
+      if (!/S\/\s*[\d,.]+$/.test(t)) return;
+      var fin = Math.round(parseFloat(t.replace(/[^\d.]/g, '')) * 100) * (t.indexOf('−') >= 0 ? -1 : 1);
+      if (!fin) return;
+      var t0 = performance.now();
+      (function paso(ahora) {
+        var x = Math.min(1, (ahora - t0) / 800), v = Math.round(fin * (1 - Math.pow(1 - x, 3)));
+        n.textContent = x < 1 ? S(v) : t;
+        if (x < 1) requestAnimationFrame(paso);
+      })(t0);
+    });
+  }
   CARGAR.inicio = async function () {
+    await cargarInicio();
+    contarMontos($('i-kpis'));
+  };
+  async function cargarInicio() {
     var r = await api('inicio');
     if (!r.ok) return;
     var d = r.datos, h = Number(d.hora.slice(0, 2));
@@ -877,6 +899,7 @@
     $('f-mes').max = mesActual();
     var mes = $('f-mes').value;
     $('f-csv').href = API + 'finanzas.csv?mes=' + mes;
+    $('f-analisis').href = '/' + G.slug + '/analisis?mes=' + mes;
     var r = await api('finanzas?mes=' + mes);
     if (!r.ok) return;
     var d = r.datos, a = d.anterior;

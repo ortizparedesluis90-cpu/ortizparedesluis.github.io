@@ -302,6 +302,7 @@
       if (h.length) nombre.appendChild(el('span', { clase: 'g-chip-tipo', texto: h.length + ' variantes' }));
       if (p.receta && p.receta.length) nombre.appendChild(el('span', { clase: 'g-chip-tipo', texto: 'receta' }));
       var acc = el('td', { clase: 'g-num' });
+      if (p.controla && !h.length) acc.appendChild(btn('Merma', 'chico', function () { G.abrirMerma(p); }));
       if (dueno()) acc.appendChild(btn('Editar', 'chico', function () { abrirArticulo(p); }));
       var st = claseStock(p);
       tb.appendChild(el('tr', {}, [nombre, el('td', { clase: 'tenue', texto: p.codigo || '' }), el('td', { clase: 'tenue', texto: p.categoria }),
@@ -409,6 +410,19 @@
 
   // ----- importar -----
   $('in-importar').addEventListener('click', function () { var d = G.dialogo('d-importar'); d.f.reset(); d.abrir(); });
+  // Archivo CSV de Excel: suele venir en UTF-8 o en Windows-1252 (tildes), separado por «;» o «,».
+  $('im-archivo').addEventListener('change', async function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    if (f.size > 2000000) { G.dialogo('d-importar').mal('El archivo es muy grande. Divídelo en partes de hasta 1000 productos.'); return; }
+    var buf = await f.arrayBuffer(), txt;
+    try { txt = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { txt = new TextDecoder('windows-1252').decode(buf); }
+    $('im-texto').value = txt.replace(/^\uFEFF/, '').trim();
+  });
+  $('im-plantilla').addEventListener('click', function () {
+    var csv = '\uFEFFnombre;precio;costo;stock;codigo;categoria\r\nArroz Costeño 1 kg;5.20;4.30;20;7750243002318;Abarrotes\r\nGaseosa 500 ml;2.50;1.70;48;;Bebidas\r\n';
+    this.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  });
   $('d-importar').querySelector('form').addEventListener('submit', async function (ev) {
     if (ev.submitter && ev.submitter.value === 'cancelar') return;
     ev.preventDefault();
@@ -622,7 +636,7 @@
     $('i-mes').hidden = !d.mes;
     if (d.mes) {
       var m = $('i-mes-datos'); m.textContent = '';
-      [['Ventas', S(d.mes.ingresos)], ['Costo de lo vendido', '− ' + S(d.mes.costoVendido)], ['Gastos del negocio', '− ' + S(d.mes.gastosOperativos)], ['Ganancia', S(d.mes.gananciaNeta), d.mes.gananciaNeta < 0]].forEach(function (f) {
+      [['Ventas', S(d.mes.ingresos)], ['Costo de lo vendido', '− ' + S(d.mes.costoVendido)]].concat(d.mes.merma ? [['Merma', '− ' + S(d.mes.merma)]] : [], [['Gastos del negocio', '− ' + S(d.mes.gastosOperativos)], ['Ganancia', S(d.mes.gananciaNeta), d.mes.gananciaNeta < 0]]).forEach(function (f) {
         m.appendChild(el('div', { clase: 'g-mes-fila' }, [el('span', { texto: f[0] }), el('strong', { clase: f[2] ? 'neg' : '', texto: f[1] })]));
       });
       if (d.mes.meta) {
@@ -649,10 +663,77 @@
   };
   G.finanzasComercio = function (d) {
     var r = $('f-resultado'); r.textContent = '';
-    [['Ventas', S(d.ingresos)], ['Costo de lo vendido', '− ' + S(d.costoVendido)], ['Ganancia bruta', S(d.gananciaBruta), false, true], ['Gastos del negocio', '− ' + S(d.gastosOperativos)], ['Ganancia', S(d.ganancia), d.ganancia < 0, true]].forEach(function (f) {
+    [['Ventas', S(d.ingresos)], ['Costo de lo vendido', '− ' + S(d.costoVendido)], ['Ganancia bruta', S(d.gananciaBruta), false, true], ['Merma (pérdidas)', '− ' + S(d.merma || 0)], ['Gastos del negocio', '− ' + S(d.gastosOperativos)], ['Ganancia', S(d.ganancia), d.ganancia < 0, true]].forEach(function (f) {
       r.appendChild(el('div', { clase: 'g-mes-fila' }, [el('span', { texto: f[0] }), el(f[3] ? 'strong' : 'span', { clase: f[2] ? 'neg' : '', texto: f[1] })]));
     });
     r.appendChild(el('p', { clase: 'g-nota', texto: 'Este mes compraste mercadería por ' + S(d.compras) + '. No resta aquí: su costo se cuenta cuando la vendes.' }));
     G.barras($('f-ganancia'), (d.topGanancia || []).filter(function (x) { return x.ganancia > 0; }).map(function (x) { return { n: x.n, total: x.ganancia }; }), { vacio: 'Carga el costo de tus productos para ver cuáles te dejan más.' });
+    pintarMermas(d.mes);
   };
+  async function pintarMermas(mes) {
+    var r = await api('mermas?mes=' + mes);
+    var l = $('f-mermas'); l.textContent = '';
+    if (!r.ok) return;
+    $('f-merma-total').textContent = S(r.datos.total);
+    if (!r.datos.mermas.length) G.vacio(l, 'Sin merma este mes. Anota lo vencido, roto o perdido en «Productos» → «Merma o conteo».');
+    r.datos.mermas.slice(0, 30).forEach(function (m) {
+      var que = m.motivo === 'Conteo' ? (m.cantidad > 0 ? 'Faltante al contar: ' : 'Sobrante al contar: ') + cant(Math.abs(m.cantidad)) : m.motivo + ': ' + cant(m.cantidad);
+      l.appendChild(el('li', {}, [el('div', { clase: 'l-quien' }, [el('strong', { texto: m.nombre }), el('span', { texto: G.fechaCorta(m.dia) + ' · ' + que + (m.quien ? ' · ' + m.quien : '') + (m.nota ? ' · ' + m.nota : '') })]),
+        el('div', { clase: 'l-fin' }, [el('span', { clase: 'l-monto', texto: S(m.costo) }), btn('Deshacer', 'chico', async function () {
+          if (!confirm('¿Deshacer esta merma? El stock vuelve a como estaba.')) return;
+          var x = await api('mermas/' + m.id + '/borrar', { body: {} });
+          if (!x.ok) return G.aviso(x.datos.error || 'No se pudo.', true);
+          G.aviso('Merma deshecha.'); cargado = 0; G.recargar();
+        })])]));
+    });
+  }
+
+  // ----- merma o conteo -----
+  var MOTIVOS = ['Vencido', 'Dañado o roto', 'Robo o faltante', 'Consumo propio', 'Regalo o muestra', 'Conteo'];
+  var segMerma = null, artMerma = null;
+  function buscarParaMerma(texto) {
+    texto = String(texto || '').trim();
+    var cod = texto.split(' · ')[1];
+    return buscarCodigo(cod) || buscarCodigo(texto) || ARTS.find(function (x) { return x.controla && (nombreDe(x) === texto.split(' · ')[0] || nombreDe(x).toLowerCase() === texto.toLowerCase()); }) || null;
+  }
+  function pintarMerma() {
+    var a = artMerma, conteo = segMerma.valor() === 'Conteo';
+    $('me-caja-cantidad').hidden = conteo; $('me-caja-real').hidden = !conteo;
+    $('me-stock').textContent = a ? 'Stock en el sistema: ' + cant(a.stock) + (unidadDe(a) !== 'unidad' ? ' ' + unidadDe(a) : '') + ' · costo ' + S(costoDe(a)) : '';
+    var c = conteo ? (a ? a.stock - Number(String($('me-real').value).replace(',', '.')) : 0) : Number(String($('me-cantidad').value).replace(',', '.'));
+    if (conteo && $('me-real').value.trim() === '') c = 0;
+    $('me-costo').textContent = a && c ? (c < 0 ? 'Sobran ' : '') + S(Math.round(Math.abs(c) * costoDe(a))) : 'S/ 0.00';
+  }
+  G.abrirMerma = async function (a) {
+    await cargarArticulos();
+    var d = G.dialogo('d-merma'); d.f.reset();
+    if (!segMerma) {
+      segMerma = G.segmento($('me-motivos'), MOTIVOS, pintarMerma);
+      ['me-cantidad', 'me-real'].forEach(function (id) { $(id).addEventListener('input', pintarMerma); });
+      $('me-buscar').addEventListener('change', function () { artMerma = buscarParaMerma(this.value); pintarMerma(); });
+      $('me-buscar').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); artMerma = buscarParaMerma(this.value); pintarMerma(); if (artMerma) $(segMerma.valor() === 'Conteo' ? 'me-real' : 'me-cantidad').focus(); } });
+    }
+    var dl = $('me-productos'); dl.textContent = '';
+    ARTS.filter(function (x) { return x.controla; }).forEach(function (x) { dl.appendChild(el('option', { value: nombreDe(x) + (x.codigo ? ' · ' + x.codigo : '') })); });
+    segMerma.marcar('Vencido');
+    artMerma = a && a.controla ? a : null;
+    $('me-buscar').value = artMerma ? nombreDe(artMerma) + (artMerma.codigo ? ' · ' + artMerma.codigo : '') : '';
+    pintarMerma();
+    d.abrir();
+    setTimeout(function () { $(artMerma ? 'me-cantidad' : 'me-buscar').focus(); }, 30);
+  };
+  $('in-merma').addEventListener('click', function () { G.abrirMerma(null); });
+  $('d-merma').querySelector('form').addEventListener('submit', async function (ev) {
+    if (ev.submitter && ev.submitter.value === 'cancelar') return;
+    ev.preventDefault();
+    var d = G.dialogo('d-merma');
+    artMerma = artMerma || buscarParaMerma($('me-buscar').value);
+    if (!artMerma) return d.mal('Elige un producto de la lista (si tiene tallas, elige la talla).');
+    var motivo = segMerma.valor();
+    var r = await api('articulos/' + artMerma.id + '/merma', { body: motivo === 'Conteo' ? { motivo: motivo, real: $('me-real').value, nota: $('me-nota').value } : { motivo: motivo, cantidad: $('me-cantidad').value, nota: $('me-nota').value } });
+    if (!r.ok) return d.mal(r.datos.error || 'No se pudo registrar.');
+    d.cerrar();
+    G.aviso(r.datos.cantidad < 0 ? 'Stock corregido: sobraban ' + cant(-r.datos.cantidad) + '.' : 'Registrado: ' + cant(r.datos.cantidad) + ' menos en stock (' + S(r.datos.costo) + ').');
+    await cargarArticulos(true); G.recargar();
+  });
 })();

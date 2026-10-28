@@ -35,7 +35,7 @@ fallthrough = true
 PROVEEDOR_NOMBRE = ""
 PROVEEDOR_CORREO = ""
 # Tu WhatsApp de soporte (51 + 9 dígitos, por ejemplo 51987654321): sale como «Soporte» en la gestión de cada negocio.
-SOPORTE_WHATSAPP = ""
+SOPORTE_WHATSAPP = "51932838675"
 
 # Secretos (NO van aquí). Configúralos con:
 #   npx wrangler secret put ADMIN_PASSWORD     (mínimo 12 caracteres)

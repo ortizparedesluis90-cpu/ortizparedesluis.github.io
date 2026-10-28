@@ -242,6 +242,27 @@ Si el **tipo de negocio** es un comercio (bodega, minimarket, kiosko, ferreterí
 - **Equipo con acceso propio**: a cada persona se le puede dar una clave. Entra con su celular, como caja, y sus ventas salen a su nombre. Si se va, se le quita el acceso.
 - **Ajustes**: datos del negocio (salen en el comprobante), clave de caja, fiado y agenda.
 
+## Merma, conteo y análisis del mes
+
+**Merma o conteo** (en *Productos*): cualquiera del equipo anota lo que se pierde sin venderse —vencido, dañado o roto,
+robo o faltante, consumo propio, regalo o muestra— y sale del stock con su costo. Con *Conteo* se escribe cuántos hay de
+verdad en el estante y el sistema corrige el stock: la diferencia queda como faltante (o sobrante). La merma resta de la
+ganancia del mes y se ve en *Reportes → Merma del mes*, donde el dueño puede deshacer un registro equivocado.
+
+**Análisis del mes** (`/slug/analisis?mes=AAAA-MM`): una hoja lista para imprimir o guardar en PDF con lo que vendió,
+cuánto ganó y su margen, lo que más se vende y lo que más ganancia deja, los productos estrella (los pocos que hacen el
+80 % de la ganancia), la merma por motivo y por producto, la plata parada en productos que no se venden hace 60 días,
+lo que está por agotarse al ritmo de venta, los gastos que subieron, los días y horas fuertes y **consejos concretos**
+con cuánto podría ganar o ahorrar al mes. El dueño lo abre desde *Reportes → Análisis del mes*; tú, desde */admin →
+Análisis del mes*, con el botón *Enviar por WhatsApp* que ya va al número del negocio con un resumen y el enlace
+(el dueño entra con su clave para verlo completo). Es el equivalente al reporte mensual de la tarjeta de sellos.
+
+**Más de 100 productos:** hasta 5000 por negocio. Se importan pegando columnas de Excel o subiendo un archivo CSV (hasta
+1000 por vez; se lee bien aunque Excel lo guarde con tildes en formato Windows). En el punto de venta se busca por
+nombre o código de barras (lector o cámara), con filtro por categoría.
+
+**Soporte:** `SOPORTE_WHATSAPP` en `wrangler.toml` sale como «Soporte por WhatsApp» en la gestión de cada negocio y al pie del análisis.
+
 ## Armarle el sistema a un cliente y mandarle el enlace
 
 Así lo usas para vender el servicio:
