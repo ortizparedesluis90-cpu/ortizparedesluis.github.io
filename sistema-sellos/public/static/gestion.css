@@ -421,3 +421,13 @@ fieldset.g-campo legend{font-weight:600;font-size:.86rem;margin-bottom:8px;paddi
   .es-gestion .g-cab .g-acciones,.es-gestion .g-barra input,.es-gestion .g-toast,.es-gestion .g-ver-tabla{display:none!important}
   .es-gestion .g-card,.es-gestion .g-kpi{break-inside:avoid;box-shadow:none}
 }
+
+/* ===== modo básico: funciones ===== */
+.g-funciones{display:grid;gap:8px;margin-top:10px}
+.g-funcion{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--borde);border-radius:10px;margin:0;cursor:pointer;font-weight:500}
+.g-funcion:hover{border-color:var(--borde-campo)}
+.g-funcion input{margin-top:2px}
+.g-funcion strong{display:block;font-size:.92rem}
+.g-funcion small{display:block;color:var(--suave);font-size:.82rem;font-weight:500}
+.g-funcion:has(input:checked){border-color:color-mix(in srgb,var(--acento) 45%,var(--borde));background:var(--acento-suave)}
+.pos-extras{display:flex;flex-wrap:wrap;gap:4px 18px}

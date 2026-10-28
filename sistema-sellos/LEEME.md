@@ -242,6 +242,32 @@ Si el **tipo de negocio** es un comercio (bodega, minimarket, kiosko, ferreterí
 - **Equipo con acceso propio**: a cada persona se le puede dar una clave. Entra con su celular, como caja, y sus ventas salen a su nombre. Si se va, se le quita el acceso.
 - **Ajustes**: datos del negocio (salen en el comprobante), clave de caja, fiado y agenda.
 
+## Armarle el sistema a un cliente y mandarle el enlace
+
+Así lo usas para vender el servicio:
+1. **Crea el negocio.** En `/admin` → **Nuevo negocio con gestión**: nombre, tipo de negocio y WhatsApp del dueño. Queda creado en modo básico, según su rubro.
+2. **Carga sus datos.** Toca **1. Cargar sus productos y datos**: se abre su gestión, en la que entras como administrador. Ahí cargas sus productos (o pegas su lista de Excel), su horario, su tarjeta de clientes y sus datos.
+3. **Invita al dueño.** Toca **2. Invitar al dueño** (o **Invitar al dueño** en la lista) y mándale el enlace por WhatsApp. Al abrirlo, pone su nombre, su correo y su clave, y entra directo a su negocio. Desde entonces entra con su correo en `/entrar`.
+
+Detalles de la invitación:
+- El enlace sirve una sola vez y vence en 14 días.
+- Si el dueño olvida su clave, toca **Reenviar acceso**: el enlace nuevo reemplaza su correo y su clave anteriores.
+- En la lista ves si cada negocio ya tiene dueño (con su correo) o si la invitación sigue sin usar.
+
+**Modo básico.** Cada negocio nuevo trae solo lo esencial según su rubro. Por ejemplo:
+- una bodega trae fiados;
+- una tienda de ropa, tallas y colores;
+- una florería o una panadería, recetas;
+- una veterinaria o un car wash, agenda.
+
+Lo demás (proveedores y compras, equipo, tallas, recetas, agenda, fiados, tarjeta de clientes) se activa en **Ajustes → Funciones**. Lo que está apagado no aparece en el menú. Los negocios que ya existían antes de este cambio conservan todas sus funciones.
+
+**Rubros**:
+- Comercio: bodega, supermercado, kiosko, ferretería, ropa, zapatería, librería, florería, licorería, regalos, vivero, veterinaria, pet shop, panadería, restaurante, botica, cosméticos, celulares, deportes, bazar y car wash.
+- Servicios: barbería, salón, spa, uñas y estética.
+
+Cada rubro trae categorías sugeridas para cargar sus productos.
+
 ## Cuentas creadas por el propio negocio
 
 - **Página de inicio** (`/`): presenta Tappe.

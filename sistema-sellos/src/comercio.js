@@ -305,13 +305,17 @@ export async function apiComercio(req, env, n, partes, url, h, datos) {
     if (cli.error) return error(cli.error);
     if (fiado && !cli.id) return error('Para fiar, elige al cliente o regístralo con su nombre y celular.');
     const token = nuevoToken();
+    // Cobro de una cita (veterinaria, car wash con agenda): queda atendida.
+    const cita = datos.cita_id ? await env.DB.prepare('SELECT id, venta_id FROM citas WHERE id = ? AND negocio_id = ?').bind(Number(datos.cita_id) || 0, n.id).first() : null;
+    if (cita && cita.venta_id) return error('Esta cita ya se cobró.', 409);
     const [fila] = await env.DB.batch([
       env.DB.prepare(
-        `INSERT INTO ventas (negocio_id, dia, hora, cliente_id, nombre, personal_id, items, servicios, productos, descuento, total, costo, metodo, nota, token)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
-      ).bind(n.id, dia, hora, cli.id, cli.nombre || '', personal, JSON.stringify(items), servicios, productos, descuento, total, costo, metodoPago, limpiarTexto(datos.nota, 200), token),
+        `INSERT INTO ventas (negocio_id, dia, hora, cliente_id, nombre, personal_id, items, servicios, productos, descuento, total, costo, metodo, nota, token, cita_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+      ).bind(n.id, dia, hora, cli.id, cli.nombre || '', personal, JSON.stringify(items), servicios, productos, descuento, total, costo, metodoPago, limpiarTexto(datos.nota, 200), token, cita ? cita.id : null),
       ...aplicarStock(env, n, movimientosStock(items, mapa, 1)),
     ]);
+    if (cita) await env.DB.prepare(`UPDATE citas SET estado = 'atendida', venta_id = ? WHERE id = ?`).bind(fila.results[0].id, cita.id).run();
     let tarjeta = null;
     if (cli.id && datos.sello !== false && dia === ahora.dia) {
       const c = await env.DB.prepare(`SELECT ${h.CAMPOS_CLIENTE} FROM clientes WHERE id = ?`).bind(cli.id).first();
@@ -329,7 +333,10 @@ export async function apiComercio(req, env, n, partes, url, h, datos) {
     if (!h.dueno && v.dia !== ahora.dia) return error('Solo el dueño puede anular ventas de otros días.', 403);
     const items = leerJson(v.items, []);
     const mapa = await cargarArticulos(env, n, items.map((x) => x.a));
-    const [upd] = await env.DB.batch([env.DB.prepare('UPDATE ventas SET anulada = 1 WHERE id = ? AND anulada = 0').bind(v.id)]);
+    const [upd] = await env.DB.batch([
+      env.DB.prepare('UPDATE ventas SET anulada = 1 WHERE id = ? AND anulada = 0').bind(v.id),
+      env.DB.prepare(`UPDATE citas SET estado = 'confirmada', venta_id = NULL WHERE venta_id = ? AND negocio_id = ?`).bind(v.id, n.id),
+    ]);
     if (upd.meta.changes) {
       const st = aplicarStock(env, n, movimientosStock(items, mapa, -1));
       if (st.length) await env.DB.batch(st);

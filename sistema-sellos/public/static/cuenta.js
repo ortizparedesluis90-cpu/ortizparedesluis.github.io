@@ -20,6 +20,20 @@
     b.disabled = false; b.textContent = 'Crear mi cuenta';
     fallo(msg, r.datos.error || 'No se pudo crear la cuenta. Intenta de nuevo.');
   });
+  var unirse = $('form-unirse');
+  if (unirse) unirse.addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    var msg = $('u-error');
+    if ($('u-nombre').value.trim().length < 2) return fallo(msg, 'Escribe tu nombre.', $('u-nombre'));
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test($('u-correo').value.trim())) return fallo(msg, 'Revisa tu correo.', $('u-correo'));
+    if ($('u-clave').value.length < 8) return fallo(msg, 'Tu clave debe tener al menos 8 caracteres.', $('u-clave'));
+    if (!$('u-acepta').checked) return fallo(msg, 'Para continuar, acepta los términos del servicio.', $('u-acepta'));
+    var b = unirse.querySelector('button[type=submit]'); b.disabled = true;
+    var r = await Sellos.api('/api/cuenta/unirse', { body: { token: unirse.getAttribute('data-token'), nombre: $('u-nombre').value, celular: $('u-celular').value, correo: $('u-correo').value, clave: $('u-clave').value, acepta: true } });
+    if (r.ok) { location.href = r.datos.url + '#inicio'; return; }
+    b.disabled = false;
+    fallo(msg, r.datos.error || 'No se pudo. Intenta de nuevo.');
+  });
   var entrar = $('form-entrar');
   if (entrar) entrar.addEventListener('submit', async function (ev) {
     ev.preventDefault();

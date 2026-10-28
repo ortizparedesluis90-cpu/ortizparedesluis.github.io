@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS negocios (
   ajustes       TEXT NOT NULL DEFAULT '{}',       -- JSON de la gestión: horario, reservas en línea, meta del mes, medios de pago (src/gestion.js)
   clave_dueno   TEXT NOT NULL DEFAULT '',         -- clave del dueño (PBKDF2): ve finanzas, gastos y personal. Vacía = la clave del panel lo ve todo
   clave_dueno_ver INTEGER NOT NULL DEFAULT 1,     -- cambia al cambiar la clave del dueño
+  invitacion    TEXT NOT NULL DEFAULT '',         -- enlace de un solo uso (/unirse/TOKEN) para que el dueño ponga su correo y su clave
+  invitacion_vence TEXT NOT NULL DEFAULT '',      -- AAAA-MM-DD
   activo        INTEGER NOT NULL DEFAULT 1,
   creado        TEXT NOT NULL DEFAULT (datetime('now'))
 );

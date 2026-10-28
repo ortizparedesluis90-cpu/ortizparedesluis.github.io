@@ -28,10 +28,14 @@
       return;
     }
     negocios.forEach(function (n) {
-      var editar = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Editar' });
+      var editar = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Editar tarjeta' });
       editar.addEventListener('click', function () { llenar(n); });
+      var invitar = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: n.dueno_correo ? 'Reenviar acceso' : 'Invitar al dueño' });
+      invitar.addEventListener('click', function () { invitarDueno(n.slug); });
+      var dueno = n.dueno_correo ? 'Dueño: ' + n.dueno_correo : n.invitado ? 'Invitación enviada, aún sin usar' : 'Sin dueño todavía';
       tb.appendChild(Sellos.el('tr', {}, [
-        Sellos.el('td', {}, [Sellos.el('strong', { texto: n.nombre }), Sellos.el('br'), Sellos.el('span', { clase: 'nota', texto: n.programa + ' · ' + resumenPrograma(n) }), Sellos.el('br'), botonNumeros(n.slug)]),
+        Sellos.el('td', {}, [Sellos.el('strong', { texto: n.nombre }), Sellos.el('br'), Sellos.el('span', { clase: 'nota', texto: n.programa + ' · ' + resumenPrograma(n) }), Sellos.el('br'),
+          n.gestion ? Sellos.el('span', { clase: 'nota', texto: dueno }) : null, n.gestion ? Sellos.el('br') : null, botonNumeros(n.slug)]),
         Sellos.el('td', { texto: String(n.clientes) }),
         Sellos.el('td', { texto: String(n.escaneos30) }),
         Sellos.el('td', { texto: String(n.visitas30) }),
@@ -41,12 +45,51 @@
           Sellos.el('a', { href: '/' + n.slug, texto: 'Registro' }),
           Sellos.el('a', { href: '/' + n.slug + '/panel', texto: 'Panel' }),
           n.gestion ? Sellos.el('a', { href: '/' + n.slug + '/gestion', texto: 'Gestión' }) : null,
+          invitar,
           Sellos.el('a', { href: '/' + n.slug + '/cartel', texto: 'Cartel QR' }),
           Sellos.el('a', { href: '/' + n.slug + '/privacidad', texto: 'Privacidad' }),
           editar,
         ]),
       ]));
     });
+  }
+
+  // ---------- alta rápida e invitación del dueño ----------
+  $('form-rapido').addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    var msg = $('r-msg'), b = this.querySelector('button[type=submit]');
+    b.disabled = true;
+    var r = await Sellos.api('/api/admin/rapido', { body: { nombre: $('r-nombre').value, rubro: $('r-rubro').value, whatsapp: $('r-wa').value } });
+    b.disabled = false;
+    msg.classList.toggle('ok', r.ok);
+    if (!r.ok) { Sellos.mostrar(msg, r.datos.error || 'No se pudo crear.'); return; }
+    msg.hidden = true;
+    var nombre = $('r-nombre').value;
+    this.reset();
+    var caja = $('invitacion'); caja.textContent = ''; caja.hidden = false;
+    var abrir = Sellos.el('a', { clase: 'boton primario chico', href: '/' + r.datos.slug + '/gestion#inicio', target: '_blank', rel: 'noopener', texto: '1. Cargar sus productos y datos' });
+    var inv = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: '2. Invitar al dueño' });
+    inv.addEventListener('click', function () { invitarDueno(r.datos.slug); });
+    caja.append(Sellos.el('p', {}, [Sellos.el('strong', { texto: 'Listo: ' + nombre + '. ' }), document.createTextNode('Su dirección es /' + r.datos.slug + '. Ábrelo, cárgale sus productos (puedes pegar su lista de Excel) y cuando esté listo, invita al dueño.')]),
+      Sellos.el('div', { clase: 'botones chicos' }, [abrir, inv]));
+    cargar();
+  });
+  async function invitarDueno(slug) {
+    var r = await Sellos.api('/api/admin/invitar', { body: { slug: slug } });
+    var caja = $('invitacion'); caja.textContent = ''; caja.hidden = false;
+    if (!r.ok) { caja.appendChild(Sellos.el('p', { clase: 'aviso-error', texto: r.datos.error || 'No se pudo crear la invitación.' })); return; }
+    var vence = r.datos.vence.split('-').reverse().join('/');
+    var texto = 'Hola, ya está listo el sistema de ' + r.datos.nombre + '. Entra a este enlace para crear tu acceso (tu correo y tu clave): ' + r.datos.url + ' — Vence el ' + vence + '.';
+    var enlace = Sellos.el('input', { value: r.datos.url, readonly: '', 'aria-label': 'Enlace de invitación' });
+    var copiar = Sellos.el('button', { clase: 'boton chico', type: 'button', texto: 'Copiar enlace' });
+    copiar.addEventListener('click', async function () {
+      try { await navigator.clipboard.writeText(r.datos.url); copiar.textContent = 'Copiado'; } catch (e) { enlace.select(); }
+    });
+    caja.append(Sellos.el('p', {}, [Sellos.el('strong', { texto: 'Invitación para ' + r.datos.nombre + '. ' }), document.createTextNode('Sirve una sola vez y vence el ' + vence + '. Si el dueño ya tenía acceso, este enlace lo reemplaza (sirve si olvidó su clave).')]),
+      Sellos.el('div', { clase: 'fila-input' }, [enlace, copiar]),
+      Sellos.el('div', { clase: 'botones chicos' }, [Sellos.el('a', { clase: 'boton primario chico', href: 'https://wa.me/' + (r.datos.whatsapp || '') + '?text=' + encodeURIComponent(texto), target: '_blank', rel: 'noopener', texto: 'Enviar por WhatsApp' })]));
+    caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    cargar();
   }
 
   // ---------- rendimiento de cada negocio ----------

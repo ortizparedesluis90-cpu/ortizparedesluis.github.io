@@ -5,7 +5,7 @@ import ESQUEMA from '../migrations/0001_inicial.sql';
 import * as P from './paginas.js';
 import { leerDiseno, temaCss, catalogo, mediosDe, colores, ESTILOS } from './diseno.js';
 import { walletActivo, enlaceGuardar, actualizar as actualizarWallet } from './wallet.js';
-import { apiGestion, apiReserva, esDueno, reservasActivas, conservarExtras, ahoraLima, modoDe, RUBROS, PREMIO_INICIAL } from './gestion.js';
+import { apiGestion, apiReserva, esDueno, reservasActivas, conservarExtras, ahoraLima, modoDe, RUBROS, PREMIO_INICIAL, ajustesIniciales } from './gestion.js';
 import { apiComercio, ventaPorToken } from './comercio.js';
 import { TIPOS, leerPrograma, leerCatalogo, textoAServicios, textoAPremios, textoAHitos, ganar, estado, conTarjeta } from './programa.js';
 import {
@@ -57,6 +57,8 @@ const COLUMNAS_NUEVAS = [
   ['personal', 'clave_ver', 'INTEGER NOT NULL DEFAULT 1'],
   ['ventas', 'costo', 'INTEGER NOT NULL DEFAULT 0'],
   ['ventas', 'token', 'TEXT'],
+  ['negocios', 'invitacion', "TEXT NOT NULL DEFAULT ''"],
+  ['negocios', 'invitacion_vence', "TEXT NOT NULL DEFAULT ''"],
 ];
 async function asegurarEsquema(env) {
   if (esquemaListo) return;
@@ -895,7 +897,26 @@ async function guardarTarjeta(env, n, d) {
   return { ok: true, conservan };
 }
 
-// ---------- cuentas creadas por el propio negocio (/crear y /entrar) ----------
+// ---------- cuentas creadas por el propio negocio (/crear y /entrar) o por invitación (/unirse) ----------
+/** Crea un negocio listo para usar la gestión: modo básico según su rubro, prueba de un mes y una tarjeta de sellos
+ *  por configurar. Sin claveDueno nadie puede entrar todavía, salvo el administrador (que luego invita al dueño). */
+async function crearNegocio(env, { nombre, rubro, celular, correo = '', claveDueno = '' }) {
+  // Dirección del negocio: el nombre en minúsculas y con guiones; si ya existe, se le agrega un número.
+  const base = slugDe(nombre);
+  let slug = null;
+  for (let i = 1; i <= 50 && !slug; i++) {
+    const s = i === 1 ? base : `${base.slice(0, 21)}-${i}`;
+    if (SLUG.test(s) && !RESERVADOS.has(s) && !(await env.DB.prepare('SELECT 1 FROM negocios WHERE slug = ?').bind(s).first())) slug = s;
+  }
+  if (!slug) slug = `${base.slice(0, 16)}-${aleatorio(6, 'abcdefghijkmnpqrstuvwxyz23456789')}`;
+  const diseno = leerDiseno(null, { ...ESTILOS.moderno.d, estilo: 'moderno' });
+  const fila = await env.DB.prepare(
+    `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, correo, color, tema, redes, diseno, plan, vence, clave_hash, clave_dueno, tipo, reglas, gestion, rubro, ajustes)
+     VALUES (?, ?, ?, ?, 8, 60, ?, ?, ?, ?, ?, 'prueba', ?, '', ?, 'sellos', '{}', 1, ?, ?) RETURNING id, slug, clave_ver, clave_dueno_ver`
+  ).bind(slug, nombre, `Club ${nombre}`.slice(0, 40), PREMIO_INICIAL, correo, diseno.acento, colores(diseno).claro ? 'claro' : 'oscuro',
+    JSON.stringify(celular ? { whatsapp: celular } : {}), JSON.stringify(diseno), sumarMeses(hoyLima(), 1), claveDueno ? await hashClave(claveDueno) : '', rubro, ajustesIniciales(rubro)).first();
+  return fila;
+}
 const CORREO = /^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$/;
 /** «Bodega Don Pepe» → «bodega-don-pepe». */
 function slugDe(nombre) {
@@ -917,6 +938,30 @@ async function apiCuenta(req, env, accion) {
     return json({ ok: true, url: `/${c.slug}/gestion` }, 200, { 'Set-Cookie': cookie('sesion', s, { maxAge: DURACION_SESION }) });
   }
 
+  // El dueño acepta la invitación que le mandó el administrador: pone su correo y su clave, y entra.
+  // También sirve para recuperar el acceso: una invitación nueva reemplaza el correo y la clave de antes.
+  if (accion === 'unirse') {
+    const n = await env.DB.prepare(`SELECT id, slug, clave_ver, clave_hash FROM negocios WHERE invitacion = ? AND invitacion != '' AND invitacion_vence >= ? AND activo = 1`).bind(String(d.token || ''), hoyLima()).first();
+    if (!n) return error('Esta invitación ya se usó o venció. Pide una nueva a tu proveedor.', 410);
+    const nombre = limpiarTexto(d.nombre, 60);
+    if (nombre.length < 2) return error('Escribe tu nombre.');
+    if (!CORREO.test(correo)) return error('Revisa tu correo.');
+    if (clave.length < 8) return error('Tu clave debe tener al menos 8 caracteres.');
+    if (!(d.acepta === true || d.acepta === '1')) return error('Para continuar debes aceptar los términos del servicio.');
+    if (n.clave_hash && (await verificarClave(clave, n.clave_hash))) return error('Usa una clave distinta a la clave de caja del negocio.');
+    const otra = await env.DB.prepare('SELECT negocio_id FROM cuentas WHERE correo = ?').bind(correo).first();
+    if (otra && otra.negocio_id !== n.id) return error('Ese correo ya tiene otra cuenta. Usa otro correo.', 409);
+    const celular = celularPeru(d.celular) || '';
+    const fila = await env.DB.prepare(`UPDATE negocios SET clave_dueno = ?, clave_dueno_ver = clave_dueno_ver + 1, invitacion = '', invitacion_vence = '', gestion = 1 WHERE id = ? RETURNING clave_ver, clave_dueno_ver`)
+      .bind(await hashClave(clave), n.id).first();
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM cuentas WHERE negocio_id = ? AND correo != ?').bind(n.id, correo),
+      env.DB.prepare('INSERT INTO cuentas (correo, nombre, celular, negocio_id) VALUES (?, ?, ?, ?) ON CONFLICT (correo) DO UPDATE SET nombre = excluded.nombre, celular = excluded.celular').bind(correo, nombre, celular, n.id),
+    ]);
+    const s = await crearSesion(env, { r: 'staff', n: n.id, v: fila.clave_ver, d: fila.clave_dueno_ver });
+    return json({ ok: true, url: `/${n.slug}/gestion` }, 200, { 'Set-Cookie': cookie('sesion', s, { maxAge: DURACION_SESION }) });
+  }
+
   if (accion === 'crear') {
     const negocio = limpiarTexto(d.negocio, 60), nombre = limpiarTexto(d.nombre, 60), celular = celularPeru(d.celular);
     const rubro = Object.prototype.hasOwnProperty.call(RUBROS, d.rubro) ? d.rubro : null;
@@ -929,20 +974,8 @@ async function apiCuenta(req, env, accion) {
     if (!(d.acepta === true || d.acepta === '1')) return error('Para crear tu cuenta debes aceptar los términos y el aviso de privacidad.');
     if (!(await limitar(env, `crear:${ip(req)}`, 5, 3600))) return error('Demasiadas cuentas creadas desde esta conexión. Intenta más tarde.', 429);
     if (await env.DB.prepare('SELECT 1 FROM cuentas WHERE correo = ?').bind(correo).first()) return error('Ya hay una cuenta con ese correo. Entra con tu clave.', 409);
-    // Dirección del negocio: el nombre en minúsculas y con guiones; si ya existe, se le agrega un número.
-    const base = slugDe(negocio);
-    let slug = null;
-    for (let i = 1; i <= 50 && !slug; i++) {
-      const s = i === 1 ? base : `${base.slice(0, 21)}-${i}`;
-      if (SLUG.test(s) && !RESERVADOS.has(s) && !(await env.DB.prepare('SELECT 1 FROM negocios WHERE slug = ?').bind(s).first())) slug = s;
-    }
-    if (!slug) slug = `${base.slice(0, 16)}-${aleatorio(6, 'abcdefghijkmnpqrstuvwxyz23456789')}`;
-    const diseno = leerDiseno(null, { ...ESTILOS.moderno.d, estilo: 'moderno' });
-    const fila = await env.DB.prepare(
-      `INSERT INTO negocios (slug, nombre, programa, premio, meta, espera_min, correo, color, tema, redes, diseno, plan, vence, clave_hash, clave_dueno, tipo, reglas, gestion, rubro)
-       VALUES (?, ?, ?, ?, 8, 60, ?, ?, ?, ?, ?, 'prueba', ?, '', ?, 'sellos', '{}', 1, ?) RETURNING id, clave_ver, clave_dueno_ver`
-    ).bind(slug, negocio, `Club ${negocio}`.slice(0, 40), PREMIO_INICIAL, correo, diseno.acento, colores(diseno).claro ? 'claro' : 'oscuro',
-      JSON.stringify({ whatsapp: celular }), JSON.stringify(diseno), sumarMeses(hoyLima(), 1), await hashClave(clave), rubro).first();
+    const fila = await crearNegocio(env, { nombre: negocio, rubro, celular, correo, claveDueno: clave });
+    const slug = fila.slug;
     try {
       await env.DB.prepare('INSERT INTO cuentas (correo, nombre, celular, negocio_id) VALUES (?, ?, ?, ?)').bind(correo, nombre, celular, fila.id).run();
     } catch (err) {
@@ -977,6 +1010,7 @@ async function apiAdmin(req, env, partes, url) {
       `SELECT n.id, n.slug, n.nombre, n.programa, n.meta, n.premio, n.espera_min, n.razon_social, n.ruc, n.direccion, n.correo, n.color, n.tema, n.redes, n.diseno, n.plan, n.vence, n.suspendido,
          n.clave_hash != '' AS tiene_clave, n.inversion_mes AS cuota, n.precio_visita AS precio, n.tipo, n.reglas, n.servicios, n.pedir_servicio, n.costo_premio, n.mostrar_numeros, n.sello_regalo, n.productos, n.regalo_cumple, n.gestion, n.rubro,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id) AS clientes,
+         (SELECT correo FROM cuentas k WHERE k.negocio_id = n.id LIMIT 1) AS dueno_correo, n.invitacion != '' AS invitado,
          (SELECT COUNT(*) FROM movimientos m WHERE m.negocio_id = n.id AND m.tipo = 'sello' AND m.creado >= datetime('now', '-30 days')) AS visitas30,
          (SELECT COALESCE(SUM(v.n), 0) FROM vistas v WHERE v.negocio_id = n.id AND v.origen = 'qr' AND v.dia >= date('now', '-5 hours', '-29 days')) AS escaneos30,
          (SELECT COUNT(*) FROM clientes c WHERE c.negocio_id = n.id AND c.recordatorios = 1 AND CASE n.tipo
@@ -1004,6 +1038,34 @@ async function apiAdmin(req, env, partes, url) {
   }
 
   if (accion === 'medios' && req.method === 'POST') return subirMedio(req, env, url);
+
+  // Alta rápida: el nombre, el rubro y el WhatsApp. Tú le cargas sus productos desde su gestión y luego lo invitas.
+  if (accion === 'rapido' && req.method === 'POST') {
+    let d;
+    try { d = await cuerpo(req); } catch { return error('Solicitud no válida.'); }
+    const nombre = limpiarTexto(d.nombre, 60);
+    const rubro = Object.prototype.hasOwnProperty.call(RUBROS, d.rubro) ? d.rubro : null;
+    if (nombre.length < 2) return error('Escribe el nombre del negocio.');
+    if (!rubro) return error('Elige el tipo de negocio.');
+    const crudo = String(d.whatsapp || '').trim(), celular = crudo ? celularPeru(crudo) : '';
+    if (crudo && !celular) return error('Revisa el WhatsApp: 9 dígitos que empiezan con 9.');
+    const fila = await crearNegocio(env, { nombre, rubro, celular });
+    return json({ ok: true, slug: fila.slug }, 201);
+  }
+
+  // Invitación para el dueño: un enlace de un solo uso (14 días) para que ponga su correo y su clave.
+  if (accion === 'invitar' && req.method === 'POST') {
+    let d;
+    try { d = await cuerpo(req); } catch { return error('Solicitud no válida.'); }
+    const n = await negocioPorSlug(env, String(d.slug || ''));
+    if (!n) return error('Negocio no encontrado.', 404);
+    const token = nuevoToken();
+    const vence = new Date(Date.parse(hoyLima()) + 14 * 86400000).toISOString().slice(0, 10);
+    await env.DB.prepare('UPDATE negocios SET invitacion = ?, invitacion_vence = ?, gestion = 1 WHERE id = ?').bind(token, vence, n.id).run();
+    let wa = '';
+    try { wa = JSON.parse(n.redes || '{}').whatsapp || ''; } catch { wa = ''; }
+    return json({ ok: true, url: `${url.origin}/unirse/${token}`, vence, whatsapp: wa, nombre: n.nombre });
+  }
 
   if (accion === 'estado' && req.method === 'POST') {
     let d;
@@ -1246,6 +1308,10 @@ async function manejar(req, env, ctx) {
   if (partes.length === 1 && partes[0] === 'crear') return html(P.crearCuenta(RUBROS, env));
   if (partes.length === 1 && partes[0] === 'entrar') return html(P.entrar(env));
   if (partes.length === 1 && partes[0] === 'terminos') return html(P.terminos(env));
+  if (partes.length === 2 && partes[0] === 'unirse') {
+    const n = await env.DB.prepare(`SELECT nombre, rubro FROM negocios WHERE invitacion = ? AND invitacion != '' AND invitacion_vence >= ? AND activo = 1`).bind(partes[1], hoyLima()).first();
+    return html(P.unirse(n, partes[1], env), n ? 200 : 410);
+  }
   if (partes[0] === 'admin' && partes.length === 1) return html(P.admin());
   if (partes[0] === 'admin' && partes[1] === 'reporte' && partes.length === 2) return html(P.reporte());
   if (partes[0] === 'admin' && partes[1] === 'vista' && partes.length === 3) return vistaPrevia(req, env, partes[2], url);

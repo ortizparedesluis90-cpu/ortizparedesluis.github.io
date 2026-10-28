@@ -120,8 +120,7 @@
     $('login').hidden = true;
     document.body.classList.toggle('es-caja', D.rol !== 'dueno');
     $('g-rol').textContent = D.rol === 'dueno' ? 'Entraste como dueño' : D.yo ? 'Entraste como ' + D.yo.nombre + ' · sin finanzas' : 'Entraste como caja · sin finanzas';
-    // La agenda solo sale si el negocio la usa (Ajustes).
-    document.querySelectorAll('[data-agenda]').forEach(function (a) { a.hidden = !D.ajustes.agenda; });
+    aplicarFunciones();
     prepararDialogos();
     ir();
   }
@@ -133,8 +132,17 @@
   function disponible(v) {
     if (!$('v-' + v) || !CARGAR[v]) return false;
     if (SOLO_DUENO.indexOf(v) >= 0 && D.rol !== 'dueno') return false;
-    if (v === 'agenda' && !D.ajustes.agenda) return false;
-    return true;
+    var nav = document.querySelector('.g-lado [data-v="' + v + '"]');
+    return !(nav && nav.hidden);
+  }
+  /** Modo básico: lo que depende de una función apagada (Ajustes → Funciones) no se muestra. */
+  function activa(k) {
+    if (k === 'fiado') return MODO === 'comercio' && !!D.ajustes.fiado;
+    if (k === 'agenda') return !!D.ajustes.agenda;
+    return !!D.ajustes.funciones[k];
+  }
+  function aplicarFunciones() {
+    document.querySelectorAll('[data-funcion]').forEach(function (x) { x.hidden = !x.getAttribute('data-funcion').split(' ').some(activa); });
   }
   var CARGAR = {};
   function ir() {
@@ -514,7 +522,11 @@
     pintarVenta();
     dVenta.abrir();
   }
-  function cobrarCita(c) { if (dVerCita.d.open) dVerCita.cerrar(); abrirVenta({ cita: c }); }
+  function cobrarCita(c) {
+    if (dVerCita.d.open) dVerCita.cerrar();
+    if (MODO === 'comercio' && G.cobrarCita) { G.cobrarCita(c); return; }
+    abrirVenta({ cita: c });
+  }
   function pintarCatalogoVenta() {
     var cont = $('v-chips'); cont.textContent = '';
     function grupo(titulo, lista, t) {
@@ -562,7 +574,7 @@
     $('v-total').textContent = S(t.total);
     $('v-cobrar').textContent = t.total ? 'Cobrar ' + S(t.total) : 'Cobrar';
     var conTarjeta = selVenta.tieneTarjeta();
-    $('v-sello-caja').hidden = !conTarjeta;
+    $('v-sello-caja').hidden = !conTarjeta || !activa('tarjeta');
     $('v-sello-t').textContent = D.negocio.tipo === 'puntos' ? 'Sumar sus puntos a la tarjeta' : D.negocio.tipo === 'cashback' ? 'Sumar su saldo a la tarjeta' : 'Sumar el sello a su tarjeta';
   }
   async function enviarVenta(ev) {
@@ -1078,7 +1090,9 @@
     D.todosMetodos.forEach(function (x) { var c = el('input', { type: 'checkbox', value: x }); c.checked = a.metodos.indexOf(x) >= 0; m.appendChild(el('label', {}, [c, document.createTextNode(' ' + x)])); });
     var en = $('aj-enlace'); en.textContent = '';
     en.append('Tu enlace de reservas (ponlo en tu Instagram y WhatsApp): ', el('a', { href: '/' + SLUG + '/reservar', target: '_blank', rel: 'noopener', texto: location.host + '/' + SLUG + '/reservar' }));
-    $('aj-fiado').checked = !!a.fiado; $('aj-agenda').checked = !!a.agenda;
+    var marcar = function (id, v) { if ($(id)) $(id).checked = !!v; };
+    marcar('aj-fiado', a.fiado); marcar('aj-agenda', a.agenda);
+    ['proveedores', 'variantes', 'recetas', 'equipo', 'tarjeta'].forEach(function (k) { marcar('aj-f-' + k, a.funciones[k]); });
     $('aj-n-nombre').value = D.negocio.nombre; $('aj-n-ruc').value = D.negocio.ruc || ''; $('aj-n-razon').value = D.negocio.razon || '';
     $('aj-n-dir').value = D.negocio.direccion || ''; $('aj-n-wa').value = (D.negocio.whatsapp || '').replace(/^51/, ''); $('aj-n-correo').value = D.negocio.correo || '';
     $('aj-equipo-nota').textContent = D.claveEquipo ? 'Tu equipo entra con esta clave como caja: vende, cobra y agenda, sin ver finanzas. Cámbiala si alguien se va.'
@@ -1096,14 +1110,15 @@
       horario: horario, intervalo: Number($('aj-intervalo').value), reservas: $('aj-reservas').checked, anticipacion: Number($('aj-anticipacion').value),
       diasReserva: Number($('aj-dias').value), notaReserva: $('aj-nota').value, meta: $('aj-meta').value,
       metodos: Array.prototype.map.call($('aj-metodos').querySelectorAll('input:checked'), function (x) { return x.value; }),
-      fiado: $('aj-fiado').checked, agenda: $('aj-agenda').checked,
+      fiado: $('aj-fiado') ? $('aj-fiado').checked : false, agenda: $('aj-agenda').checked,
+      funciones: (function () { var f = {}; ['proveedores', 'variantes', 'recetas', 'equipo', 'tarjeta'].forEach(function (k) { f[k] = $('aj-f-' + k) ? $('aj-f-' + k).checked : !!D.ajustes.funciones[k]; }); return f; })(),
     };
     var neg = await api('negocio', { body: { nombre: $('aj-n-nombre').value, ruc: $('aj-n-ruc').value, razon: $('aj-n-razon').value, direccion: $('aj-n-dir').value, whatsapp: $('aj-n-wa').value, correo: $('aj-n-correo').value } });
     if (!neg.ok) { var mm = $('aj-msg'); mm.className = 'g-estado mal'; mm.textContent = neg.datos.error || 'No se pudo guardar.'; return; }
     var r = await api('ajustes', { body: datos });
     var m = $('aj-msg'); m.className = 'g-estado ' + (r.ok ? 'ok' : 'mal');
     m.textContent = r.ok ? 'Ajustes guardados.' + (datos.reservas ? ' Tus clientes ya pueden reservar desde tu enlace.' : '') : r.datos.error || 'No se pudo guardar.';
-    if (r.ok) { await recargarDatos(); document.querySelectorAll('[data-agenda]').forEach(function (x) { x.hidden = !D.ajustes.agenda; }); }
+    if (r.ok) { await recargarDatos(); aplicarFunciones(); }
   });
   $('aj-equipo-btn').addEventListener('click', async function () {
     var r = await api('clave-equipo', { body: { clave: $('aj-equipo').value } });
@@ -1164,7 +1179,7 @@
     dialogo: dialogo, segmento: segmento, selectorCliente: selectorCliente, opcionesEquipo: opcionesEquipo, primer: primer,
     fechaCorta: fechaCorta, fechaLarga: fechaLarga, hora12: hora12, sumarDias: sumarDias, variacion: variacion,
     CARGAR: CARGAR, recargar: recargar, recargarDatos: recargarDatos, abrirGasto: abrirGasto,
-    datos: function () { return D; }, hoy: function () { return hoy; }, slug: SLUG, negocio: NEGOCIO, modo: MODO,
+    datos: function () { return D; }, hoy: function () { return hoy; }, slug: SLUG, negocio: NEGOCIO, modo: MODO, activa: function (k) { return activa(k); },
   };
   // Se arranca cuando ya cargaron todos los scripts (gestion-comercio.js agrega sus vistas a CARGAR).
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar); else setTimeout(arrancar, 0);

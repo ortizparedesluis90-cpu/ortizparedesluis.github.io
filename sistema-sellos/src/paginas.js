@@ -5,7 +5,7 @@ import { RUBROS as RUBROS_ADMIN } from './gestion.js';
 import { leerPrograma, leerServicios, estado, lema, soles, TIPOS, conTarjeta, premiosSellos } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-11-28';
+const V = '2026-12-02';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -606,6 +606,21 @@ export function admin() {
   </form>
 
   <div id="app" hidden>
+    <section class="bloque" aria-labelledby="t-rapido">
+      <h2 id="t-rapido">Nuevo negocio con gestión</h2>
+      <p class="nota">Créalo con estos tres datos, cárgale sus productos desde su gestión y, cuando esté listo, invita al dueño con un enlace.</p>
+      <form class="rejilla" id="form-rapido" novalidate>
+        <div class="campo"><label for="r-nombre">Nombre del negocio</label><input id="r-nombre" maxlength="60" required></div>
+        <div class="campo"><label for="r-rubro">Tipo de negocio</label><select id="r-rubro" required><option value="">Elige…</option>
+          <optgroup label="Comercios">${Object.entries(RUBROS_ADMIN).filter(([, v]) => v[1] === 'comercio').map(([k, v]) => `<option value="${k}">${e(v[0])}</option>`).join('')}</optgroup>
+          <optgroup label="Servicios">${Object.entries(RUBROS_ADMIN).filter(([, v]) => v[1] === 'servicios').map(([k, v]) => `<option value="${k}">${e(v[0])}</option>`).join('')}</optgroup></select></div>
+        <div class="campo"><label for="r-wa">WhatsApp del dueño</label><input id="r-wa" type="tel" inputmode="numeric" maxlength="11" placeholder="9XX XXX XXX"></div>
+        <button class="boton primario" type="submit">Crear negocio</button>
+        <p class="aviso-error" id="r-msg" role="status" hidden></p>
+      </form>
+      <div class="invitacion" id="invitacion" hidden></div>
+    </section>
+
     <section class="bloque" aria-labelledby="t-negocios">
       <h2 id="t-negocios">Negocios</h2>
       <div class="aviso-cobros" id="cobros" role="status" hidden></div>
@@ -823,13 +838,13 @@ export function noEncontrado() {
 export { celularVisible };
 
 // ---------- gestión del negocio (/slug/gestion): la pinta public/static/gestion.js ----------
-// [vista, nombre, ícono, solo el dueño, modo: comercio | servicios | (los dos)]
+// [vista, nombre, ícono, solo el dueño, modo: comercio | servicios | (los dos), funciones que la muestran (vacío = siempre)]
 const VISTAS_GESTION = [
-  ['inicio', 'Inicio', 'inicio', false, ''], ['vender', 'Vender', 'carrito', false, 'comercio'], ['agenda', 'Agenda', 'agenda', false, ''],
-  ['caja', 'Caja', 'caja', false, ''], ['inventario', 'Inventario', 'inventario', false, 'comercio'], ['clientes', 'Clientes', 'clientes', false, ''],
-  ['deudas', 'Deudas', 'deudas', false, 'comercio'], ['proveedores', 'Proveedores', 'proveedores', true, 'comercio'],
-  ['gastos', 'Gastos', 'gastos', true, ''], ['finanzas', 'Finanzas', 'finanzas', true, ''], ['equipo', 'Equipo', 'equipo', true, ''],
-  ['catalogo', 'Servicios y productos', 'catalogo', true, 'servicios'], ['tarjeta', 'Tu tarjeta de clientes', 'tarjeta', true, ''], ['ajustes', 'Ajustes', 'ajustes', true, ''],
+  ['inicio', 'Inicio', 'inicio', false, '', ''], ['vender', 'Vender', 'carrito', false, 'comercio', ''], ['agenda', 'Agenda', 'agenda', false, '', 'agenda'],
+  ['caja', 'Caja', 'caja', false, '', ''], ['inventario', 'Productos', 'inventario', false, 'comercio', ''], ['clientes', 'Clientes', 'clientes', false, ''],
+  ['deudas', 'Fiados y deudas', 'deudas', false, 'comercio', 'fiado proveedores'], ['proveedores', 'Proveedores', 'proveedores', true, 'comercio', 'proveedores'],
+  ['gastos', 'Gastos', 'gastos', true, '', ''], ['finanzas', 'Reportes', 'finanzas', true, '', ''], ['equipo', 'Equipo', 'equipo', true, '', 'equipo'],
+  ['catalogo', 'Servicios y productos', 'catalogo', true, 'servicios', ''], ['tarjeta', 'Tarjeta de clientes', 'tarjeta', true, '', 'tarjeta'], ['ajustes', 'Ajustes', 'ajustes', true, '', ''],
 ];
 const cabVista = (titulo, sub, acciones = '') => `<header class="g-cab"><div><h1>${titulo}</h1>${sub ? `<p class="g-sub">${sub}</p>` : ''}</div>${acciones ? `<div class="g-acciones">${acciones}</div>` : ''}</header>`;
 const dlg = (id, titulo, cuerpo, pie) => `
@@ -841,12 +856,13 @@ const dlg = (id, titulo, cuerpo, pie) => `
     <footer class="g-dlg-pie">${pie}</footer>
   </form>
 </dialog>`;
+const funcion = (id, titulo, detalle) => `<label class="g-funcion" for="${id}"><input type="checkbox" id="${id}"><span><strong>${titulo}</strong><small>${detalle}</small></span></label>`;
 const campo = (id, etiqueta, control, attrs = '') => `<div class="g-campo"${attrs}><label for="${id}">${etiqueta}</label>${control}</div>`;
 
 export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
   const comercio = modo === 'comercio';
   // La agenda la ve todo negocio que la tenga activa (Ajustes); el resto depende del modo.
-  const nav = VISTAS_GESTION.filter((x) => !x[4] || x[4] === modo).map(([v, t, ic, dueno]) => `<a class="g-nav-item" href="#${v}" data-v="${v}"${dueno ? ' data-dueno' : ''}${v === 'agenda' ? ' data-agenda' : ''}>${icono(ic)}<span>${t}</span></a>`).join('');
+  const nav = VISTAS_GESTION.filter((x) => !x[4] || x[4] === modo).map(([v, t, ic, dueno, , f]) => `<a class="g-nav-item" href="#${v}" data-v="${v}"${dueno ? ' data-dueno' : ''}${f ? ` data-funcion="${f}"` : ''}>${icono(ic)}<span>${t}</span></a>`).join('');
   const soporteHtml = soporte ? `<a class="g-nav-item" href="https://wa.me/${e(soporte)}?text=${encodeURIComponent(`Hola, necesito ayuda con la gestión de ${n.nombre}.`)}" target="_blank" rel="noopener">${icono('ayuda')}<span>Soporte por WhatsApp</span></a>` : '';
   return base({
     titulo: `Gestión · ${n.nombre}`,
@@ -860,7 +876,7 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
     <div class="g-marca"><span class="g-logo" aria-hidden="true">${e(n.nombre.trim().charAt(0).toUpperCase())}</span><div><strong>${e(n.nombre)}</strong><small>Gestión del negocio</small></div></div>
     <nav class="g-nav" aria-label="Secciones">${nav}</nav>
     <div class="g-lado-pie">
-      <a class="g-nav-item" href="/${e(n.slug)}/panel">${icono('qr')}<span>Panel de tarjetas</span></a>
+      <a class="g-nav-item" href="/${e(n.slug)}/panel" data-funcion="tarjeta">${icono('qr')}<span>Panel de tarjetas</span></a>
       ${soporteHtml}
       <p class="g-rol" id="g-rol"></p>
       <button class="g-nav-item" type="button" id="salir">${icono('salir')}<span>Salir</span></button>
@@ -893,7 +909,7 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
         </div>
         <div class="g-acciones">
           ${comercio ? `<button class="g-btn primario" type="button" data-accion="cobrar">${icono('carrito')}Vender</button>
-          <button class="g-btn" type="button" data-accion="compra" data-dueno>${icono('inventario')}Comprar mercadería</button>`
+          <button class="g-btn" type="button" data-accion="compra" data-dueno data-funcion="proveedores">${icono('inventario')}Comprar mercadería</button>`
     : `<button class="g-btn primario" type="button" data-accion="cobrar">${icono('caja')}Cobrar</button>
           <button class="g-btn" type="button" data-accion="cita">${icono('agenda')}Nueva cita</button>`}
           <button class="g-btn" type="button" data-accion="gasto">${icono('gastos')}Anotar gasto</button>
@@ -951,7 +967,7 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
         <section class="g-card"><div class="g-card-cab"><h2>Ventas del día</h2></div><div class="g-tabla-caja"><table class="g-tabla" id="c-ventas"></table></div></section>
         <div class="g-pila">
           <section class="g-card"><div class="g-card-cab"><h2>Por medio de pago</h2></div><div id="c-metodos"></div></section>
-          ${comercio ? '<section class="g-card"><div class="g-card-cab"><h2>Pagos de fiados del día</h2><a href="#deudas">Ver deudas</a></div><ul class="g-lista" id="c-abonos"></ul></section>' : ''}
+          ${comercio ? '<section class="g-card" data-funcion="fiado"><div class="g-card-cab"><h2>Pagos de fiados del día</h2><a href="#deudas">Ver fiados</a></div><ul class="g-lista" id="c-abonos"></ul></section>' : ''}
           <section class="g-card"><div class="g-card-cab"><h2>Gastos del día</h2></div><ul class="g-lista" id="c-gastos"></ul></section>
         </div>
       </div>
@@ -983,7 +999,7 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
 
     <!-- Finanzas -->
     <section class="g-vista" id="v-finanzas" hidden>
-      ${cabVista('Finanzas', comercio ? 'Ventas, costo de lo vendido, gastos y ganancia real del mes.' : 'Ingresos, gastos y ganancia del mes.', '<button class="g-btn" type="button" id="f-imprimir">Imprimir reporte</button><a class="g-btn" id="f-csv" download>Descargar Excel</a>')}
+      ${cabVista('Reportes', comercio ? 'Cuánto vendiste, cuánto gastaste y cuánto ganaste este mes.' : 'Ingresos, gastos y ganancia del mes.', '<button class="g-btn" type="button" id="f-imprimir">Imprimir reporte</button><a class="g-btn" id="f-csv" download>Descargar Excel</a>')}
       <div class="g-barra"><label for="f-mes">Mes</label><input class="g-fecha-input" type="month" id="f-mes"><p class="g-nota" id="f-comparacion"></p></div>
       <div class="g-kpis" id="f-kpis"></div>
       <section class="g-card"><div class="g-card-cab"><h2>Ingresos por día</h2><span class="g-nota" id="f-mejor"></span></div><div class="g-grafico" id="f-dias"></div>
@@ -1028,7 +1044,7 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
         <section class="g-card"><div class="g-card-cab"><h2>Horario de atención</h2></div><div class="g-horario" id="aj-horario"></div>
           ${campo('aj-intervalo', 'Agenda cada', `<select id="aj-intervalo">${[10, 15, 20, 30, 45, 60].map((m) => `<option value="${m}">${m} minutos</option>`).join('')}</select>`)}</section>
         <div class="g-pila">
-          <section class="g-card"><div class="g-card-cab"><h2>Reservas en línea</h2></div>
+          <section class="g-card" data-funcion="agenda"><div class="g-card-cab"><h2>Reservas en línea</h2></div>
             <label class="g-interruptor"><input type="checkbox" id="aj-reservas"> Tus clientes reservan solos desde un enlace</label>
             <p class="g-nota" id="aj-enlace"></p>
             <div class="g-fila2">
@@ -1041,9 +1057,17 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
             ${campo('aj-meta', 'Meta de ventas del mes (S/) <span class="g-opcional">(opcional)</span>', '<input id="aj-meta" inputmode="decimal" maxlength="9" placeholder="8000">')}
             <fieldset class="g-campo"><legend>Medios de pago que aceptas</legend><div class="g-checks" id="aj-metodos"></div></fieldset>
           </section>
-          <section class="g-card"><div class="g-card-cab"><h2>Ventas</h2></div>
-            <label class="g-interruptor"><input type="checkbox" id="aj-fiado"> Vender fiado (a crédito) a clientes registrados</label>
-            <label class="g-interruptor"><input type="checkbox" id="aj-agenda"> Usar la agenda de citas${comercio ? ' (por ejemplo, en un car wash)' : ''}</label>
+          <section class="g-card"><div class="g-card-cab"><h2>Funciones</h2></div>
+            <p class="g-nota">Activa solo lo que usas: el resto no aparece y el sistema queda más simple.</p>
+            <div class="g-funciones">
+              ${comercio ? funcion('aj-fiado', 'Fiados', 'Vender a crédito a tus clientes y anotar lo que te pagan.') : ''}
+              ${funcion('aj-agenda', 'Agenda de citas', comercio ? 'Para veterinarias, car wash o si atiendes con cita.' : 'Citas por persona y reservas en línea.')}
+              ${comercio ? funcion('aj-f-proveedores', 'Proveedores y compras', 'Registrar la mercadería que compras y lo que les debes.') : ''}
+              ${comercio ? funcion('aj-f-variantes', 'Tallas y colores', 'Un producto con variantes, cada una con su stock.') : ''}
+              ${comercio ? funcion('aj-f-recetas', 'Recetas', 'Productos que descuentan insumos al venderse (jugos, arreglos, tortas).') : ''}
+              ${funcion('aj-f-equipo', 'Equipo', 'Varias personas con su propio acceso y su comisión.')}
+              ${funcion('aj-f-tarjeta', 'Tarjeta de clientes', 'Sellos o puntos para que tus clientes vuelvan.')}
+            </div>
           </section>
           <section class="g-card"><div class="g-card-cab"><h2>Datos del negocio</h2></div>
             <p class="g-nota">Salen en tus comprobantes y en el aviso de privacidad de tus clientes.</p>
@@ -1249,12 +1273,12 @@ function vistasComercio() {
         </section>
         <section class="g-card pos-carrito" id="p-carrito" aria-labelledby="p-carrito-t">
           <div class="g-card-cab"><h2 id="p-carrito-t">Venta actual</h2><div class="g-acciones"><button class="g-enlace" type="button" id="p-vaciar">Vaciar</button><button class="g-enlace pos-cerrar" type="button" id="p-cerrar">Seguir agregando</button></div></div>
-          <div class="g-campo"><span class="g-etiqueta" id="p-cli-t">Cliente <span class="g-opcional">(para fiar o sumar a su tarjeta)</span></span><div class="g-cliente" data-selector="p-cli" aria-labelledby="p-cli-t"></div></div>
+          <div class="g-campo" id="p-cli-caja" hidden><span class="g-etiqueta" id="p-cli-t">Cliente</span><div class="g-cliente" data-selector="p-cli" aria-labelledby="p-cli-t"></div></div>
           <p class="g-nota pos-vacio" id="p-vacio">Toca un producto o escanea su código para agregarlo.</p>
           <ul class="g-items pos-items" id="p-items" aria-label="Productos de la venta"></ul>
-          <button class="g-enlace" type="button" id="p-otro">${icono('mas')}Otro concepto</button>
+          <div class="pos-extras"><button class="g-enlace" type="button" id="p-otro">${icono('mas')}Otro concepto</button><button class="g-enlace" type="button" id="p-mas-cliente">${icono('mas')}Cliente</button><button class="g-enlace" type="button" id="p-mas-desc">${icono('mas')}Descuento</button></div>
           <div class="g-fila2">
-            ${campo('p-descuento', 'Descuento (S/)', '<input id="p-descuento" inputmode="decimal" maxlength="9" placeholder="0">')}
+            ${campo('p-descuento', 'Descuento (S/)', '<input id="p-descuento" inputmode="decimal" maxlength="9" placeholder="0">', ' id="p-desc-caja" hidden')}
             ${campo('p-vendedor', 'Vendió', '<select id="p-vendedor"></select>', ' id="p-vendedor-caja"')}
           </div>
           <div class="g-campo"><span class="g-etiqueta">Medio de pago</span><div class="g-segmento g-metodos" id="p-metodos" role="group" aria-label="Medio de pago"></div></div>
@@ -1273,7 +1297,7 @@ function vistasComercio() {
 
     <!-- Inventario -->
     <section class="g-vista" id="v-inventario" hidden>
-      ${cabVista('Inventario', 'Tus productos con su precio, su costo y su stock. Cada venta descuenta el stock y cada compra lo sube.', `<button class="g-btn" type="button" id="in-importar" data-dueno>Importar desde Excel</button><a class="g-btn" id="in-csv" data-dueno download>Descargar Excel</a><button class="g-btn" type="button" data-accion="compra" data-dueno>Comprar mercadería</button><button class="g-btn primario" type="button" id="in-nuevo" data-dueno>${icono('mas')}Nuevo producto</button>`)}
+      ${cabVista('Productos', 'Lo que vendes, con su precio y cuántos te quedan. Cada venta descuenta el stock.', `<button class="g-btn" type="button" id="in-importar" data-dueno>Importar desde Excel</button><a class="g-btn" id="in-csv" data-dueno download>Descargar Excel</a><button class="g-btn" type="button" data-accion="compra" data-dueno data-funcion="proveedores">Comprar mercadería</button><button class="g-btn primario" type="button" id="in-nuevo" data-dueno>${icono('mas')}Nuevo producto</button>`)}
       <div class="g-kpis" id="in-kpis"></div>
       <div class="g-barra">
         <label class="oculto-accesible" for="in-q">Buscar producto</label><input class="g-buscar-barra" id="in-q" type="search" placeholder="Buscar por nombre o código" autocomplete="off">
@@ -1285,11 +1309,11 @@ function vistasComercio() {
 
     <!-- Deudas -->
     <section class="g-vista" id="v-deudas" hidden>
-      ${cabVista('Deudas', 'Lo que te deben tus clientes por lo que se llevaron fiado, y lo que tú les debes a tus proveedores.', '<a class="g-btn" id="de-csv" data-dueno download>Descargar Excel</a>')}
+      ${cabVista('Fiados y deudas', 'Lo que te deben tus clientes por lo que se llevaron fiado, y lo que tú les debes a tus proveedores.', '<a class="g-btn" id="de-csv" data-dueno download>Descargar Excel</a>')}
       <div class="g-kpis g-kpis-2" id="de-kpis"></div>
       <div class="g-col2">
-        <section class="g-card"><div class="g-card-cab"><h2>Te deben</h2></div><ul class="g-lista" id="de-clientes"></ul></section>
-        <section class="g-card" data-dueno><div class="g-card-cab"><h2>Le debes a tus proveedores</h2><a href="#proveedores">Ver proveedores</a></div><ul class="g-lista" id="de-proveedores"></ul></section>
+        <section class="g-card" data-funcion="fiado"><div class="g-card-cab"><h2>Te deben</h2></div><ul class="g-lista" id="de-clientes"></ul></section>
+        <section class="g-card" data-dueno data-funcion="proveedores"><div class="g-card-cab"><h2>Le debes a tus proveedores</h2><a href="#proveedores">Ver proveedores</a></div><ul class="g-lista" id="de-proveedores"></ul></section>
       </div>
     </section>
 
@@ -1322,13 +1346,13 @@ ${dlg('d-articulo', 'Producto', `
     ${campo('ar-stock', 'Stock actual', '<input id="ar-stock" type="number" step="any" inputmode="decimal">')}
     ${campo('ar-minimo', 'Avisarme cuando queden', '<input id="ar-minimo" type="number" step="any" min="0" inputmode="decimal" placeholder="Ej.: 5">')}
   </div>
-  <label class="g-interruptor"><input type="checkbox" id="ar-con-variantes"> Tiene variantes (talla, color, sabor…), cada una con su stock</label>
+  <label class="g-interruptor" data-funcion="variantes"><input type="checkbox" id="ar-con-variantes"> Tiene variantes (talla, color, sabor…), cada una con su stock</label>
   <div id="ar-variantes" hidden>
     <div class="g-tabla-caja"><table class="g-tabla g-editable"><thead><tr><th>Variante</th><th>Código</th><th>Precio (S/)</th><th>Stock</th><th><span class="oculto-accesible">Quitar</span></th></tr></thead><tbody id="ar-var-filas"></tbody></table></div>
     <button class="g-enlace" type="button" id="ar-var-mas">${icono('mas')}Agregar variante</button>
     <p class="g-nota">Deja el precio vacío para usar el del producto.</p>
   </div>
-  <label class="g-interruptor"><input type="checkbox" id="ar-con-receta"> Es una preparación con receta (descuenta sus insumos al venderse)</label>
+  <label class="g-interruptor" data-funcion="recetas"><input type="checkbox" id="ar-con-receta"> Es una preparación con receta (descuenta sus insumos al venderse)</label>
   <div id="ar-receta" hidden>
     <div class="g-tabla-caja"><table class="g-tabla g-editable"><thead><tr><th>Insumo</th><th>Cantidad por unidad</th><th><span class="oculto-accesible">Quitar</span></th></tr></thead><tbody id="ar-rec-filas"></tbody></table></div>
     <button class="g-enlace" type="button" id="ar-rec-mas">${icono('mas')}Agregar insumo</button>
@@ -1538,6 +1562,39 @@ ${cabSitio()}
   <p>Puedes pedir la baja cuando quieras. Antes, descarga tus datos; luego de la baja se eliminan.</p>
   <h2>8. Contacto</h2>
   <p>${env.PROVEEDOR_CORREO ? `Escríbenos a ${e(env.PROVEEDOR_CORREO)}` : 'Escríbenos'}${env.SOPORTE_WHATSAPP ? ` o por WhatsApp al +${e(env.SOPORTE_WHATSAPP)}` : ''}.</p>
+</main>
+${pieSitio(env)}`,
+  });
+}
+
+export function unirse(n, token, env = {}) {
+  if (!n) {
+    return base({
+      titulo: 'Invitación vencida · Tappe', oficina: true, clase: 'es-gestion es-sitio', estilos: ['gestion.css', 'sitio.css'],
+      cuerpo: `${cabSitio(false)}<main id="principal" class="s-formulario"><section class="g-card s-caja"><h1>Esta invitación ya no sirve</h1><p class="g-sub">Ya se usó o venció. Pide a tu proveedor que te mande una nueva.</p>${env.SOPORTE_WHATSAPP ? `<p><a class="g-btn primario" href="https://wa.me/${e(env.SOPORTE_WHATSAPP)}?text=${encodeURIComponent('Hola, mi invitación de Tappe venció. ¿Me mandas otra?')}" target="_blank" rel="noopener">Pedir una nueva por WhatsApp</a></p>` : ''}</section></main>${pieSitio(env)}`,
+    });
+  }
+  return base({
+    titulo: `Únete a ${n.nombre} · Tappe`,
+    oficina: true,
+    clase: 'es-gestion es-sitio',
+    estilos: ['gestion.css', 'sitio.css'],
+    scripts: ['comun.js', 'cuenta.js'],
+    cuerpo: `
+${cabSitio(false)}
+<main id="principal" class="s-formulario">
+  <form class="g-card s-caja" id="form-unirse" data-token="${e(token)}" novalidate>
+    <p class="g-sobre">Tu sistema está listo</p>
+    <h1>${e(n.nombre)}</h1>
+    <p class="g-sub">Crea tu acceso de dueño. Desde ahora entras con tu correo y esta clave, desde el celular o la computadora.</p>
+    ${campo('u-nombre', 'Tu nombre', '<input id="u-nombre" maxlength="60" autocomplete="name" required>')}
+    ${campo('u-celular', 'Tu celular <span class="g-opcional">(opcional)</span>', '<input id="u-celular" type="tel" inputmode="numeric" maxlength="11" autocomplete="tel-national">')}
+    ${campo('u-correo', 'Tu correo', '<input id="u-correo" type="email" maxlength="100" autocomplete="email" required>')}
+    ${campo('u-clave', 'Crea tu clave', '<input id="u-clave" type="password" minlength="8" autocomplete="new-password" required><p class="g-nota">Mínimo 8 caracteres.</p>')}
+    <label class="g-interruptor"><input type="checkbox" id="u-acepta"> Acepto los <a href="/terminos" target="_blank" rel="noopener">términos del servicio</a>.</label>
+    <p class="g-error" id="u-error" role="alert" hidden></p>
+    <button class="g-btn primario ancho s-grande" type="submit">Entrar a mi negocio</button>
+  </form>
 </main>
 ${pieSitio(env)}`,
   });

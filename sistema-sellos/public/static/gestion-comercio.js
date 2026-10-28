@@ -48,7 +48,7 @@
   }
 
   // ---------- vender ----------
-  var carrito = [], categoria = '', selPos = null, segPos = null, abiertoMovil = false;
+  var carrito = [], categoria = '', selPos = null, segPos = null, abiertoMovil = false, citaPos = null;
   G.CARGAR.vender = async function () {
     await cargarArticulos(true);
     if (!selPos) prepararPos();
@@ -59,7 +59,7 @@
     selPos = G.selectorCliente(document.querySelector('[data-selector=p-cli]'));
     document.querySelector('[data-selector=p-cli]').onCambio = pintarCarrito;
     var metodos = D().metodos.slice(); if (D().ajustes.fiado) metodos.push('Fiado');
-    segPos = G.segmento($('p-metodos'), metodos, pintarCarrito);
+    segPos = G.segmento($('p-metodos'), metodos, function (m) { if (m === 'Fiado') mostrarCliente(); pintarCarrito(); });
     var conEquipo = D().equipo.some(function (p) { return p.activo; });
     $('p-vendedor-caja').hidden = !conEquipo || !!D().yo;
     if (conEquipo) G.opcionesEquipo($('p-vendedor'), true, 'Sin asignar');
@@ -87,7 +87,7 @@
     var g = $('p-grid'); g.textContent = '';
     var lista = filtrados(), max = 120;
     if (!ARTS.length) {
-      g.appendChild(el('p', { clase: 'g-nota', texto: dueno() ? 'Aún no tienes productos. Agrégalos en Inventario (uno por uno o pegando tu lista de Excel). Mientras, puedes vender con «Otro concepto».' : 'Aún no hay productos cargados. Usa «Otro concepto».' }));
+      g.appendChild(el('p', { clase: 'g-nota', texto: dueno() ? 'Aún no tienes productos. Agrégalos en Productos (uno por uno o pegando tu lista de Excel). Mientras, puedes vender con «Otro concepto».' : 'Aún no hay productos cargados. Usa «Otro concepto».' }));
     } else if (!lista.length) g.appendChild(el('p', { clase: 'g-nota', texto: 'No hay productos con «' + $('p-q').value + '».' }));
     lista.slice(0, max).forEach(function (p) {
       var h = hijos(p);
@@ -156,7 +156,7 @@
     var metodo = segPos.valor();
     $('p-efectivo').hidden = metodo !== 'Efectivo';
     var tieneTarjeta = selPos.tieneTarjeta();
-    $('p-sello-caja').hidden = !tieneTarjeta;
+    $('p-sello-caja').hidden = !tieneTarjeta || !G.activa('tarjeta');
     $('p-sello-t').textContent = D().negocio.tipo === 'puntos' ? 'Sumar sus puntos a la tarjeta' : D().negocio.tipo === 'cashback' ? 'Sumar su saldo a la tarjeta' : 'Sumar el sello a su tarjeta';
     actualizarTotal();
   }
@@ -184,10 +184,15 @@
     if (lista.length === 1) { elegir(lista[0]); $('p-q').value = ''; pintarGrid(); return; }
     if (codigo.trim()) G.aviso(lista.length ? 'Hay ' + lista.length + ' productos con «' + codigo + '»: toca el que es.' : 'No hay ningún producto con el código ' + codigo + '.', !lista.length);
   }
+  // Cliente y descuento quedan escondidos hasta que se necesitan: la venta común es tocar productos y cobrar.
+  function mostrarCliente() { $('p-cli-caja').hidden = false; $('p-mas-cliente').hidden = true; }
+  $('p-mas-cliente').addEventListener('click', function () { mostrarCliente(); var i = $('p-cli-caja').querySelector('input[type=search]'); if (i) i.focus(); });
+  $('p-mas-desc').addEventListener('click', function () { $('p-desc-caja').hidden = false; $('p-mas-desc').hidden = true; $('p-descuento').focus(); });
+  function plegarExtras() { $('p-cli-caja').hidden = true; $('p-mas-cliente').hidden = false; $('p-desc-caja').hidden = true; $('p-mas-desc').hidden = false; }
   $('p-descuento').addEventListener('input', actualizarTotal);
   $('p-recibido').addEventListener('input', actualizarTotal);
   $('p-otro').addEventListener('click', function () { carrito.push({ n: '', p: 0, c: 1, u: 'unidad', libre: true }); pintarCarrito(); var ins = $('p-items').querySelectorAll('.i-n input'); if (ins.length) ins[ins.length - 1].focus(); });
-  $('p-vaciar').addEventListener('click', function () { carrito = []; $('p-descuento').value = ''; $('p-recibido').value = ''; selPos.limpiar(); pintarCarrito(); pintarGrid(); });
+  $('p-vaciar').addEventListener('click', function () { carrito = []; citaPos = null; $('p-descuento').value = ''; $('p-recibido').value = ''; selPos.limpiar(); plegarExtras(); pintarCarrito(); pintarGrid(); });
   $('p-ver').addEventListener('click', function () { abiertoMovil = true; $('p-carrito').classList.add('abierto'); actualizarTotal(); });
   $('p-cerrar').addEventListener('click', function () { abiertoMovil = false; $('p-carrito').classList.remove('abierto'); actualizarTotal(); });
   document.addEventListener('click', function (ev) {
@@ -200,7 +205,7 @@
     var t = totales();
     if (isNaN(aCentimos($('p-descuento').value))) { Sellos.mostrar(err, 'Revisa el descuento: solo números.'); return; }
     var metodo = segPos.valor();
-    var datos = Object.assign({ items: items, descuento: t.desc / 100, metodo: metodo, sello: $('p-sello').checked, personal_id: $('p-vendedor').value || null }, selPos.valor());
+    var datos = Object.assign({ items: items, descuento: t.desc / 100, metodo: metodo, sello: $('p-sello').checked, personal_id: $('p-vendedor').value || null, cita_id: citaPos }, selPos.valor());
     $('p-cobrar').disabled = true;
     var r = await api('ventas', { body: datos });
     $('p-cobrar').disabled = false;
@@ -208,7 +213,7 @@
     err.hidden = true;
     var recibido = aCentimos($('p-recibido').value);
     mostrarVendido(r.datos, metodo === 'Efectivo' && recibido > t.total ? recibido - t.total : 0, metodo);
-    carrito = []; $('p-descuento').value = ''; $('p-recibido').value = ''; selPos.limpiar(); segPos.marcar(D().metodos[0]);
+    carrito = []; citaPos = null; $('p-descuento').value = ''; $('p-recibido').value = ''; selPos.limpiar(); plegarExtras(); segPos.marcar(D().metodos[0]);
     abiertoMovil = false; $('p-carrito').classList.remove('abierto');
     await cargarArticulos(true); pintarGrid(); pintarCarrito();
   });
@@ -223,6 +228,19 @@
     dv.abrir();
   }
   $('vd-nueva').addEventListener('click', function () { setTimeout(function () { $('p-q').focus(); }, 50); });
+
+  // Cobrar una cita de la agenda (veterinaria, car wash): el servicio va a la venta y la cita queda atendida.
+  G.cobrarCita = async function (c) {
+    location.hash = '#vender';
+    await cargarArticulos(true);
+    if (!selPos) prepararPos();
+    var a = ARTS.find(function (x) { return !x.padre && x.nombre === c.servicio; });
+    carrito = [a ? { a: a.id, n: a.nombre, p: c.precio || a.precio, c: 1, u: a.unidad } : { n: c.servicio || 'Servicio', p: c.precio || 0, c: 1, u: 'unidad', libre: true }];
+    citaPos = c.id;
+    selPos.limpiar();
+    if (c.clienteId) { mostrarCliente(); selPos.elegir({ id: c.clienteId, nombre: c.nombre, celular: c.celular }); }
+    pintarCarrito(); pintarGrid();
+  };
 
   // Cámara (celulares con Chrome): lee el código de barras.
   var flujo = null, detector = null;
@@ -275,7 +293,7 @@
     var t = $('in-tabla'); t.textContent = '';
     t.appendChild(el('thead', {}, [el('tr', {}, ['Producto', 'Código', 'Categoría', 'Precio', 'Costo', 'Ganas', 'Stock', ''].map(function (h, i) { return el('th', { clase: i >= 3 && i <= 6 ? 'g-num' : '', texto: h }); }))]));
     var tb = el('tbody'); t.appendChild(tb);
-    if (!ARTS.length) tb.appendChild(el('tr', {}, [el('td', { clase: 'vacio', colspan: '8', texto: dueno() ? 'Aún no tienes productos. Toca «Nuevo producto» o «Importar desde Excel».' : 'Aún no hay productos.' })]));
+    if (!ARTS.length) tb.appendChild(el('tr', {}, [el('td', { clase: 'vacio', colspan: '8', texto: dueno() ? 'Aún no tienes productos. Toca «Nuevo producto» o «Importar desde Excel».' + ((D().sugerencias || []).length ? ' Categorías sugeridas: ' + D().sugerencias.join(', ') + '.' : '') : 'Aún no hay productos.' })]));
     else if (!lista.length) tb.appendChild(el('tr', {}, [el('td', { clase: 'vacio', colspan: '8', texto: 'Nada coincide con el filtro.' })]));
     var max = 300;
     lista.slice(0, max).forEach(function (p) {
@@ -332,7 +350,8 @@
     artEditando = p;
     dArt.f.reset();
     $('d-articulo-t').textContent = p ? 'Editar producto' : 'Nuevo producto';
-    var dl = $('ar-categorias'); dl.textContent = ''; CATS.forEach(function (c) { dl.appendChild(el('option', { value: c })); });
+    var dl = $('ar-categorias'); dl.textContent = '';
+    CATS.concat((D().sugerencias || []).filter(function (c) { return CATS.indexOf(c) < 0; })).forEach(function (c) { dl.appendChild(el('option', { value: c })); });
     $('ar-nombre').value = p ? p.nombre : ''; $('ar-codigo').value = p ? p.codigo : ''; $('ar-categoria').value = p ? p.categoria : '';
     $('ar-unidad').value = p ? p.unidad : 'unidad'; $('ar-precio').value = p ? String(p.precio / 100) : ''; $('ar-costo').value = p && p.costo ? String(p.costo / 100) : '';
     $('ar-stock').value = p ? String(p.stock) : ''; $('ar-minimo').value = p && p.minimo ? String(p.minimo) : '';

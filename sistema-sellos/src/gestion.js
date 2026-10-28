@@ -14,14 +14,51 @@ export const METODOS = ['Efectivo', 'Yape', 'Plin', 'Tarjeta', 'Transferencia'];
 export const CATEGORIAS = ['Compra de mercadería', 'Alquiler', 'Luz, agua e internet', 'Productos e insumos', 'Sueldos', 'Comisiones', 'Publicidad', 'Mantenimiento', 'Impuestos', 'Otros'];
 /** Rubros: [nombre, modo]. «comercio» vende productos con inventario (src/comercio.js); «servicios» trabaja con agenda y citas. */
 export const RUBROS = {
-  bodega: ['Bodega o minimarket', 'comercio'], kiosko: ['Kiosko', 'comercio'], ferreteria: ['Ferretería', 'comercio'],
-  ropa: ['Tienda de ropa', 'comercio'], zapateria: ['Zapatería', 'comercio'], libreria: ['Librería o papelería', 'comercio'],
-  floreria: ['Florería', 'comercio'], licoreria: ['Licorería', 'comercio'], regalos: ['Tienda de regalos', 'comercio'],
-  jardineria: ['Jardinería o vivero', 'comercio'], restaurante: ['Restaurante, cafetería o juguería', 'comercio'],
-  carwash: ['Car wash', 'comercio'], botica: ['Botica o farmacia', 'comercio'], otro_comercio: ['Otro comercio', 'comercio'],
+  bodega: ['Bodega o minimarket', 'comercio'], supermercado: ['Supermercado', 'comercio'], kiosko: ['Kiosko', 'comercio'],
+  ferreteria: ['Ferretería', 'comercio'], ropa: ['Tienda de ropa', 'comercio'], zapateria: ['Zapatería', 'comercio'],
+  libreria: ['Librería o papelería', 'comercio'], floreria: ['Florería', 'comercio'], licoreria: ['Licorería', 'comercio'],
+  regalos: ['Tienda de regalos', 'comercio'], jardineria: ['Jardinería o vivero', 'comercio'], veterinaria: ['Veterinaria', 'comercio'],
+  mascotas: ['Pet shop', 'comercio'], panaderia: ['Panadería o pastelería', 'comercio'], restaurante: ['Restaurante, cafetería o juguería', 'comercio'],
+  botica: ['Botica o farmacia', 'comercio'], cosmeticos: ['Cosméticos y perfumería', 'comercio'], tecnologia: ['Celulares y tecnología', 'comercio'],
+  deportes: ['Artículos deportivos', 'comercio'], bazar: ['Bazar o variedades', 'comercio'], carwash: ['Car wash', 'comercio'], otro_comercio: ['Otro comercio', 'comercio'],
   barberia: ['Barbería', 'servicios'], salon: ['Salón de belleza', 'servicios'], spa: ['Spa o masajes', 'servicios'],
   unas: ['Centro de uñas', 'servicios'], estetica: ['Centro de estética', 'servicios'], otro_servicio: ['Otro negocio de servicios', 'servicios'],
 };
+/** Categorías que se le sugieren a cada rubro al cargar sus productos. */
+export const SUGERENCIAS = {
+  bodega: ['Abarrotes', 'Bebidas', 'Lácteos', 'Limpieza', 'Snacks', 'Panadería', 'Cuidado personal'],
+  supermercado: ['Abarrotes', 'Bebidas', 'Lácteos', 'Carnes', 'Frutas y verduras', 'Limpieza', 'Cuidado personal', 'Snacks'],
+  kiosko: ['Golosinas', 'Bebidas', 'Snacks', 'Recargas', 'Útiles'],
+  ferreteria: ['Herramientas', 'Pinturas', 'Electricidad', 'Gasfitería', 'Tornillería', 'Construcción'],
+  ropa: ['Polos', 'Pantalones', 'Vestidos', 'Casacas', 'Ropa interior', 'Accesorios'],
+  zapateria: ['Damas', 'Caballeros', 'Niños', 'Deportivas', 'Sandalias', 'Accesorios'],
+  libreria: ['Útiles escolares', 'Cuadernos', 'Oficina', 'Impresiones y copias', 'Regalos'],
+  floreria: ['Ramos', 'Arreglos', 'Plantas', 'Globos', 'Peluches', 'Tarjetas'],
+  licoreria: ['Cervezas', 'Vinos', 'Piscos', 'Whisky y rones', 'Gaseosas', 'Snacks'],
+  regalos: ['Peluches', 'Tazas', 'Globos', 'Cajas de regalo', 'Tarjetas', 'Decoración'],
+  jardineria: ['Plantas', 'Macetas', 'Tierra y abono', 'Semillas', 'Herramientas'],
+  veterinaria: ['Consultas', 'Vacunas', 'Baño y corte', 'Alimentos', 'Medicinas', 'Accesorios'],
+  mascotas: ['Alimentos', 'Accesorios', 'Juguetes', 'Higiene', 'Camas'],
+  panaderia: ['Panes', 'Tortas', 'Bocaditos', 'Postres', 'Bebidas'],
+  restaurante: ['Platos', 'Entradas', 'Bebidas', 'Jugos', 'Postres'],
+  botica: ['Medicamentos', 'Vitaminas', 'Cuidado personal', 'Bebés', 'Primeros auxilios'],
+  cosmeticos: ['Maquillaje', 'Cuidado de la piel', 'Perfumes', 'Cabello', 'Uñas'],
+  tecnologia: ['Celulares', 'Accesorios', 'Cargadores', 'Audífonos', 'Reparaciones'],
+  deportes: ['Zapatillas', 'Ropa deportiva', 'Balones', 'Gimnasio', 'Accesorios'],
+  bazar: ['Hogar', 'Cocina', 'Juguetes', 'Regalos', 'Útiles'],
+  carwash: ['Lavados', 'Encerado', 'Aspirado', 'Productos'],
+};
+/** Funciones que se prenden al crear el negocio, según su rubro. Todo lo demás queda apagado (modo básico)
+ *  y se activa en Ajustes → Funciones cuando el negocio lo necesite. */
+export function funcionesIniciales(rubro) {
+  return {
+    fiado: ['bodega', 'supermercado', 'kiosko', 'ferreteria', 'panaderia', 'licoreria', 'bazar'].includes(rubro),
+    agenda: RUBROS[rubro] ? RUBROS[rubro][1] === 'servicios' || ['veterinaria', 'carwash'].includes(rubro) : true,
+    variantes: ['ropa', 'zapateria', 'deportes', 'cosmeticos'].includes(rubro),
+    recetas: ['restaurante', 'floreria', 'panaderia'].includes(rubro),
+    proveedores: false, equipo: false, tarjeta: true,
+  };
+}
 export const modoDe = (n) => (RUBROS[n.rubro] ? RUBROS[n.rubro][1] : 'servicios');
 /** Premio con el que nace un negocio creado en /crear, hasta que el dueño elija el suyo. */
 export const PREMIO_INICIAL = 'Un regalo de la casa';
@@ -80,7 +117,15 @@ export function leerAjustes(n) {
     // La agenda viene prendida en los negocios de servicios; un comercio (un car wash, por ejemplo) puede activarla.
     agenda: a.agenda === undefined ? modoDe(n) === 'servicios' : !!a.agenda,
     fiado: a.fiado === undefined ? modoDe(n) === 'comercio' : !!a.fiado,
+    // Funciones avanzadas. Los negocios de antes (sin «funciones» guardadas) las tienen todas.
+    funciones: Object.fromEntries(['proveedores', 'equipo', 'tarjeta', 'variantes', 'recetas'].map((k) => [k, a.funciones && typeof a.funciones === 'object' ? !!a.funciones[k] : true])),
   };
+}
+
+/** Ajustes con que nace un negocio nuevo (creado en /crear o desde /admin): modo básico según su rubro. */
+export function ajustesIniciales(rubro) {
+  const f = funcionesIniciales(rubro);
+  return JSON.stringify({ agenda: f.agenda, fiado: f.fiado, funciones: { proveedores: f.proveedores, equipo: f.equipo, tarjeta: f.tarjeta, variantes: f.variantes, recetas: f.recetas } });
 }
 
 // ---------- equipo ----------
@@ -367,7 +412,10 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
       yo: h.empleado ? { id: h.empleado.id, nombre: h.empleado.nombre } : null, soporte: h.soporte || '',
       negocio: { nombre: n.nombre, slug: n.slug, tipo: n.tipo || 'sellos', whatsapp: wa, ruc: n.ruc, direccion: n.direccion, razon: n.razon_social, correo: n.correo },
       tarjeta: h.dueno ? tarjetaDe(n) : null,
-      ajustes: aj, equipo: await equipo(env, n, h.dueno), ...catalogoDe(n), metodos: aj.metodos, todosMetodos: METODOS, categorias: CATEGORIAS,
+      sugerencias: SUGERENCIAS[n.rubro] || [],
+      ajustes: aj, equipo: await equipo(env, n, h.dueno), ...catalogoDe(n),
+      // En un comercio con agenda (veterinaria, car wash), los servicios para agendar son los productos «por servicio».
+      ...(modoDe(n) === 'comercio' ? { servicios: (await env.DB.prepare(`SELECT nombre AS n, precio AS p FROM articulos WHERE negocio_id = ? AND activo = 1 AND unidad = 'servicio' AND padre IS NULL ORDER BY nombre LIMIT 60`).bind(n.id).all()).results } : {}), metodos: aj.metodos, todosMetodos: METODOS, categorias: CATEGORIAS,
     });
   }
 
@@ -776,6 +824,7 @@ export async function apiGestion(req, env, n, partes, url, h, datos) {
     const nuevo = {
       horario, intervalo: Number(datos.intervalo), reservas: !!datos.reservas, anticipacion: Number(datos.anticipacion), diasReserva: Number(datos.diasReserva),
       notaReserva: limpiarTexto(datos.notaReserva, 200), meta: meta || 0, metodos,
+      funciones: datos.funciones && typeof datos.funciones === 'object' ? datos.funciones : aj.funciones,
       // Si no vienen (una versión anterior de la página), se quedan como estaban.
       agenda: datos.agenda === undefined ? aj.agenda : !!datos.agenda, fiado: datos.fiado === undefined ? aj.fiado : !!datos.fiado,
     };
@@ -851,7 +900,7 @@ function tarjetaDe(n) {
 
 /** Lo que le falta configurar a un negocio nuevo. Se muestra en Inicio hasta completarlo. */
 export async function primerosPasos(env, n) {
-  const comercio = modoDe(n) === 'comercio';
+  const comercio = modoDe(n) === 'comercio', f = leerAjustes(n).funciones;
   const [art, eq, vt] = await env.DB.batch([
     env.DB.prepare('SELECT COUNT(*) AS n FROM articulos WHERE negocio_id = ? AND activo = 1').bind(n.id),
     env.DB.prepare(`SELECT COUNT(*) AS n FROM personal WHERE negocio_id = ? AND activo = 1`).bind(n.id),
@@ -862,7 +911,7 @@ export async function primerosPasos(env, n) {
     { k: 'tarjeta', hecho: n.premio !== PREMIO_INICIAL, t: 'Elige el premio de tu tarjeta de clientes', ir: 'tarjeta' },
     { k: 'equipo', hecho: eq.results[0].n > 0 || !!n.clave_hash, t: 'Agrega a tu equipo (o salta este paso si trabajas solo)', ir: 'equipo' },
     { k: 'venta', hecho: vt.results[0].n > 0, t: 'Registra tu primera venta', ir: comercio ? 'vender' : 'caja' },
-  ];
+  ].filter((x) => (x.k !== 'tarjeta' || f.tarjeta) && (x.k !== 'equipo' || f.equipo));
   return pasos.every((x) => x.hecho) ? null : pasos;
 }
 

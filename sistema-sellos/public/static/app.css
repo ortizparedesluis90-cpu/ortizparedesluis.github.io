@@ -650,3 +650,6 @@ html[data-forma="diamante"] .sello>.hito-marca{transform:none}
 .r-listo h2{margin-bottom:8px}
 .cabeza-botones{display:flex;gap:8px;align-items:center;flex:none}
 a.salir-discreto{display:inline-flex;align-items:center;text-decoration:none;color:var(--texto)}
+.invitacion{margin-top:14px;padding:14px;border:1px solid var(--borde);border-radius:14px;background:var(--superficie-2);display:grid;gap:10px}
+.invitacion p{margin:0}
+.invitacion .fila-input input{flex:1}
