@@ -125,6 +125,13 @@ export async function analisisMes(env, n, mes) {
     compras: comercio ? r.compras : 0, clientesNuevos: f.clientesNuevos, clientesAtendidos: f.clientesAtendidos,
   };
 
+  // Punto de equilibrio: cuánto hay que vender al mes para cubrir gastos y merma con el margen que deja cada venta.
+  const margenBruto = comercio ? (ingresos ? (ingresos - r.costoVendido) / ingresos : 0) : 1;
+  const diasMes = Number(hasta.slice(8)), diasCorridos = Number(fin.slice(8));
+  resumen.equilibrio = margenBruto > 0 ? Math.round((resumen.gastos + resumen.merma) / margenBruto) : 0;
+  resumen.proyeccion = f.enCurso && diasCorridos ? Math.round((ingresos / diasCorridos) * diasMes) : ingresos;
+  resumen.diasMes = diasMes;
+
   const a = {
     mes, enCurso: f.enCurso, hasta: fin, anterior, comercio, resumen, masVendidos, masGanancia, estrella, gananciaTotal,
     sinCosto: lista.filter((p) => p.sinCosto).map((p) => p.n), merma, dormidos: dormidos.slice(0, 12), capitalDormido, totalDormidos: dormidos.length,
@@ -146,6 +153,10 @@ function consejos(a) {
   if (!r.ventas) {
     out.push({ tipo: 'info', titulo: 'Aún no hay ventas este mes', detalle: 'Registra cada venta en «Vender» (o en «Caja»): con eso este análisis te dirá qué sale más, cuánto ganas y dónde ahorrar.' });
     return out;
+  }
+  if (r.ganancia < 0 && r.equilibrio) {
+    const porDia = Math.round(r.equilibrio / r.diasMes);
+    out.push({ tipo: 'alerta', primero: true, titulo: `Este mes vas perdiendo ${soles(-r.ganancia)}`, detalle: `Para cubrir tus gastos necesitas vender unos ${soles(r.equilibrio)} al mes (${soles(porDia)} por día)${a.enCurso ? `; a este ritmo llegarías a ${soles(r.proyeccion)}` : `; vendiste ${soles(r.ingresos)}`}. Lo que más ayuda: subir el margen de lo que más vendes y bajar los gastos fijos.` });
   }
   // Margen bajo o venta a pérdida: subir un poco el precio donde se vende mucho es la plata más fácil.
   const bajos = a.masVendidos.concat(a.masGanancia).filter((p, i, l) => p.producto && p.margen !== null && p.margen < 15 && p.unidades >= 3 && l.indexOf(p) === i);
@@ -177,13 +188,13 @@ function consejos(a) {
     out.push({ tipo: 'alerta', titulo: 'Repón antes de quedarte sin stock', detalle: `Al ritmo que se venden, se acaban pronto: ${x}. Un cliente que no encuentra lo que busca se va a otra tienda.` });
   }
   if (a.estrella.length && a.gananciaTotal > 0) {
-    out.push({ tipo: 'venta', titulo: `${a.estrella.length} ${a.estrella.length === 1 ? 'producto te deja' : 'productos te dejan'} el 80 % de la ganancia`, detalle: `${a.estrella.slice(0, 5).map((p) => `«${p.n}»`).join(', ')}${a.estrella.length > 5 ? '…' : ''}. Nunca te quedes sin ellos, ponlos a la vista y ofrécelos con otro producto.` });
+    out.push({ tipo: 'venta', titulo: `${a.estrella.length} ${a.estrella.length === 1 ? 'producto te deja' : 'productos te dejan'} el 80 % de la ganancia`, detalle: `${a.estrella.slice(0, 5).map((p) => `«${p.n}»`).join(', ')}${a.estrella.length > 5 ? ' y otros' : ''}. Nunca te quedes sin ellos, ponlos a la vista y ofrécelos con otro producto.` });
   }
   for (const g of a.gastos.filter((x) => x.antes > 0 && x.cambio >= 20 && x.total - x.antes >= 3000).slice(0, 2)) {
     out.push({ tipo: 'ahorro', titulo: `${g.n} subió ${g.cambio} %`, detalle: `Gastaste ${soles(g.total)} contra ${soles(g.antes)} el mes pasado a la misma fecha. Revisa si fue algo puntual o si se puede bajar.`, monto: g.total - g.antes });
   }
   if (a.sinCosto.length) {
-    out.push({ tipo: 'info', titulo: `${a.sinCosto.length} ${a.sinCosto.length === 1 ? 'producto vendido no tiene' : 'productos vendidos no tienen'} costo`, detalle: `Sin el costo no se sabe cuánto ganas con ${a.sinCosto.length === 1 ? 'él' : 'ellos'}: ${a.sinCosto.slice(0, 4).map((x) => `«${x}»`).join(', ')}${a.sinCosto.length > 4 ? '…' : ''}. Pónselo en «Productos» o registra tus compras.` });
+    out.push({ tipo: 'info', titulo: `${a.sinCosto.length} ${a.sinCosto.length === 1 ? 'producto vendido no tiene' : 'productos vendidos no tienen'} costo`, detalle: `Sin el costo no se sabe cuánto ganas con ${a.sinCosto.length === 1 ? 'él' : 'ellos'}: ${a.sinCosto.slice(0, 4).map((x) => `«${x}»`).join(', ')}${a.sinCosto.length > 4 ? ' y otros' : ''}. Pónselo en «Productos» o registra tus compras.` });
   }
   if (a.porCobrar > 0) {
     out.push({ tipo: 'alerta', titulo: `Te deben ${soles(a.porCobrar)} en fiados`, detalle: `Son ${a.deudores} ${a.deudores === 1 ? 'cliente' : 'clientes'}. Mándales el recordatorio por WhatsApp desde «Fiados y deudas»: la plata fiada no te sirve para reponer.` });
@@ -200,7 +211,7 @@ function consejos(a) {
     out.push({ tipo: 'venta', titulo: `Cada cliente gasta menos: ${soles(r.ticket)} por venta`, detalle: `El mes pasado eran ${soles(r.ticketAnt)}. Ofrece un segundo producto al cobrar («¿le agrego…?») o arma combos.` });
   }
   const orden = { alerta: 0, ahorro: 1, venta: 2, info: 3 };
-  return out.sort((x, y) => (y.monto || 0) - (x.monto || 0) || orden[x.tipo] - orden[y.tipo]).slice(0, 8);
+  return out.sort((x, y) => (y.primero ? 1 : 0) - (x.primero ? 1 : 0) || (y.monto || 0) - (x.monto || 0) || orden[x.tipo] - orden[y.tipo]).slice(0, 8);
 }
 
 /** El resumen corto para mandar por WhatsApp. */

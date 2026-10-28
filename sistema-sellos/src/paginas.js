@@ -1693,6 +1693,7 @@ export function analisis(n, a, { titulo, mesAnt, mesSig, enlaceWa, soporte = '' 
     ? [['Ventas', S(r.ingresos)], ['Costo de lo vendido', '− ' + S(r.costoVendido)], ['Ganancia bruta', S(r.ingresos - r.costoVendido), 'sub'], ['Merma (pérdidas)', '− ' + S(r.merma)], ['Gastos del negocio', '− ' + S(r.gastos)], ['Ganancia del mes', S(r.ganancia), 'total']]
     : [['Ingresos', S(r.ingresos)], ['Gastos', '− ' + S(r.gastos)], ['Ganancia del mes', S(r.ganancia), 'total']];
   const resultadoHtml = `<dl class="a-resultado">${resultado.map(([k, v, c]) => `<div class="${c || ''}"><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+    ${r.equilibrio ? `<p class="a-nota">Punto de equilibrio: vender <strong>${S(r.equilibrio)}</strong> al mes cubre tus gastos${a.enCurso ? `; a este ritmo cierras el mes con ${S(r.proyeccion)} en ventas` : ''}.</p>` : ''}
     ${a.comercio && r.compras ? `<p class="a-nota">Compraste mercadería por ${S(r.compras)}: no resta aquí, su costo cuenta cuando la vendes.</p>` : ''}`;
 
   const maxV = Math.max(0, ...a.masVendidos.map((p) => p.total));
@@ -1718,7 +1719,7 @@ export function analisis(n, a, { titulo, mesAnt, mesSig, enlaceWa, soporte = '' 
     </div>`;
   }
   const maxGasto = Math.max(0, ...a.gastos.map((g) => g.total));
-  const gastos = a.gastos.map((g) => `<tr><td>${e(g.n)}${barra(g.total, maxGasto)}</td><td class="a-num">${S(g.total)} ${g.antes ? pct(g.cambio) : ''}</td></tr>`);
+  const gastos = a.gastos.map((g) => `<tr><td>${e(g.n)}${barra(g.total, maxGasto)}</td><td class="a-num">${S(g.total)} ${g.antes && g.cambio ? pct(g.cambio) : ''}</td></tr>`);
   const maxSem = Math.max(0, ...a.semana.map((x) => x.total));
   const semana = a.semana.slice(1).concat(a.semana.slice(0, 1)).map((x) => `<tr><td>${x.n[0].toUpperCase() + x.n.slice(1)}${barra(x.total, maxSem)}</td><td class="a-num">${S(x.total)}</td></tr>`);
   // Horas: de las 7 a las 21 como mínimo, para que se vea el día completo aunque haya pocas ventas.
