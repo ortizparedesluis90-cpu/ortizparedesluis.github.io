@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Playfair;src:url(fonts/playfair-var.woff2) format('woff2');font-weight:400 900}
+@font-face{font-family:Manrope;src:url(fonts/manrope-var.woff2) format('woff2');font-weight:200 800}
+@page{size:A4;margin:0}
+:root{--oro:#a8823c;--oro2:#c9a55c;--tinta:#16130f;--suave:#5b544a;--crema:#fbf8f2;--linea:#e6dccb}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Manrope,sans-serif;color:var(--tinta);background:#888}
+.hoja{width:210mm;height:297mm;position:relative;overflow:hidden;background:var(--crema);padding:16mm 15mm 14mm;page-break-after:always;margin:0 auto 10mm}
+.hoja::before{content:"";position:absolute;inset:7mm;border:.4mm solid var(--linea);border-radius:4mm;pointer-events:none}
+.k{font:700 8.5pt Manrope;letter-spacing:.32em;text-transform:uppercase;color:var(--oro)}
+.regla{width:22mm;height:.5mm;background:linear-gradient(90deg,var(--oro2),transparent);margin:4mm 0}
+h1,h2,h3{font-family:Playfair,serif;font-weight:600;line-height:1.04;letter-spacing:-.01em}
+h1{font-size:40pt}
+h2{font-size:22pt;margin-bottom:3mm}
+h3{font-size:13pt}
+em{font-style:italic;font-weight:500;color:var(--oro)}
+p{font-size:10.5pt;line-height:1.5}
+.sub{font-size:12pt;color:var(--suave);margin-top:4mm;max-width:105mm}
+.portada{display:grid;grid-template-columns:1fr 62mm;gap:6mm;align-items:center;height:118mm}
+.portada img{height:112mm;justify-self:center;filter:drop-shadow(0 6mm 8mm rgba(0,0,0,.28))}
+.chips{display:flex;gap:2.5mm;flex-wrap:wrap;margin-top:6mm}
+.chip{font:700 9pt Manrope;border:.35mm solid var(--oro2);color:var(--tinta);border-radius:99mm;padding:2mm 4mm}
+.bloque{margin-top:7mm}
+.problemas{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
+.problemas div{border:.35mm solid var(--linea);border-radius:3.5mm;padding:4mm;background:#fff}
+.problemas b{display:block;font-size:10.5pt;margin-bottom:1.5mm}
+.problemas span{font-size:9.5pt;color:var(--suave);line-height:1.45}
+.pasos{display:grid;grid-template-columns:repeat(4,1fr);gap:4mm}
+.paso{background:#fff;border:.35mm solid var(--linea);border-radius:3.5mm;padding:4mm}
+.num{width:9mm;height:9mm;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#e6c682,#b08b45);font:800 11pt Manrope;color:#15110a;margin-bottom:2.5mm}
+.paso b{display:block;font-size:10.5pt;margin-bottom:1.2mm}
+.paso span{font-size:9.3pt;color:var(--suave);line-height:1.45}
+.frase{margin-top:7mm;text-align:center;font:italic 500 15pt Playfair;color:var(--tinta)}
+.frase em{color:var(--oro)}
+.col3{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
+.caja{border:.35mm solid var(--linea);border-radius:3.5mm;padding:4.5mm;background:#fff}
+.caja .t{font:800 8pt Manrope;letter-spacing:.24em;text-transform:uppercase;color:var(--oro);margin-bottom:1.5mm}
+.caja ul,.lista{list-style:none;display:grid;gap:2mm;margin-top:2.5mm}
+.caja li,.lista li{font-size:9.6pt;line-height:1.4;padding-left:4.5mm;position:relative}
+.caja li::before,.lista li::before{content:"";position:absolute;left:0;top:1.6mm;width:2mm;height:2mm;border-radius:50%;background:var(--oro2)}
+.panel{display:grid;grid-template-columns:1fr 38mm;gap:6mm;align-items:center}
+.panel img{height:62mm;justify-self:center;filter:drop-shadow(0 5mm 7mm rgba(0,0,0,.25))}
+.lista b{display:block}
+.lista span{color:var(--suave)}
+.cuenta{display:flex;align-items:center;justify-content:space-between;gap:4mm;background:var(--tinta);color:#f3eadb;border-radius:4mm;padding:5mm 7mm}
+.cuenta b{font:600 22pt Playfair;color:#eed9a4}
+.cuenta small{display:block;font-size:8.5pt;color:rgba(243,234,219,.7)}
+.cuenta i{font:400 18pt Playfair;font-style:normal;color:#c9a55c}
+.nota{font-size:8pt;color:var(--suave);margin-top:2mm}
+.planes{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
+.plan{border:.35mm solid var(--linea);border-radius:3.5mm;padding:4mm;background:#fff}
+.plan.top{border:.6mm solid var(--oro2);box-shadow:0 2mm 5mm rgba(168,130,60,.18)}
+.plan .nom{font:800 8pt Manrope;letter-spacing:.18em;text-transform:uppercase;color:var(--oro)}
+.plan .pre{display:block;font:600 19pt Playfair;margin-top:1.5mm}
+.plan .mes{display:block;font:700 9pt Manrope;color:var(--oro);min-height:4mm}
+.plan .det{display:block;font-size:8pt;color:var(--suave)}
+.plan ul{list-style:none;margin-top:2mm;display:grid;gap:1.2mm}
+.plan li{font-size:8.8pt;padding-left:3.8mm;position:relative}
+.plan li::before{content:"✓";position:absolute;left:0;color:var(--oro);font-weight:800}
+.unico{display:grid;grid-template-columns:52mm 1fr;gap:6mm;border:.6mm solid var(--oro2);border-radius:3.5mm;padding:4mm 5mm;background:#fff;box-shadow:0 2mm 5mm rgba(168,130,60,.18)}
+.unico .izq{display:flex;flex-direction:column}
+.unico .nom{font:800 7.6pt Manrope;letter-spacing:.16em;text-transform:uppercase;color:var(--oro)}
+.unico .desde{font-size:8.5pt;color:var(--suave);margin-top:2mm}
+.unico .pre{font:600 30pt/1 Playfair}
+.unico .mes{font:700 9.5pt Manrope;color:var(--oro)}
+.unico .cond{display:flex;flex-wrap:wrap;gap:1.5mm;margin-top:2.5mm}
+.unico .cond span{font:800 7.4pt Manrope;color:#15110a;background:var(--oro2);border-radius:999px;padding:1mm 2.6mm}
+.unico ul{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:1.6mm 4mm;align-content:center}
+.unico li{font-size:8.8pt;line-height:1.35;padding-left:3.8mm;position:relative}
+.unico li::before{content:"✓";position:absolute;left:0;color:var(--oro);font-weight:800}
+.oferta{margin-top:4mm;border:.4mm dashed var(--oro2);border-radius:3mm;padding:3mm;text-align:center;font:700 10.5pt Manrope}
+.contacto{margin-top:4mm;display:flex;justify-content:space-between;align-items:center;background:var(--tinta);color:#f3eadb;border-radius:4mm;padding:5mm 7mm}
+.contacto .q{font:600 15pt Playfair}
+.contacto .q em{color:#eed9a4}
+.contacto .d{text-align:right;font:700 10.5pt/1.6 Manrope}
+.contacto .d span{color:#eed9a4}
+.pie{position:absolute;left:15mm;right:15mm;bottom:10mm;display:flex;justify-content:space-between;font:700 7pt Manrope;letter-spacing:.28em;text-transform:uppercase;color:#a99f8e}
+.reverso h2{font-size:18pt;margin-bottom:2.5mm}.reverso .bloque{margin-top:5mm}.reverso .caja{padding:3.5mm}.reverso .caja li{font-size:9pt}.reverso .lista{gap:1.4mm}.reverso .lista li{font-size:9pt}.reverso .cuenta{padding:3.5mm 6mm}.reverso .cuenta b{font-size:18pt}
+.contacto{padding:3.5mm 6mm}.reverso .contacto .q{font-size:13pt}.reverso .contacto .d{font-size:9.5pt;line-height:1.5}.reverso .oferta{margin-top:3mm;padding:2.2mm;font-size:9.5pt}.reverso .plan{padding:3mm}.reverso .plan li{font-size:8.4pt}.reverso .panel img{height:54mm}.reverso{padding-top:13mm}
+@media screen{.hoja{box-shadow:0 4mm 12mm rgba(0,0,0,.4)}}
+</style></head><body>
+
+<!-- FRENTE -->
+<section class="hoja">
+  <div class="portada">
+    <div>
+      <p class="k">Barberías · Spas · Salones</p>
+      <div class="regla"></div>
+      <h1>¿Tus clientes <em>vuelven…</em> o se olvidan de ti?</h1>
+      <p class="sub">Tarjeta de sellos digital, una página con tus redes y un panel para tu negocio. Tus clientes juntan sellos en su celular y vuelven por su premio.</p>
+      <div class="chips"><span class="chip">Sin apps</span><span class="chip">Sin tarjetas de papel</span><span class="chip">Desde tu celular</span></div>
+    </div>
+    <img src="img/f-hero.png" alt="Tarjeta de sellos en un celular">
+  </div>
+
+  <div class="bloque">
+    <p class="k">El problema</p>
+    <h2>Cada cliente que no vuelve es <em>dinero que se va.</em></h2>
+    <div class="problemas">
+      <div><b>La tarjeta de papel se pierde</b><span>y nadie recuerda cuántos sellos tenía.</span></div>
+      <div><b>El cliente se olvida de ti</b><span>y se va con quien le escribió primero.</span></div>
+      <div><b>No sabes quién vuelve</b><span>ni tienes su número para invitarlo otra vez.</span></div>
+    </div>
+  </div>
+
+  <div class="bloque">
+    <p class="k">Así funciona</p>
+    <h2>Simple para tu cliente. <em>Automático para ti.</em></h2>
+    <div class="pasos">
+      <div class="paso"><span class="num">1</span><b>Escanea el QR</b><span>del cartel en tu mostrador. Ve tus redes y crea su tarjeta en 20 segundos.</span></div>
+      <div class="paso"><span class="num">2</span><b>Su tarjeta en el celular</b><span>con su propio QR. Sin descargar ninguna app.</span></div>
+      <div class="paso"><span class="num">3</span><b>Un sello por visita</b><span>Escaneas su QR con tu celular y tocas «+1 sello».</span></div>
+      <div class="paso"><span class="num">4</span><b>Su premio</b><span>Al completar los sellos lo canjea… y vuelve a empezar.</span></div>
+    </div>
+  </div>
+  <p class="frase">«Tu cliente vuelve por su premio. <em>Tú ganas un cliente fiel.</em>»</p>
+  <div class="pie"><span>Tarjeta de sellos digital</span><span>Continúa atrás →</span></div>
+</section>
+
+<!-- REVERSO -->
+<section class="hoja reverso">
+  <p class="k">Lo que ganas</p>
+  <h2>Más visitas. Menos gastos. <em>Cero trabajo extra.</em></h2>
+  <div class="col3">
+    <div class="caja"><p class="t">Gana más</p><h3>Clientes que vuelven</h3><ul><li>Vuelven más seguido por su premio.</li><li>Invitas por WhatsApp a quien está por ganar.</li><li>Tu propia lista de clientes con su celular.</li><li>Te escriben por WhatsApp desde tu página.</li></ul></div>
+    <div class="caja"><p class="t">Ahorra</p><h3>Sin papel ni apps</h3><ul><li>Nada que imprimir ni sellos físicos.</li><li>Tus clientes no pagan ni descargan nada.</li><li>Sin sellos falsos: todo con tu clave.</li><li>El cliente se registra solo.</li></ul></div>
+    <div class="caja"><p class="t">Automatiza</p><h3>Todo en tu panel</h3><ul><li>Cada registro aparece al instante.</li><li>Sabes quién vino y cuántas veces.</li><li>Escaneos, tarjetas nuevas y visitas del mes.</li><li>Funciona en cualquier celular.</li></ul></div>
+  </div>
+
+  <div class="bloque panel">
+    <div>
+      <p class="k">Tu panel</p>
+      <h2>Sabes quién está por volver. <em>Y lo invitas.</em></h2>
+      <ul class="lista">
+        <li><b>Clientes registrados</b><span>Aparecen solos, apenas crean su tarjeta.</span></li>
+        <li><b>Cerca del premio</b><span>Un toque y le escribes por WhatsApp para que vuelva.</span></li>
+        <li><b>Tu reporte del mes</b><span>Te lo mandamos por WhatsApp: cuánto te dejan tus clientes, tus mejores clientes, tus días fuertes y quién dejó de venir.</span></li>
+        <li><b>Con tu marca</b><span>Tu logo, tus colores, tu estilo y tu premio.</span></li>
+      </ul>
+    </div>
+    <img src="img/f-cerca.png" alt="Panel del negocio en un celular">
+  </div>
+
+  <div class="bloque">
+    <div class="cuenta">
+      <div><b>20</b><small>clientes que vuelven<br>una vez más al mes</small></div><i>×</i>
+      <div><b>S/ 25</b><small>por servicio</small></div><i>=</i>
+      <div><b>S/ 500</b><small>más al mes</small></div>
+      <div style="border-left:.3mm solid rgba(238,217,164,.35);padding-left:5mm"><b>S/ 59</b><small>desde, al mes<br>sin pago inicial</small></div>
+    </div>
+    <p class="nota">Ejemplo ilustrativo: tus números dependen de tu negocio y tus precios.</p>
+  </div>
+
+  <div class="bloque">
+    <p class="k">Precio</p>
+    <div id="planes" style="margin-top:3mm"></div>
+    <p class="oferta">🎁 <span data-k="oferta"></span></p>
+  </div>
+
+  <div class="contacto">
+    <p class="q">¿Te armo <em>la tuya?</em></p>
+    <p class="d"><span data-k="nombre"></span><br>WhatsApp <span data-k="whatsapp"></span><br>Instagram <span data-k="instagram"></span></p>
+  </div>
+</section>
+
+<script>
+fetch('datos.json').then(r => r.json()).then(d => {
+  document.querySelectorAll('[data-k]').forEach(el => { el.textContent = d[el.dataset.k] || ''; });
+  var p = d.plan, u = document.getElementById('planes');
+  u.innerHTML = '<div class="unico"><div class="izq"><span class="nom"></span><span class="desde">desde</span><span class="pre"></span><span class="mes"></span><span class="cond"></span></div><ul></ul></div>';
+  u.querySelector('.nom').textContent = p.nombre;
+  u.querySelector('.pre').textContent = p.desde;
+  u.querySelector('.mes').textContent = p.mes;
+  p.condiciones.forEach(function (c) { var s = document.createElement('span'); s.textContent = c; u.querySelector('.cond').appendChild(s); });
+  p.items.forEach(function (i) { var li = document.createElement('li'); li.textContent = i; u.querySelector('ul').appendChild(li); });
+  document.body.dataset.listo = '1';
+});
+</script>
+</body></html>

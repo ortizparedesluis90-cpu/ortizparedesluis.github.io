@@ -1,0 +1,45 @@
+# Configuración del Worker. Ver LEEME.md.
+name = "sistema-sellos"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Archivos estáticos (estilos y scripts del navegador)
+[assets]
+directory = "./public"
+
+# Base de datos. Crea la tuya con:  npx wrangler d1 create sellos
+# y pega aquí el database_id que te muestre.
+[[d1_databases]]
+binding = "DB"
+database_name = "sellos_barberias"
+database_id = "f6161fba-dadd-450a-99e3-5d7b83259290"
+migrations_dir = "migrations"
+
+# Almacenamiento de logos, fotos y videos de cada negocio (Cloudflare KV «medios»).
+[[kv_namespaces]]
+binding = "MEDIOS"
+id = "9b3e8a4297c84f50bae93e56c103d09a"
+
+# Tarea diaria (08:17 UTC = 03:17 en Lima): borra tarjetas con 24 meses sin visitas.
+[triggers]
+crons = ["17 8 * * *"]
+
+# El esquema SQL se importa como texto
+[[rules]]
+type = "Text"
+globs = ["**/*.sql"]
+fallthrough = true
+
+[vars]
+# Tu nombre o el de tu empresa: aparece en el aviso de privacidad como encargado del tratamiento.
+PROVEEDOR_NOMBRE = ""
+PROVEEDOR_CORREO = ""
+# Tu WhatsApp de soporte (51 + 9 dígitos, por ejemplo 51987654321): sale como «Soporte» en la gestión de cada negocio.
+SOPORTE_WHATSAPP = "51932838675"
+
+# Secretos (NO van aquí). Configúralos con:
+#   npx wrangler secret put ADMIN_PASSWORD     (mínimo 12 caracteres)
+#   npx wrangler secret put SESSION_SECRET     (opcional, recomendado: texto largo al azar)
+
+[observability]
+enabled = true

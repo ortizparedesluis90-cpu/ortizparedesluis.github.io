@@ -1,0 +1,25 @@
+{
+  "nombre": "Tu nombre",
+  "whatsapp": "+51 9XX XXX XXX",
+  "instagram": "@tu_usuario",
+  "plan": {
+    "nombre": "Tarjeta de sellos digital",
+    "desde": "S/ 59",
+    "mes": "al mes",
+    "condiciones": [
+      "Sin pago inicial",
+      "Primer mes gratis"
+    ],
+    "items": [
+      "Tarjeta de sellos con tu marca",
+      "Página de registro con tus redes y WhatsApp",
+      "Cartel QR para tu mostrador",
+      "Panel en tu celular con escáner",
+      "Reporte del mes por WhatsApp: ventas, ranking y más",
+      "Mensajes por WhatsApp a tus clientes",
+      "Diseño a tu medida",
+      "Informe de resultados cada mes"
+    ]
+  },
+  "oferta": "Primer mes gratis: empiezas sin pagar nada"
+}
