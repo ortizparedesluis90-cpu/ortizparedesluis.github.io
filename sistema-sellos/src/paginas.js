@@ -6,7 +6,7 @@ import { soles as solesMiles } from './analisis.js';
 import { leerPrograma, leerServicios, estado, lema, soles, TIPOS, conTarjeta, premiosSellos } from './programa.js';
 
 // Cambia este valor cada vez que modifiques public/static: los navegadores guardan esos archivos 1 hora.
-const V = '2026-12-03';
+const V = '2026-12-04';
 
 const ICONOS = {
   check: 'M5 12.5l4.2 4.2L19 7',
@@ -23,6 +23,7 @@ const ICONOS = {
   persona: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5c.8-3.6 3.9-5.5 7.5-5.5s6.7 1.9 7.5 5.5',
   inicio: 'M4 10.5 12 4l8 6.5V20h-5.5v-5.5h-5V20H4z',
   agenda: 'M5 6h14v14H5zM5 10h14M9 3.5V7M15 3.5V7',
+  cuadre: 'M4 10h16v9H4zM6 5h12v5H6zM8 13.5h2M11 13.5h2M14 13.5h2M8 16.5h2M11 16.5h5',
   caja: 'M3.5 7h17v11h-17zM12 15a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM6.5 10v.01M17.5 15v.01',
   clientes: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20c.6-3.2 3.2-5 6.5-5s5.9 1.8 6.5 5M16 4.3a3.5 3.5 0 0 1 0 6.4M18 15.2c1.8.6 3 2.2 3.5 4.8',
   gastos: 'M6 3.5h12v17l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6',
@@ -842,7 +843,7 @@ export { celularVisible };
 // [vista, nombre, ícono, solo el dueño, modo: comercio | servicios | (los dos), funciones que la muestran (vacío = siempre)]
 const VISTAS_GESTION = [
   ['inicio', 'Inicio', 'inicio', false, '', ''], ['vender', 'Vender', 'carrito', false, 'comercio', ''], ['agenda', 'Agenda', 'agenda', false, '', 'agenda'],
-  ['caja', 'Caja', 'caja', false, '', ''], ['inventario', 'Productos', 'inventario', false, 'comercio', ''], ['clientes', 'Clientes', 'clientes', false, ''],
+  ['caja', 'Caja', 'caja', false, '', ''], ['cuadre', 'Cuadre de caja', 'cuadre', false, '', 'cuadre'], ['inventario', 'Productos', 'inventario', false, 'comercio', ''], ['clientes', 'Clientes', 'clientes', false, ''],
   ['deudas', 'Fiados y deudas', 'deudas', false, 'comercio', 'fiado proveedores'], ['proveedores', 'Proveedores', 'proveedores', true, 'comercio', 'proveedores'],
   ['gastos', 'Gastos', 'gastos', true, '', ''], ['finanzas', 'Reportes', 'finanzas', true, '', ''], ['equipo', 'Equipo', 'equipo', true, '', 'equipo'],
   ['catalogo', 'Servicios y productos', 'catalogo', true, 'servicios', ''], ['tarjeta', 'Tarjeta de clientes', 'tarjeta', true, '', 'tarjeta'], ['ajustes', 'Ajustes', 'ajustes', true, '', ''],
@@ -870,7 +871,7 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
     oficina: true,
     clase: 'es-gestion',
     estilos: ['gestion.css'],
-    scripts: ['comun.js', 'gestion.js', ...(comercio ? ['gestion-comercio.js'] : [])],
+    scripts: ['comun.js', 'gestion.js', ...(comercio ? ['gestion-comercio.js'] : []), 'gestion-caja.js'],
     cuerpo: `
 <div class="g" id="g" data-slug="${e(n.slug)}" data-negocio="${e(n.nombre)}" data-giro="${modo}">
   <aside class="g-lado" id="g-lado" aria-label="Menú">
@@ -916,6 +917,7 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
           <button class="g-btn" type="button" data-accion="gasto">${icono('gastos')}Anotar gasto</button>
         </div>
       </header>
+      <div data-funcion="cuadre"><div class="g-aviso-caja" id="i-caja" hidden><p id="i-caja-texto"></p><a class="g-btn chico" href="#cuadre" id="i-caja-ir">Ir a la caja</a></div></div>
       <section class="g-card g-pasos" id="i-pasos" hidden aria-labelledby="i-pasos-t">
         <div class="g-card-cab"><h2 id="i-pasos-t">Primeros pasos</h2><span class="g-nota" id="i-pasos-n"></span></div>
         <ol class="g-pasos-lista" id="i-pasos-lista"></ol>
@@ -998,6 +1000,33 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
       </div>
     </section>
 
+    <!-- Cuadre de caja -->
+    <section class="g-vista" id="v-cuadre" hidden>
+      ${cabVista('Cuadre de caja', 'Abre la caja con el sencillo del día y, al terminar, cuenta el efectivo: el sistema te dice si cuadra, falta o sobra.', '<a class="g-btn" id="cu-ultimo" target="_blank" rel="noopener" hidden>Último cierre</a>')}
+      <section class="g-card g-cu-estado" id="cu-cerrada" hidden>
+        <div><p class="g-cu-chip" data-e="cerrada">Caja cerrada</p><h2 id="cu-cerrada-t">Abre la caja para empezar el día</h2><p class="g-sub" id="cu-cerrada-sub"></p></div>
+        <button class="g-btn primario g-grande" type="button" id="cu-abrir">Abrir caja</button>
+      </section>
+      <div id="cu-abierta" hidden>
+        <section class="g-card g-cu-estado">
+          <div><p class="g-cu-chip" data-e="abierta">Caja abierta</p><h2 id="cu-abierta-t"></h2><p class="g-sub" id="cu-abierta-sub"></p></div>
+          <div class="g-acciones"><button class="g-btn" type="button" data-cu-mov="salida">Sacar dinero</button><button class="g-btn" type="button" data-cu-mov="entrada">Agregar dinero</button><button class="g-btn primario" type="button" id="cu-cerrar">Cerrar caja</button></div>
+        </section>
+        <div class="g-col2">
+          <section class="g-card"><div class="g-card-cab"><h2>Efectivo</h2></div><dl class="g-cu-cuenta" id="cu-cuenta"></dl><p class="g-nota" id="cu-ciego" hidden>Cuenta el efectivo al cerrar: el sistema te dirá si cuadra.</p></section>
+          <div class="g-pila">
+            <section class="g-card"><div class="g-card-cab"><h2>Otros medios de pago</h2></div><div id="cu-medios"></div><p class="g-nota">Revisa que coincidan con tu app de Yape o Plin y con los vouchers.</p></section>
+            <section class="g-card"><div class="g-card-cab"><h2>Dinero sacado o agregado</h2></div><ul class="g-lista" id="cu-movs"></ul></section>
+          </div>
+        </div>
+      </div>
+      <section class="g-card" data-dueno>
+        <div class="g-card-cab"><h2>Cierres del mes</h2><input class="g-fecha-input" type="month" id="cu-mes" aria-label="Mes"></div>
+        <div class="g-kpis" id="cu-kpis"></div>
+        <div class="g-tabla-caja"><table class="g-tabla" id="cu-historial"></table></div>
+      </section>
+    </section>
+
     <!-- Finanzas -->
     <section class="g-vista" id="v-finanzas" hidden>
       ${cabVista('Reportes', comercio ? 'Cuánto vendiste, cuánto gastaste y cuánto ganaste este mes.' : 'Ingresos, gastos y ganancia del mes.', '<button class="g-btn" type="button" id="f-imprimir">Imprimir reporte</button><a class="g-btn" id="f-csv" download>Descargar Excel</a><a class="g-btn primario" id="f-analisis" href="/' + e(n.slug) + '/analisis" target="_blank" rel="noopener">Análisis del mes</a>')}
@@ -1067,6 +1096,7 @@ export function gestion(n, { modo = 'servicios', soporte = '' } = {}) {
               ${comercio ? funcion('aj-f-proveedores', 'Proveedores y compras', 'Registrar la mercadería que compras y lo que les debes.') : ''}
               ${comercio ? funcion('aj-f-variantes', 'Tallas y colores', 'Un producto con variantes, cada una con su stock.') : ''}
               ${comercio ? funcion('aj-f-recetas', 'Recetas', 'Productos que descuentan insumos al venderse (jugos, arreglos, tortas).') : ''}
+              ${funcion('aj-f-cuadre', 'Cuadre de caja', 'Abrir la caja con un fondo y cerrarla contando el efectivo (arqueo).')}
               ${funcion('aj-f-equipo', 'Equipo', 'Varias personas con su propio acceso y su comisión.')}
               ${funcion('aj-f-tarjeta', 'Tarjeta de clientes', 'Sellos o puntos para que tus clientes vuelvan.')}
             </div>
@@ -1168,6 +1198,34 @@ ${dlg('d-cita', 'Nueva cita', `
   '<button class="g-btn" value="cancelar" formnovalidate>Cancelar</button><button class="g-btn primario" type="submit" value="ok" id="ci-guardar">Guardar</button>')}
 
 ${dlg('d-ver-cita', 'Cita', '<div id="vc-cuerpo"></div>', '<div class="g-acciones-cita" id="vc-acciones"></div>')}
+
+${dlg('d-cu-abrir', 'Abrir caja', `
+  ${campo('cu-fondo', 'Efectivo con que empiezas (S/)', '<input id="cu-fondo" inputmode="decimal" maxlength="10" placeholder="0.00">')}
+  <p class="g-nota">El sencillo que hay en la caja antes de vender. Si no hay nada, deja 0.</p>`,
+  '<button class="g-btn" value="cancelar" formnovalidate>Cancelar</button><button class="g-btn primario" type="submit" value="ok">Abrir caja</button>')}
+
+${dlg('d-cu-mov', 'Dinero de la caja', `
+  <div class="g-segmento" id="cu-mov-tipo" role="group" aria-label="Movimiento"></div>
+  ${campo('cu-mov-monto', 'Monto (S/)', '<input id="cu-mov-monto" inputmode="decimal" maxlength="10" required>')}
+  ${campo('cu-mov-motivo', 'Motivo', '<input id="cu-mov-motivo" maxlength="80" placeholder="Ej.: depósito al banco, sencillo, pago al dueño">')}
+  <p class="g-nota">Para pagar un gasto usa «Anotar gasto»: también sale de la caja si lo pagas en efectivo.</p>`,
+  '<button class="g-btn" value="cancelar" formnovalidate>Cancelar</button><button class="g-btn primario" type="submit" value="ok">Guardar</button>')}
+
+${dlg('d-cu-cerrar', 'Cerrar caja', `
+  <p class="g-nota" id="cu-c-intro">Cuenta todo el efectivo que hay en la caja.</p>
+  ${campo('cu-contado', 'Efectivo contado (S/)', '<input id="cu-contado" inputmode="decimal" maxlength="10">')}
+  <details class="g-cu-billetes" id="cu-billetes-caja"><summary>Contar por billetes y monedas</summary>
+    <div class="g-cu-grilla">${[20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10].map((d) => `<label for="cu-b-${d}"><span>${d >= 1000 ? `S/ ${d / 100}` : d >= 100 ? `S/ ${d / 100}` : `${d} cént.`}</span><input id="cu-b-${d}" data-den="${d}" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>`).join('')}</div>
+  </details>
+  <div class="g-cu-dif" id="cu-c-dif" hidden></div>
+  ${campo('cu-dejado', 'Dejas en la caja para el siguiente turno (S/)', '<input id="cu-dejado" inputmode="decimal" maxlength="10" placeholder="0.00">')}
+  ${campo('cu-nota', 'Nota <span class="g-opcional">(opcional)</span>', '<input id="cu-nota" maxlength="200" placeholder="Ej.: faltan S/ 5 de un vuelto mal dado">')}`,
+  '<button class="g-btn" value="cancelar" formnovalidate>Cancelar</button><button class="g-btn primario" type="submit" value="ok">Cerrar caja</button>')}
+
+${dlg('d-cu-listo', 'Caja cerrada', `
+  <div class="g-cu-resultado" id="cu-r-estado"></div>
+  <dl class="g-cu-cuenta" id="cu-r-cuenta"></dl>`,
+  '<a class="g-btn" id="cu-r-wa" target="_blank" rel="noopener">Mandar por WhatsApp</a><a class="g-btn" id="cu-r-ticket" target="_blank" rel="noopener">Ver e imprimir</a><button class="g-btn primario" value="cancelar" formnovalidate>Listo</button>')}
 
 ${dlg('d-gasto', 'Anotar gasto', `
   <div class="g-fila2">
@@ -1436,6 +1494,7 @@ export function inicio(env = {}) {
     ['Fiados bajo control', 'Lo que te deben tus clientes y lo que debes a tus proveedores, con recordatorio por WhatsApp.'],
     ['Ganancia real', 'Ventas menos lo que te costó la mercadería y tus gastos: sabes cuánto ganas, día por día.'],
     ['Comprobantes y reportes', 'Nota de venta para imprimir o mandar por WhatsApp, y reportes del mes en Excel.'],
+    ['Cuadre de caja', 'Abre con el sencillo, cierra contando el efectivo y sabes al instante si cuadra, falta o sobra.'],
     ['Merma y conteo', 'Anota lo vencido, roto o perdido y corrige el stock con lo que hay de verdad en el estante.'],
     ['Análisis del mes', 'Lo que más se vende, lo que más te deja, la plata parada y consejos concretos para ganar más.'],
     ['Tu equipo, con su acceso', 'Cada vendedor entra con su celular y su clave; sus ventas salen a su nombre, con su comisión.'],
@@ -1797,5 +1856,62 @@ export function analisisSinSesion(n) {
     titulo: `Análisis del mes · ${n.nombre}`, oficina: true, clase: 'es-gestion es-analisis',
     estilos: ['gestion.css', 'sitio.css'],
     cuerpo: `<main id="principal" class="a-pagina"><article class="a-hoja a-entrar"><h1>Análisis del mes</h1><p>Para ver el análisis de ${e(n.nombre)}, entra a tu gestión con la clave del dueño y vuelve a abrir este enlace.</p><p><a class="g-btn primario" href="/${e(n.slug)}/gestion">Entrar a la gestión</a></p></article></main>`,
+  });
+}
+
+// ---------- ticket del cierre de caja (/slug/cierre/ID) ----------
+export function cierreCaja(n, c) {
+  const S = solesMiles;
+  const d = (() => { try { return JSON.parse(c.detalle || '{}'); } catch { return {}; } })();
+  const f = (dia) => `${dia.slice(8)}/${dia.slice(5, 7)}/${dia.slice(0, 4)}`;
+  const fila = (k, v, clase = '') => `<div${clase ? ` class="${clase}"` : ''}><dt>${k}</dt><dd>${v}</dd></div>`;
+  const dif = c.diferencia === 0 ? 'Cuadra' : c.diferencia < 0 ? `Falta ${S(-c.diferencia)}` : `Sobra ${S(c.diferencia)}`;
+  const otros = (d.metodos || []).filter((x) => x.n !== 'Efectivo');
+  const billetes = Object.entries(d.billetes || {}).sort((a, b) => b[0] - a[0]);
+  const texto = `Cierre de caja de ${n.nombre} (${f(c.cierre_dia)} ${c.cierre_hora}, cerró ${c.cerro}): debía haber ${S(c.esperado)} en efectivo, se contó ${S(c.contado)}. ${dif}.`;
+  return base({
+    titulo: `Cierre de caja ${f(c.cierre_dia)} · ${n.nombre}`,
+    oficina: true,
+    clase: 'es-gestion es-comprobante',
+    estilos: ['gestion.css', 'sitio.css'],
+    scripts: ['comprobante.js'],
+    cuerpo: `
+<main id="principal" class="c-pagina">
+  <div class="c-acciones no-imprimir">
+    <div class="g-segmento" role="group" aria-label="Formato"><button type="button" data-formato="ticket" aria-pressed="true">Ticket</button><button type="button" data-formato="a4" aria-pressed="false">Hoja A4</button></div>
+    <button class="g-btn primario" type="button" id="c-imprimir">Imprimir o guardar PDF</button>
+    <a class="g-btn" id="c-wa" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener" data-texto="${e(texto)}">Enviar por WhatsApp</a>
+    <a class="g-btn" href="/${e(n.slug)}/gestion#cuadre">Volver a la gestión</a>
+  </div>
+  <article class="c-hoja" id="c-hoja" data-formato="ticket">
+    <header class="c-cab"><h1>${e(n.razon_social || n.nombre)}</h1>${n.ruc ? `<p>RUC ${e(n.ruc)}</p>` : ''}</header>
+    <p class="c-tipo">CIERRE DE CAJA</p>
+    <dl class="c-datos">
+      ${fila('Abrió', `${f(c.dia)} ${e(c.hora)} · ${e(c.abrio)}`)}
+      ${fila('Cerró', `${f(c.cierre_dia)} ${e(c.cierre_hora)} · ${e(c.cerro)}`)}
+      ${fila('Ventas', `${d.ventas || 0} · ${S(d.vendido || 0)}`)}
+      ${d.fiado ? fila('Fiado (no entra a caja)', S(d.fiado)) : ''}
+    </dl>
+    <p class="c-seccion">EFECTIVO</p>
+    <dl class="c-totales c-cuadre">
+      ${fila('Fondo inicial', S(c.fondo))}
+      ${fila('+ Ventas en efectivo', S(d.ventasEfectivo || 0))}
+      ${d.cobrosEfectivo ? fila('+ Cobros de fiados', S(d.cobrosEfectivo)) : ''}
+      ${d.entradas ? fila('+ Dinero agregado', S(d.entradas)) : ''}
+      ${d.gastosEfectivo ? fila('− Gastos pagados', S(d.gastosEfectivo)) : ''}
+      ${d.salidas ? fila('− Dinero retirado', S(d.salidas)) : ''}
+      ${fila('Debería haber', S(c.esperado), 'c-total')}
+      ${fila('Se contó', S(c.contado), 'c-total')}
+      ${fila('Diferencia', dif, `c-total c-dif ${c.diferencia < 0 ? 'falta' : c.diferencia > 0 ? 'sobra' : 'cuadra'}`)}
+      ${fila('Queda en caja', S(c.dejado || 0))}
+      ${fila('Se retira', S(c.contado - (c.dejado || 0)))}
+    </dl>
+    ${otros.length ? `<p class="c-seccion">OTROS MEDIOS (revísalos en la app o el voucher)</p><dl class="c-totales">${otros.map((x) => fila(e(x.n), S(x.total + (x.cobros || 0)))).join('')}</dl>` : ''}
+    ${billetes.length ? `<p class="c-seccion">CONTEO</p><table class="c-tabla"><tbody>${billetes.map(([den, k]) => `<tr><td>${k} × ${S(Number(den))}</td><td class="c-num">${S(Number(den) * k)}</td></tr>`).join('')}</tbody></table>` : ''}
+    ${(d.movimientos || []).length ? `<p class="c-seccion">MOVIMIENTOS</p><table class="c-tabla"><tbody>${d.movimientos.map((m) => `<tr><td>${e(m.hora)} ${m.tipo === 'salida' ? 'Retiro' : 'Ingreso'}${m.motivo ? `: ${e(m.motivo)}` : ''}</td><td class="c-num">${m.tipo === 'salida' ? '− ' : ''}${S(m.monto)}</td></tr>`).join('')}</tbody></table>` : ''}
+    ${c.nota ? `<p class="c-nota-cierre">Nota: ${e(c.nota)}</p>` : ''}
+    <div class="c-firmas"><span>Entregó</span><span>Recibió</span></div>
+  </article>
+</main>`,
   });
 }

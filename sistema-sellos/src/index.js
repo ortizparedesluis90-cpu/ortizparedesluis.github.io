@@ -8,6 +8,7 @@ import { walletActivo, enlaceGuardar, actualizar as actualizarWallet } from './w
 import { apiGestion, apiReserva, esDueno, reservasActivas, conservarExtras, ahoraLima, modoDe, RUBROS, PREMIO_INICIAL, ajustesIniciales } from './gestion.js';
 import { apiComercio, ventaPorToken } from './comercio.js';
 import { analisisMes, textoWhatsApp, nombreMes } from './analisis.js';
+import { apiCaja } from './caja.js';
 import { TIPOS, leerPrograma, leerCatalogo, textoAServicios, textoAPremios, textoAHitos, ganar, estado, conTarjeta } from './programa.js';
 import {
   AVISO_VERSION, EN_MARCO, html, json, error, texto, redirigir, cookies, cookie, cuerpo, nuevoToken, nuevoCodigo, aleatorio,
@@ -367,6 +368,9 @@ async function apiPanel(req, env, n, partes, url, ctx) {
         return aviso;
       },
     };
+    // Cuadre de caja: igual para comercios y servicios.
+    const rc = await apiCaja(req, env, n, partes.slice(1), url, h, datos);
+    if (rc) return rc;
     // Los comercios (bodegas, tiendas...) tienen su inventario, sus ventas con costo y sus deudas; lo demás es común.
     if (modoDe(n) === 'comercio') {
       const r = await apiComercio(req, env, n, partes.slice(1), url, h, datos);
@@ -1349,6 +1353,14 @@ async function manejar(req, env, ctx) {
       return html(P.panel(n));
     case 'gestion':
       return html(P.gestion(n, { modo: modoDe(n), soporte: env.SOPORTE_WHATSAPP || '' }));
+    case 'cierre': {
+      // Ticket del cierre de caja: para imprimir o guardar en PDF.
+      const sesion = await leerSesion(req, env);
+      if (!(await puedeEntrar(req, env, n))) return html(P.analisisSinSesion(n), 401);
+      const c = await env.DB.prepare(`SELECT * FROM cajas WHERE id = ? AND negocio_id = ? AND estado = 'cerrada'`).bind(Number(partes[2]) || 0, n.id).first();
+      if (!c || (!esDueno(sesion, n) && c.cierre_dia !== ahoraLima().dia)) return html(P.noEncontrado(), 404);
+      return html(P.cierreCaja(n, c));
+    }
     case 'analisis': {
       // Análisis del mes: para el dueño (desde Reportes) y para ti desde /admin, para mandárselo por WhatsApp.
       const sesion = await leerSesion(req, env);

@@ -199,3 +199,14 @@
   .a-dos{grid-template-columns:1fr 1fr}
   .a-kpi,.a-card,.a-consejo{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+/* ===== ticket de cierre de caja ===== */
+.c-seccion{font-weight:800;font-size:.85em;margin:12px 0 4px;border-bottom:1px dashed #999;padding-bottom:3px}
+.c-cuadre .c-total{font-size:1em}
+.c-dif.falta dd{color:#B42318}
+.c-dif.sobra dd{color:#9A5B00}
+.c-dif.cuadra dd{color:#157F3C}
+.c-nota-cierre{margin:10px 0 0;font-size:.92em}
+.c-firmas{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:36px;text-align:center;font-size:.85em;color:#555}
+.c-firmas span{border-top:1px solid #999;padding-top:4px}
+.c-totales dd{white-space:nowrap}

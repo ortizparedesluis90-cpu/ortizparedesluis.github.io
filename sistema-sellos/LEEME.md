@@ -242,6 +242,21 @@ Si el **tipo de negocio** es un comercio (bodega, minimarket, kiosko, ferreterí
 - **Equipo con acceso propio**: a cada persona se le puede dar una clave. Entra con su celular, como caja, y sus ventas salen a su nombre. Si se va, se le quita el acceso.
 - **Ajustes**: datos del negocio (salen en el comprobante), clave de caja, fiado y agenda.
 
+## Cuadre de caja (apertura, cierre y arqueo)
+
+En *Cuadre de caja* (Ajustes → Funciones; viene prendido en los comercios) se **abre la caja** con el sencillo del día,
+se anota la plata que se **saca** (depósito, pago al dueño) o se **agrega** (sencillo), y al terminar se **cierra contando
+el efectivo**, por el total o billete por billete. El sistema calcula cuánto debería haber —fondo + ventas y cobros de
+fiados en efectivo + lo agregado − gastos pagados en efectivo − lo sacado— y dice si **cuadra, falta o sobra**. Yape,
+Plin y tarjeta se listan aparte para revisarlos contra la app y los vouchers.
+
+- **Conteo a ciegas:** el cajero o el empleado no ve cuánto debería haber hasta cerrar; el dueño sí.
+- **Ticket de cierre** (`/slug/cierre/ID`) para imprimir, guardar en PDF o mandar por WhatsApp al dueño, con firmas «Entregó / Recibió».
+- **Lo que se deja** para el siguiente turno se sugiere como fondo al abrir.
+- El dueño ve los **cierres del mes** con faltantes y sobrantes, y puede **reabrir** el último si se cerró por error.
+- El Inicio avisa si la caja está cerrada o quedó abierta de otro día, y el **análisis del mes** avisa si faltó plata.
+- Las ventas siguen funcionando aunque la caja esté cerrada: no bloquea a nadie.
+
 ## Merma, conteo y análisis del mes
 
 **Merma o conteo** (en *Productos*): cualquiera del equipo anota lo que se pierde sin venderse —vencido, dañado o roto,

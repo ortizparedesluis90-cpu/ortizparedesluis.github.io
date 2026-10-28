@@ -50,6 +50,7 @@ export const SUGERENCIAS = {
 };
 /** Funciones que se prenden al crear el negocio, según su rubro. Todo lo demás queda apagado (modo básico)
  *  y se activa en Ajustes → Funciones cuando el negocio lo necesite. */
+export const FUNCIONES = ['proveedores', 'equipo', 'tarjeta', 'variantes', 'recetas', 'cuadre'];
 export function funcionesIniciales(rubro) {
   return {
     fiado: ['bodega', 'supermercado', 'kiosko', 'ferreteria', 'panaderia', 'licoreria', 'bazar'].includes(rubro),
@@ -57,6 +58,7 @@ export function funcionesIniciales(rubro) {
     variantes: ['ropa', 'zapateria', 'deportes', 'cosmeticos'].includes(rubro),
     recetas: ['restaurante', 'floreria', 'panaderia'].includes(rubro),
     proveedores: false, equipo: false, tarjeta: true,
+    cuadre: RUBROS[rubro] ? RUBROS[rubro][1] === 'comercio' : false,
   };
 }
 export const modoDe = (n) => (RUBROS[n.rubro] ? RUBROS[n.rubro][1] : 'servicios');
@@ -118,14 +120,16 @@ export function leerAjustes(n) {
     agenda: a.agenda === undefined ? modoDe(n) === 'servicios' : !!a.agenda,
     fiado: a.fiado === undefined ? modoDe(n) === 'comercio' : !!a.fiado,
     // Funciones avanzadas. Los negocios de antes (sin «funciones» guardadas) las tienen todas.
-    funciones: Object.fromEntries(['proveedores', 'equipo', 'tarjeta', 'variantes', 'recetas'].map((k) => [k, a.funciones && typeof a.funciones === 'object' ? !!a.funciones[k] : true])),
+    // «cuadre» llegó después: si no está guardado, viene prendido en los comercios.
+    funciones: Object.fromEntries(FUNCIONES.map((k) => [k, a.funciones && typeof a.funciones === 'object'
+      ? (a.funciones[k] === undefined && k === 'cuadre' ? modoDe(n) === 'comercio' : !!a.funciones[k]) : true])),
   };
 }
 
 /** Ajustes con que nace un negocio nuevo (creado en /crear o desde /admin): modo básico según su rubro. */
 export function ajustesIniciales(rubro) {
   const f = funcionesIniciales(rubro);
-  return JSON.stringify({ agenda: f.agenda, fiado: f.fiado, funciones: { proveedores: f.proveedores, equipo: f.equipo, tarjeta: f.tarjeta, variantes: f.variantes, recetas: f.recetas } });
+  return JSON.stringify({ agenda: f.agenda, fiado: f.fiado, funciones: Object.fromEntries(FUNCIONES.map((k) => [k, f[k]])) });
 }
 
 // ---------- equipo ----------

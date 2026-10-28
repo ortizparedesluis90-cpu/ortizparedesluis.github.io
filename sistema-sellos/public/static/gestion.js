@@ -126,9 +126,9 @@
   }
 
   // ---------- navegación ----------
-  var VISTAS = ['inicio', 'vender', 'agenda', 'caja', 'inventario', 'clientes', 'deudas', 'proveedores', 'gastos', 'finanzas', 'equipo', 'catalogo', 'tarjeta', 'ajustes'];
+  var VISTAS = ['inicio', 'vender', 'agenda', 'caja', 'cuadre', 'inventario', 'clientes', 'deudas', 'proveedores', 'gastos', 'finanzas', 'equipo', 'catalogo', 'tarjeta', 'ajustes'];
   var SOLO_DUENO = ['proveedores', 'gastos', 'finanzas', 'equipo', 'catalogo', 'tarjeta', 'ajustes'];
-  var NOMBRES = { inicio: 'Inicio', vender: 'Vender', agenda: 'Agenda', caja: 'Caja', inventario: 'Inventario', clientes: 'Clientes', deudas: 'Deudas', proveedores: 'Proveedores', gastos: 'Gastos', finanzas: 'Finanzas', equipo: 'Equipo', catalogo: 'Servicios y productos', tarjeta: 'Tu tarjeta de clientes', ajustes: 'Ajustes' };
+  var NOMBRES = { inicio: 'Inicio', vender: 'Vender', agenda: 'Agenda', caja: 'Caja', cuadre: 'Cuadre de caja', inventario: 'Inventario', clientes: 'Clientes', deudas: 'Deudas', proveedores: 'Proveedores', gastos: 'Gastos', finanzas: 'Finanzas', equipo: 'Equipo', catalogo: 'Servicios y productos', tarjeta: 'Tu tarjeta de clientes', ajustes: 'Ajustes' };
   function disponible(v) {
     if (!$('v-' + v) || !CARGAR[v]) return false;
     if (SOLO_DUENO.indexOf(v) >= 0 && D.rol !== 'dueno') return false;
@@ -201,6 +201,7 @@
   CARGAR.inicio = async function () {
     await cargarInicio();
     contarMontos($('i-kpis'));
+    if (G.avisoCaja) G.avisoCaja();
   };
   async function cargarInicio() {
     var r = await api('inicio');
@@ -1115,7 +1116,7 @@
     en.append('Tu enlace de reservas (ponlo en tu Instagram y WhatsApp): ', el('a', { href: '/' + SLUG + '/reservar', target: '_blank', rel: 'noopener', texto: location.host + '/' + SLUG + '/reservar' }));
     var marcar = function (id, v) { if ($(id)) $(id).checked = !!v; };
     marcar('aj-fiado', a.fiado); marcar('aj-agenda', a.agenda);
-    ['proveedores', 'variantes', 'recetas', 'equipo', 'tarjeta'].forEach(function (k) { marcar('aj-f-' + k, a.funciones[k]); });
+    ['proveedores', 'variantes', 'recetas', 'equipo', 'tarjeta', 'cuadre'].forEach(function (k) { marcar('aj-f-' + k, a.funciones[k]); });
     $('aj-n-nombre').value = D.negocio.nombre; $('aj-n-ruc').value = D.negocio.ruc || ''; $('aj-n-razon').value = D.negocio.razon || '';
     $('aj-n-dir').value = D.negocio.direccion || ''; $('aj-n-wa').value = (D.negocio.whatsapp || '').replace(/^51/, ''); $('aj-n-correo').value = D.negocio.correo || '';
     $('aj-equipo-nota').textContent = D.claveEquipo ? 'Tu equipo entra con esta clave como caja: vende, cobra y agenda, sin ver finanzas. Cámbiala si alguien se va.'
@@ -1134,7 +1135,7 @@
       diasReserva: Number($('aj-dias').value), notaReserva: $('aj-nota').value, meta: $('aj-meta').value,
       metodos: Array.prototype.map.call($('aj-metodos').querySelectorAll('input:checked'), function (x) { return x.value; }),
       fiado: $('aj-fiado') ? $('aj-fiado').checked : false, agenda: $('aj-agenda').checked,
-      funciones: (function () { var f = {}; ['proveedores', 'variantes', 'recetas', 'equipo', 'tarjeta'].forEach(function (k) { f[k] = $('aj-f-' + k) ? $('aj-f-' + k).checked : !!D.ajustes.funciones[k]; }); return f; })(),
+      funciones: (function () { var f = {}; ['proveedores', 'variantes', 'recetas', 'equipo', 'tarjeta', 'cuadre'].forEach(function (k) { f[k] = $('aj-f-' + k) ? $('aj-f-' + k).checked : !!D.ajustes.funciones[k]; }); return f; })(),
     };
     var neg = await api('negocio', { body: { nombre: $('aj-n-nombre').value, ruc: $('aj-n-ruc').value, razon: $('aj-n-razon').value, direccion: $('aj-n-dir').value, whatsapp: $('aj-n-wa').value, correo: $('aj-n-correo').value } });
     if (!neg.ok) { var mm = $('aj-msg'); mm.className = 'g-estado mal'; mm.textContent = neg.datos.error || 'No se pudo guardar.'; return; }

@@ -435,3 +435,32 @@ fieldset.g-campo legend{font-weight:600;font-size:.86rem;margin-bottom:8px;paddi
 .g-im-archivo{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:flex-end}
 .g-im-archivo .g-campo{flex:1 1 260px;margin:0}
 .g-im-archivo input[type=file]{padding:7px}
+
+/* ===== cuadre de caja ===== */
+.g-aviso-caja{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;border-radius:var(--radio);background:var(--aviso-suave);border:1px solid #F3D9A8;margin-bottom:16px}
+.g-aviso-caja p{margin:0;font-weight:600;color:var(--aviso)}
+.g-cu-estado{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.g-cu-estado h2{font-size:1.2rem;margin:4px 0 2px}
+.g-cu-estado .g-sub{margin:0}
+.g-cu-chip{display:inline-flex;align-items:center;gap:6px;margin:0;padding:3px 10px;border-radius:999px;font-size:.78rem;font-weight:700;background:var(--superficie-2);color:var(--suave)}
+.g-cu-chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.g-cu-chip[data-e=abierta],.g-cu-chip[data-e=cuadra]{background:var(--ok-suave);color:var(--ok)}
+.g-cu-chip[data-e=falta]{background:var(--error-suave);color:var(--error)}
+.g-cu-chip[data-e=sobra]{background:var(--aviso-suave);color:var(--aviso)}
+.g-cu-cuenta{margin:0;display:grid}
+.g-cu-cuenta div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--borde);font-size:.94rem}
+.g-cu-cuenta div:last-child{border-bottom:0}
+.g-cu-cuenta dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.g-cu-cuenta .total{border-top:2px solid var(--texto);border-bottom:0;font-weight:700;font-size:1.05rem}
+.g-cu-billetes{border:1px solid var(--borde);border-radius:10px;padding:10px 12px}
+.g-cu-billetes summary{cursor:pointer;font-weight:600;font-size:.9rem;color:var(--acento-texto)}
+.g-cu-grilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px;margin-top:10px}
+.g-cu-grilla label{display:grid;gap:4px;margin:0;font-size:.8rem;color:var(--suave)}
+.g-cu-grilla input{min-height:38px!important;padding:6px 10px!important}
+.g-cu-dif,.g-cu-resultado{padding:10px 14px;border-radius:10px;font-weight:700;background:var(--superficie-2)}
+.g-cu-dif[data-e=cuadra],.g-cu-resultado[data-e=cuadra]{background:var(--ok-suave);color:var(--ok)}
+.g-cu-dif[data-e=falta],.g-cu-resultado[data-e=falta]{background:var(--error-suave);color:var(--error)}
+.g-cu-dif[data-e=sobra],.g-cu-resultado[data-e=sobra]{background:var(--aviso-suave);color:var(--aviso)}
+.g-cu-resultado{font-size:1.4rem;text-align:center;padding:18px;margin-bottom:8px}
+.l-monto.neg{color:var(--error)}
+.g-btn.g-grande{min-height:46px;padding:10px 20px;font-size:1rem}

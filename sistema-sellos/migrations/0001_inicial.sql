@@ -294,3 +294,45 @@ CREATE TABLE IF NOT EXISTS mermas (
   creado        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_mermas_negocio ON mermas (negocio_id, dia);
+
+-- Cuadre de caja: cada turno se abre con un fondo en efectivo y se cierra contando lo que hay (arqueo).
+-- El turno suma las ventas, abonos y gastos registrados después de abrir (por id, que solo crece: no se cruzan dos turnos
+-- aunque uno cierre y otro abra en el mismo segundo).
+CREATE TABLE IF NOT EXISTS cajas (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  estado        TEXT NOT NULL DEFAULT 'abierta',  -- abierta | cerrada
+  dia           TEXT NOT NULL,                    -- día (Lima) en que se abrió
+  hora          TEXT NOT NULL,
+  abierta_en    TEXT NOT NULL DEFAULT (datetime('now')),
+  abrio         TEXT NOT NULL DEFAULT '',         -- nombre de quien abrió
+  fondo         INTEGER NOT NULL DEFAULT 0,       -- efectivo con que empieza
+  marcas        TEXT NOT NULL DEFAULT '{}',       -- JSON {v, a, g}: último id de ventas, abonos y gastos al abrir; el turno cuenta los siguientes
+  cerrada_en    TEXT,
+  cierre_dia    TEXT,
+  cierre_hora   TEXT,
+  cerro         TEXT NOT NULL DEFAULT '',
+  esperado      INTEGER,                          -- efectivo que debería haber
+  contado       INTEGER,                          -- efectivo que se contó
+  diferencia    INTEGER,                          -- contado − esperado (negativo: falta)
+  dejado        INTEGER,                          -- efectivo que queda para el siguiente turno
+  detalle       TEXT NOT NULL DEFAULT '{}',       -- JSON: resumen del turno al cerrar
+  nota          TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_cajas_negocio ON cajas (negocio_id, estado, id);
+-- Una sola caja abierta por negocio.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cajas_abierta ON cajas (negocio_id) WHERE estado = 'abierta';
+
+-- Plata que se saca de la caja (depósito, pago al dueño) o se agrega (sencillo) durante el turno.
+CREATE TABLE IF NOT EXISTS caja_movimientos (
+  id            INTEGER PRIMARY KEY,
+  negocio_id    INTEGER NOT NULL REFERENCES negocios(id) ON DELETE CASCADE,
+  caja_id       INTEGER NOT NULL,
+  tipo          TEXT NOT NULL,                    -- entrada | salida
+  monto         INTEGER NOT NULL,
+  motivo        TEXT NOT NULL DEFAULT '',
+  hora          TEXT NOT NULL,
+  quien         TEXT NOT NULL DEFAULT '',
+  creado        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_caja_mov ON caja_movimientos (caja_id);

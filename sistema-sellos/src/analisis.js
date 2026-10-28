@@ -3,6 +3,7 @@
 // Lo ve el dueño en /slug/analisis (desde Reportes) y tú desde /admin, para mandárselo cada mes como el reporte de la tarjeta.
 import { ahoraLima, limitesMes, leerJson, modoDe, finanzas, diasEntre, sumarDias } from './gestion.js';
 import { resultadoMes, agruparMermas, porCobrar } from './comercio.js';
+import { cuadresDelMes } from './caja.js';
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const VENTANA = 60; // días que se miran para saber qué rota y qué no
@@ -141,6 +142,7 @@ export async function analisisMes(env, n, mes) {
     horaPico: horaPico && `${String(horaPico.h).padStart(2, '0')}:00 a ${String(horaPico.h + 2).padStart(2, '0')}:00`,
     porDia: f.porDia,
   };
+  a.caja = await cuadresDelMes(env, n, desde, hasta);
   a.consejos = consejos(a);
   a.oportunidad = a.consejos.reduce((t, c) => t + (c.monto || 0), 0);
   return a;
@@ -182,6 +184,9 @@ function consejos(a) {
   }
   if (a.capitalDormido > 0) {
     out.push({ tipo: 'ahorro', titulo: `Tienes ${soles(a.capitalDormido)} parados en ${a.totalDormidos} ${a.totalDormidos === 1 ? 'producto' : 'productos'} que no se venden`, detalle: `No se vendieron en los últimos ${VENTANA} días${a.dormidos[0] ? ` (el que más: «${a.dormidos[0].n}», ${soles(a.dormidos[0].valor)})` : ''}. Haz una oferta o un combo con lo que sí sale, y no los vuelvas a comprar: esa plata te sirve para lo que rota.` });
+  }
+  if (a.caja && a.caja.faltante >= 1000) {
+    out.push({ tipo: 'alerta', titulo: `Faltó plata en ${a.caja.conFaltante} ${a.caja.conFaltante === 1 ? 'cierre' : 'cierres'} de caja: ${soles(a.caja.faltante)}`, detalle: `Revisa en «Cuadre de caja» quién cerró esos días. Anota cada gasto y cada retiro, y cuenta el vuelto antes de entregarlo.`, monto: a.caja.faltante });
   }
   if (a.agotarse.length) {
     const x = a.agotarse.slice(0, 3).map((p) => `«${p.n}» (${p.dias ? `~${p.dias} ${p.dias === 1 ? 'día' : 'días'}` : 'agotado'})`).join(', ');
